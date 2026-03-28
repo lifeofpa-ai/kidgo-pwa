@@ -149,3 +149,13 @@ For issues:
 ## Website Links Feature
 
 ✅ Event source website links now fully functional and visible on event cards
+
+
+## Event Filtering & Dual Sections ✅
+
+**Feature:** Implemented chronological event display
+- Shows future events with dates in "Anstehende Events" section
+- - All-year activities without dates in "Ganzjährig geöffnet" section
+  - - Auto-filters past events (datum < today)
+    - - All 365 event sources now have clickable website links
+      - 

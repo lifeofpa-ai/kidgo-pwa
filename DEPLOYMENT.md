@@ -144,3 +144,8 @@ For issues:
 1. Check Vercel docs: https://vercel.com/docs
 2. Check Next.js docs: https://nextjs.org/docs
 3. Check Supabase docs: https://supabase.com/docs
+
+
+## Website Links Feature
+
+✅ Event source website links now fully functional and visible on event cards

@@ -454,3 +454,13 @@ export default function Home() {
     </main>
   );
 }
+</section>
+
+        {/* Footer Info */}
+        <footer className="mt-12 text-center text-gray-600 text-sm">
+          <p>🚀 Kidgo PWA - Alpha Version | Powered by Next.js + Supabase</p>
+        </footer>
+      </div>
+    </main>
+  );
+}

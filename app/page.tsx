@@ -194,7 +194,7 @@ export default function Home() {
             <button
               key={key}
               onClick={() => setDateFilter(key as "all" | "today" | "weekend" | "week" | "month")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+              className={`px-2 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex-shrink-0 ${
                 dateFilter === key
                   ? "bg-indigo-600 text-white shadow"
                   : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
@@ -209,7 +209,7 @@ export default function Home() {
         <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h3 className="text-2xl font-bold">
-              🗓️ Events {events.length > 0 && `(${events.length})`}
+              🗓️ Events {futureEvents.length + allYearActivities.length > 0 && `(${futureEvents.length + allYearActivities.length})`}
             </h3>
 
             <div className="flex gap-2">

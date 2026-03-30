@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { getFavorites, toggleFavorite, isFavorite } from "@/lib/favorites";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 
 const MapView = dynamic(() => import("@/components/MapView"), {
@@ -15,7 +16,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Alle");
-  const [sources, setSources] = useState<any[]>([]); // Quellen für Link-Buttons
+  const [sources, setSources] = useState<any[]>([]); // Quellen fÃ¼r Link-Buttons
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,9 +35,9 @@ export default function Home() {
   }, []);
 
   const categoryEmojis: Record<string, string> = {
-    "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
-    "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
-    "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
+    "Kreativ": "ð¨", "Natur": "ð¿", "Tiere": "ð¾", "Sport": "â½",
+    "Tanz": "ð", "Theater": "ð­", "Musik": "ðµ", "Mode & Design": "ð",
+    "Wissenschaft": "ð¬", "Bildung": "ð", "Ausflug": "ðºï¸", "Feriencamp": "ðï¸",
   };
   const categories = [
     "Alle", "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
@@ -123,16 +124,16 @@ export default function Home() {
         {/* Hero Section */}
         <section className="text-center mb-12 py-8">
           <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-            🎪 Entdecke Events für deine Kinder
+            ðª Entdecke Events fÃ¼r deine Kinder
           </h2>
           <p className="text-lg text-gray-600">
-            Finde die besten Aktivitäten in der Region Zürich
+            Finde die besten AktivitÃ¤ten in der Region ZÃ¼rich
           </p>
         </section>
 
         {/* Search Section */}
         <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8">
-          <h3 className="text-2xl font-bold mb-6">🔍 Events suchen</h3>
+          <h3 className="text-2xl font-bold mb-6">ð Events suchen</h3>
 
           {/* Search Input */}
           <div className="mb-6">
@@ -141,7 +142,7 @@ export default function Home() {
             </label>
             <input
               type="text"
-              placeholder="z.B. 'Sport', 'Zürich', 'Schwimmen'..."
+              placeholder="z.B. 'Sport', 'ZÃ¼rich', 'Schwimmen'..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
@@ -177,18 +178,18 @@ export default function Home() {
             disabled={loading}
             className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "⏳ Lädt..." : "✅ Suchen"}
+            {loading ? "â³ LÃ¤dt..." : "â Suchen"}
           </button>
         </section>
 
         {/* Date Quick Filters */}
         <div className="flex gap-2 mb-4 flex-wrap">
           {[
-            { key: "all", label: "📅 Alle Daten" },
-            { key: "today", label: "☀️ Heute" },
-            { key: "weekend", label: "🏖️ Wochenende" },
-            { key: "week", label: "🗓️ Diese Woche" },
-            { key: "month", label: "📆 Diesen Monat" },
+            { key: "all", label: "ð Alle Daten" },
+            { key: "today", label: "âï¸ Heute" },
+            { key: "weekend", label: "ðï¸ Wochenende" },
+            { key: "week", label: "ðï¸ Diese Woche" },
+            { key: "month", label: "ð Diesen Monat" },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -208,7 +209,7 @@ export default function Home() {
         <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h3 className="text-2xl font-bold">
-              🗓️ Events {events.length > 0 && `(${events.length})`}
+              ðï¸ Events {events.length > 0 && `(${events.length})`}
             </h3>
 
             <div className="flex gap-2">
@@ -222,7 +223,7 @@ export default function Home() {
                       : "bg-transparent text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  📋 Liste
+                  ð Liste
                 </button>
                 <button
                   onClick={() => setViewMode("map")}
@@ -232,7 +233,7 @@ export default function Home() {
                       : "bg-transparent text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  🗺️ Karte
+                  ðºï¸ Karte
                 </button>
               </div>
 
@@ -246,7 +247,7 @@ export default function Home() {
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  ❤️ Favoriten {favorites.length > 0 && `(${favorites.length})`}
+                  â¤ï¸ Favoriten {favorites.length > 0 && `(${favorites.length})`}
                 </button>
               )}
             </div>
@@ -254,20 +255,20 @@ export default function Home() {
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              ⚠️ {error}
+              â ï¸ {error}
             </div>
           )}
 
           {loading ? (
             <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">⏳ Events werden geladen...</p>
+              <p className="text-gray-500 text-lg">â³ Events werden geladen...</p>
             </div>
           ) : events.length === 0 ? (
             <div className="text-center py-16">
               <p className="text-gray-500 text-lg mb-4">
                 {search || category !== "Alle"
-                  ? "😢 Keine Events gefunden"
-                  : "🎯 Nutze die Suchfunktion oben, um Events zu finden!"}
+                  ? "ð¢ Keine Events gefunden"
+                  : "ð¯ Nutze die Suchfunktion oben, um Events zu finden!"}
               </p>
             </div>
           ) : viewMode === "map" ? (
@@ -332,7 +333,7 @@ export default function Home() {
                     {futureEvents.length > 0 && (
                       <div className="mb-8">
                         <h4 className="text-xl font-bold text-indigo-600 mb-4">
-                          🗓️ Anstehende Events ({futureEvents.length})
+                          ðï¸ Anstehende Events ({futureEvents.length})
                         </h4>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {futureEvents.map((event: any) => {
@@ -352,28 +353,30 @@ export default function Home() {
                                   title={
                                     isFavorite(event.id)
                                       ? "Aus Favoriten entfernen"
-                                      : "Zu Favoriten hinzufügen"
+                                      : "Zu Favoriten hinzufÃ¼gen"
                                   }
                                 >
-                                  {isFavorite(event.id) ? "❤️" : "🤍"}
+                                  {isFavorite(event.id) ? "â¤ï¸" : "ð¤"}
                                 </button>
 
                                                                 {event.created_at && new Date(event.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
-                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">✨ Neu</span>
+                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">â¨ Neu</span>
                                 )}
-<h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
-                                  {event.titel}
-                                </h5>
+<Link href={`/events/${event.id}`} className="block hover:text-indigo-600 transition">
+                                  <h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
+                                    {event.titel}
+                                  </h5>
+                                </Link>
 
                                 {/* Date */}
                                 <p className="text-sm font-semibold text-indigo-600 mb-1">
-                                  📅 {formatDate(event.datum)}
+                                  ð {formatDate(event.datum)}
                                 </p>
 
                                 {/* Location */}
                                 {event.ort && (
                                   <p className="text-sm text-gray-700 mb-2">
-                                    📍 {event.ort}
+                                    ð {event.ort}
                                   </p>
                                 )}
 
@@ -395,7 +398,7 @@ export default function Home() {
                                 {event.altersgruppen?.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mb-2">
                                     {event.altersgruppen.map((ag: string) => (
-                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}</span>
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">ð¶ {ag}</span>
                                     ))}
                                   </div>
                                 )}
@@ -404,8 +407,8 @@ export default function Home() {
                                 {event.preis_chf != null && (
                                 <p className="text-xs text-gray-600 mb-2">
                                   {event.preis_chf === 0
-                                    ? <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">🎉 Kostenlos</span>
-                                    : <>💰 CHF {event.preis_chf}</>
+                                    ? <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">ð Kostenlos</span>
+                                    : <>ð° CHF {event.preis_chf}</>
                                   }
                                 </p>
                               )}
@@ -420,7 +423,7 @@ export default function Home() {
                                     <a href={event.anmelde_link || source?.url} target="_blank" rel="noopener noreferrer"
                                       className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
                                     >
-                      🌐 Zur Webseite
+                      ð Zur Webseite
                     </a>
                                     {typeof navigator !== "undefined" && navigator.share && (
                                       <button onClick={() => navigator.share({ title: event.titel, url: event.anmelde_link || source?.url || window.location.href })}
@@ -441,7 +444,7 @@ export default function Home() {
                     {allYearActivities.length > 0 && (
                       <div className="mb-8">
                         <h4 className="text-xl font-bold text-green-600 mb-4">
-                          🎢 Ganzjährig geöffnet ({allYearActivities.length})
+                          ð¢ GanzjÃ¤hrig geÃ¶ffnet ({allYearActivities.length})
                         </h4>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {allYearActivities.map((activity: any) => {
@@ -461,23 +464,25 @@ export default function Home() {
                                   title={
                                     isFavorite(activity.id)
                                       ? "Aus Favoriten entfernen"
-                                      : "Zu Favoriten hinzufügen"
+                                      : "Zu Favoriten hinzufÃ¼gen"
                                   }
                                 >
-                                  {isFavorite(activity.id) ? "❤️" : "🤍"}
+                                  {isFavorite(activity.id) ? "â¤ï¸" : "ð¤"}
                                 </button>
 
                                                                 {activity.created_at && new Date(activity.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
-                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">✨ Neu</span>
+                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">â¨ Neu</span>
                                 )}
-<h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
-                                  {activity.titel}
-                                </h5>
+<Link href={`/events/${activity.id}`} className="block hover:text-green-700 transition">
+                                  <h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
+                                    {activity.titel}
+                                  </h5>
+                                </Link>
 
                                 {/* Location */}
                                 {activity.ort && (
                                   <p className="text-sm text-gray-700 mb-2">
-                                    📍 {activity.ort}
+                                    ð {activity.ort}
                                   </p>
                                 )}
 
@@ -499,7 +504,7 @@ export default function Home() {
                                 {activity.altersgruppen?.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mb-2">
                                     {activity.altersgruppen.map((ag: string) => (
-                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}</span>
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">ð¶ {ag}</span>
                                     ))}
                                   </div>
                                 )}
@@ -508,8 +513,8 @@ export default function Home() {
                                 {activity.preis_chf != null && (
                                 <p className="text-xs text-gray-600 mb-2">
                                   {activity.preis_chf === 0
-                                    ? <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">🎉 Kostenlos</span>
-                                    : <>💰 CHF {activity.preis_chf}</>
+                                    ? <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">ð Kostenlos</span>
+                                    : <>ð° CHF {activity.preis_chf}</>
                                   }
                                 </p>
                               )}
@@ -524,7 +529,7 @@ export default function Home() {
                                     <a href={activity.anmelde_link || source?.url} target="_blank" rel="noopener noreferrer"
                                       className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"
                                     >
-                      🌐 Zur Webseite
+                      ð Zur Webseite
                     </a>
                                     {typeof navigator !== "undefined" && navigator.share && (
                                       <button onClick={() => navigator.share({ title: activity.titel, url: activity.anmelde_link || source?.url || window.location.href })}
@@ -549,9 +554,9 @@ export default function Home() {
 
         {/* Footer Info */}
         <footer className="mt-12 text-center text-gray-600 text-sm">
-          <p>🚀 Kidgo PWA - Alpha Version | Powered by Next.js + Supabase</p>
+          <p>ð Kidgo PWA - Alpha Version | Powered by Next.js + Supabase</p>
         <div className="mt-2 flex justify-center gap-4 text-xs">
-          <a href="/admin" className="text-gray-400 hover:underline">🛠️ Admin</a>
+          <a href="/admin" className="text-gray-400 hover:underline">ð ï¸ Admin</a>
         </div>
         </footer>
       </div>

@@ -209,7 +209,27 @@ export default function Home() {
         <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h3 className="text-2xl font-bold">
-              🗓️ Events {futureEvents.length + allYearActivities.length > 0 && `(${futureEvents.length + allYearActivities.length})`}
+              🗓️ Events {(()=>{
+              const _f=events.filter(e=>showOnlyFavorites?favorites.includes(e.id):true);
+              const _n=new Date();_n.setHours(0,0,0,0);
+              const _ew=new Date(_n);_ew.setDate(_n.getDate()+7);
+              const _em=new Date(_n);_em.setDate(_n.getDate()+30);
+              const _d=_f.filter(e=>{
+                if(!e.datum||dateFilter==="all")return true;
+                const d=new Date(e.datum+"T00:00:00");
+                if(dateFilter==="today")return d>=_n&&d<=_n;
+                if(dateFilter==="weekend"){
+                  const dow=_n.getDay();
+                  const sat=new Date(_n);sat.setDate(_n.getDate()+(dow===6?7:6-dow));
+                  const sun=new Date(_n);sun.setDate(_n.getDate()+(dow===0?7:7-dow));
+                  return d>=sat&&d<=sun;
+                }
+                if(dateFilter==="week")return d<=_ew;
+                if(dateFilter==="month")return d<=_em;
+                return true;
+              });
+              return _d.length>0&&`(${_d.length})`;
+            })()}
             </h3>
 
             <div className="flex gap-2">
@@ -398,7 +418,7 @@ export default function Home() {
                                 {event.altersgruppen?.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mb-2">
                                     {event.altersgruppen.map((ag: string) => (
-                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}</span>
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag} Jahre</span>
                                     ))}
                                   </div>
                                 )}
@@ -504,7 +524,7 @@ export default function Home() {
                                 {activity.altersgruppen?.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mb-2">
                                     {activity.altersgruppen.map((ag: string) => (
-                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}</span>
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag} Jahre</span>
                                     ))}
                                   </div>
                                 )}

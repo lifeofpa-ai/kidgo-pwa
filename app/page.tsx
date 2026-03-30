@@ -346,7 +346,7 @@ export default function Home() {
                                 {/* Website Link */}
                                 {(event.anmelde_link || source?.url) && (
                                   <a
-                                    href={source.url}
+                                    href={event.anmelde_link || source?.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-block mt-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
@@ -426,7 +426,7 @@ export default function Home() {
                                 {/* Website Link */}
                                 {(activity.anmelde_link || source?.url) && (
                                   <a
-                                    href={event.anmelde_link || source?.url}
+                                    href={activity.anmelde_link || source?.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-block mt-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"

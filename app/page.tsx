@@ -22,6 +22,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [dateFilter, setDateFilter] = useState<"all" | "week" | "month">("all");
 
   useEffect(() => {
     setMounted(true);
@@ -176,6 +177,27 @@ export default function Home() {
           </button>
         </section>
 
+        {/* Date Quick Filters */}
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {[
+            { key: "all", label: "📅 Alle Daten" },
+            { key: "week", label: "🗓️ Diese Woche" },
+            { key: "month", label: "📆 Diesen Monat" },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setDateFilter(key as "all" | "week" | "month")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                dateFilter === key
+                  ? "bg-indigo-600 text-white shadow"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Results Section */}
         <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -256,8 +278,20 @@ export default function Home() {
                   showOnlyFavorites ? favorites.includes(e.id) : true
                 );
 
-                const futureEvents = filteredEvents.filter((e) => e.datum);
-                const allYearActivities = filteredEvents.filter((e) => !e.datum);
+                // Apply date quick filter
+            const now2 = new Date();
+            now2.setHours(0, 0, 0, 0);
+            const endOfWeek = new Date(now2); endOfWeek.setDate(now2.getDate() + 7);
+            const endOfMonth = new Date(now2); endOfMonth.setDate(now2.getDate() + 30);
+            const dateFiltered = filteredEvents.filter((e) => {
+              if (!e.datum || dateFilter === "all") return true;
+              const d = new Date(e.datum + "T00:00:00");
+              if (dateFilter === "week") return d <= endOfWeek;
+              if (dateFilter === "month") return d <= endOfMonth;
+              return true;
+            });
+            const futureEvents = dateFiltered.filter((e) => e.datum);
+                const allYearActivities = dateFiltered.filter((e) => !e.datum);
 
                 // Helper function to format date
                 const formatDate = (dateStr: string) => {
@@ -306,7 +340,10 @@ export default function Home() {
                                   {isFavorite(event.id) ? "❤️" : "🤍"}
                                 </button>
 
-                                <h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
+                                                                {event.created_at && new Date(event.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
+                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">✨ Neu</span>
+                                )}
+<h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
                                   {event.titel}
                                 </h5>
 
@@ -343,7 +380,25 @@ export default function Home() {
                                   </p>
                                 )}
 
+                                {/* Beschreibung */}
+                                {event.beschreibung && (
+                                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{event.beschreibung}</p>
+                                )}
                                 {/* Website Link */}
+                                {(event.anmelde_link || source?.url) && (
+                                  <div className="flex gap-2 flex-wrap mt-2">
+                                    <a href={event.anmelde_link || source?.url} target="_blank" rel="noopener noreferrer"
+                                      className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
+                                    >
+                                      Zur Webseite
+                                    </a>
+                                    {typeof navigator !== "undefined" && navigator.share && (
+                                      <button onClick={() => navigator.share({ title: event.titel, url: event.anmelde_link || source?.url || window.location.href })}
+                                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-200 transition"
+                                      >Teilen</button>
+                                    )}
+                                  </div>
+                                )}
                                 {(event.anmelde_link || source?.url) && (
                                   <a
                                     href={event.anmelde_link || source?.url}
@@ -391,7 +446,10 @@ export default function Home() {
                                   {isFavorite(activity.id) ? "❤️" : "🤍"}
                                 </button>
 
-                                <h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
+                                                                {activity.created_at && new Date(activity.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
+                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">✨ Neu</span>
+                                )}
+<h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
                                   {activity.titel}
                                 </h5>
 
@@ -423,7 +481,25 @@ export default function Home() {
                                   </p>
                                 )}
 
+                                {/* Beschreibung */}
+                                {activity.beschreibung && (
+                                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{activity.beschreibung}</p>
+                                )}
                                 {/* Website Link */}
+                                {(activity.anmelde_link || source?.url) && (
+                                  <div className="flex gap-2 flex-wrap mt-2">
+                                    <a href={activity.anmelde_link || source?.url} target="_blank" rel="noopener noreferrer"
+                                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"
+                                    >
+                                      Zur Webseite
+                                    </a>
+                                    {typeof navigator !== "undefined" && navigator.share && (
+                                      <button onClick={() => navigator.share({ title: activity.titel, url: activity.anmelde_link || source?.url || window.location.href })}
+                                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-200 transition"
+                                      >Teilen</button>
+                                    )}
+                                  </div>
+                                )}
                                 {(activity.anmelde_link || source?.url) && (
                                   <a
                                     href={activity.anmelde_link || source?.url}

@@ -399,16 +399,7 @@ export default function Home() {
                                     )}
                                   </div>
                                 )}
-                                {(event.anmelde_link || source?.url) && (
-                                  <a
-                                    href={event.anmelde_link || source?.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-block mt-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
-                                  >
-                                    🔗 Zur Webseite
-                                  </a>
-                                )}
+
                               </div>
                             );
                           })}
@@ -500,16 +491,7 @@ export default function Home() {
                                     )}
                                   </div>
                                 )}
-                                {(activity.anmelde_link || source?.url) && (
-                                  <a
-                                    href={activity.anmelde_link || source?.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-block mt-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"
-                                  >
-                                    🔗 Zur Webseite
-                                  </a>
-                                )}
+
                               </div>
                             );
                           })}

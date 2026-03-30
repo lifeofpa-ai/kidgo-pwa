@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-const ADMIN_PW = "kidgo2026";
+const ADMIN_PW = "FpEEzd8u8B$Q0!0fMm3a";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);

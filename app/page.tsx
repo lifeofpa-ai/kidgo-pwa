@@ -22,7 +22,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
-  const [dateFilter, setDateFilter] = useState<"all" | "week" | "month">("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "weekend" | "week" | "month">("all");
 
   useEffect(() => {
     setMounted(true);
@@ -181,12 +181,13 @@ export default function Home() {
         <div className="flex gap-2 mb-4 flex-wrap">
           {[
             { key: "all", label: "📅 Alle Daten" },
+            { key: "weekend", label: "🏖️ Wochenende" },
             { key: "week", label: "🗓️ Diese Woche" },
             { key: "month", label: "📆 Diesen Monat" },
           ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setDateFilter(key as "all" | "week" | "month")}
+              onClick={() => setDateFilter(key as "all" | "weekend" | "week" | "month")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                 dateFilter === key
                   ? "bg-indigo-600 text-white shadow"
@@ -286,7 +287,16 @@ export default function Home() {
             const dateFiltered = filteredEvents.filter((e) => {
               if (!e.datum || dateFilter === "all") return true;
               const d = new Date(e.datum + "T00:00:00");
-              if (dateFilter === "week") return d <= endOfWeek;
+              if (dateFilter === "weekend") {
+              const today = new Date(now2);
+              const dayOfWeek = today.getDay(); // 0=Sun,6=Sat
+              const daysUntilSat = dayOfWeek === 6 ? 7 : (6 - dayOfWeek);
+              const daysUntilSun = dayOfWeek === 0 ? 7 : (7 - dayOfWeek);
+              const nextSat = new Date(today); nextSat.setDate(today.getDate() + daysUntilSat);
+              const nextSun = new Date(today); nextSun.setDate(today.getDate() + daysUntilSun);
+              return d >= nextSat && d <= nextSun;
+            }
+            if (dateFilter === "week") return d <= endOfWeek;
               if (dateFilter === "month") return d <= endOfMonth;
               return true;
             });
@@ -390,12 +400,12 @@ export default function Home() {
                                     <a href={event.anmelde_link || source?.url} target="_blank" rel="noopener noreferrer"
                                       className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
                                     >
-                                      Zur Webseite
-                                    </a>
+                      🌐 Zur Webseite
+                    </a>
                                     {typeof navigator !== "undefined" && navigator.share && (
                                       <button onClick={() => navigator.share({ title: event.titel, url: event.anmelde_link || source?.url || window.location.href })}
                                         className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-200 transition"
-                                      >Teilen</button>
+                                      ><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline mr-1"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Teilen</button>
                                     )}
                                   </div>
                                 )}
@@ -482,12 +492,12 @@ export default function Home() {
                                     <a href={activity.anmelde_link || source?.url} target="_blank" rel="noopener noreferrer"
                                       className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"
                                     >
-                                      Zur Webseite
-                                    </a>
+                      🌐 Zur Webseite
+                    </a>
                                     {typeof navigator !== "undefined" && navigator.share && (
                                       <button onClick={() => navigator.share({ title: activity.titel, url: activity.anmelde_link || source?.url || window.location.href })}
                                         className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-200 transition"
-                                      >Teilen</button>
+                                      ><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline mr-1"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Teilen</button>
                                     )}
                                   </div>
                                 )}

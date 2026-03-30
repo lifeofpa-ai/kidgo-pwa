@@ -28,14 +28,14 @@ export default function Home() {
     setFavorites(getFavorites());
   }, []);
 
+  const categoryEmojis: Record<string, string> = {
+    "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
+    "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
+    "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
+  };
   const categories = [
-    "Alle",
-    "Sport",
-    "Kultur & Bildung",
-    "Öffentliche Stelle",
-    "Jugendverband",
-    "Kommerziell",
-    "Nische",
+    "Alle", "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
+    "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Feriencamp",
   ];
 
   const handleSearch = async () => {
@@ -160,7 +160,7 @@ export default function Home() {
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  {cat}
+                  {categoryEmojis[cat] ? `${categoryEmojis[cat]} ` : ""}{cat}
                 </button>
               ))}
             </div>

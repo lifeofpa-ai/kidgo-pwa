@@ -418,7 +418,7 @@ export default function Home() {
                                 {event.altersgruppen?.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mb-2">
                                     {event.altersgruppen.map((ag: string) => (
-                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag} Jahre</span>
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}{!ag.includes('Jahr') && ' Jahre'}</span>
                                     ))}
                                   </div>
                                 )}
@@ -524,7 +524,7 @@ export default function Home() {
                                 {activity.altersgruppen?.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mb-2">
                                     {activity.altersgruppen.map((ag: string) => (
-                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag} Jahre</span>
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}{!ag.includes('Jahr') && ' Jahre'}</span>
                                     ))}
                                   </div>
                                 )}

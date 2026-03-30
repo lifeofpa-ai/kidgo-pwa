@@ -450,6 +450,11 @@ export default function Home() {
         {/* Footer Info */}
         <footer className="mt-12 text-center text-gray-600 text-sm">
           <p>🚀 Kidgo PWA - Alpha Version | Powered by Next.js + Supabase</p>
+        <div className="mt-2 flex justify-center gap-4 text-xs">
+          <a href="/submit" className="text-indigo-500 hover:underline">📮 Event einreichen</a>
+          <span className="text-gray-300">|</span>
+          <a href="/admin" className="text-gray-400 hover:underline">🛠️ Admin</a>
+        </div>
         </footer>
       </div>
     </main>

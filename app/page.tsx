@@ -22,11 +22,15 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
-  const [dateFilter, setDateFilter] = useState<"all" | "weekend" | "week" | "month">("all");
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "weekend" | "week" | "month">("all");
 
   useEffect(() => {
     setMounted(true);
     setFavorites(getFavorites());
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const categoryEmojis: Record<string, string> = {
@@ -146,7 +150,7 @@ export default function Home() {
           </div>
 
           {/* Category Filter */}
-          <div className="mb-6">
+          <div className="mb-6 sticky top-2 bg-white z-10 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Kategorie:
             </label>
@@ -181,13 +185,14 @@ export default function Home() {
         <div className="flex gap-2 mb-4 flex-wrap">
           {[
             { key: "all", label: "📅 Alle Daten" },
+            { key: "today", label: "☀️ Heute" },
             { key: "weekend", label: "🏖️ Wochenende" },
             { key: "week", label: "🗓️ Diese Woche" },
             { key: "month", label: "📆 Diesen Monat" },
           ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setDateFilter(key as "all" | "weekend" | "week" | "month")}
+              onClick={() => setDateFilter(key as "all" | "today" | "weekend" | "week" | "month")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                 dateFilter === key
                   ? "bg-indigo-600 text-white shadow"
@@ -287,7 +292,10 @@ export default function Home() {
             const dateFiltered = filteredEvents.filter((e) => {
               if (!e.datum || dateFilter === "all") return true;
               const d = new Date(e.datum + "T00:00:00");
-              if (dateFilter === "weekend") {
+              if (dateFilter === "today") {
+              return d >= now2 && d <= now2;
+            }
+            if (dateFilter === "weekend") {
               const today = new Date(now2);
               const dayOfWeek = today.getDay(); // 0=Sun,6=Sat
               const daysUntilSat = dayOfWeek === 6 ? 7 : (6 - dayOfWeek);
@@ -383,12 +391,24 @@ export default function Home() {
                                   </div>
                                 )}
 
-                                {/* Price */}
-                                {event.preis_chf && (
-                                  <p className="text-xs text-gray-600 mb-2">
-                                    💰 CHF {event.preis_chf}
-                                  </p>
+                                {/* Altersgruppen */}
+                                {event.altersgruppen?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {event.altersgruppen.map((ag: string) => (
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}</span>
+                                    ))}
+                                  </div>
                                 )}
+
+                                {/* Price */}
+                                {event.preis_chf != null && (
+                                <p className="text-xs text-gray-600 mb-2">
+                                  {event.preis_chf === 0
+                                    ? <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">🎉 Kostenlos</span>
+                                    : <>💰 CHF {event.preis_chf}</>
+                                  }
+                                </p>
+                              )}
 
                                 {/* Beschreibung */}
                                 {event.beschreibung && (
@@ -475,12 +495,24 @@ export default function Home() {
                                   </div>
                                 )}
 
-                                {/* Price */}
-                                {activity.preis_chf && (
-                                  <p className="text-xs text-gray-600 mb-2">
-                                    💰 CHF {activity.preis_chf}
-                                  </p>
+                                {/* Altersgruppen */}
+                                {activity.altersgruppen?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {activity.altersgruppen.map((ag: string) => (
+                                      <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">👶 {ag}</span>
+                                    ))}
+                                  </div>
                                 )}
+
+                                {/* Price */}
+                                {activity.preis_chf != null && (
+                                <p className="text-xs text-gray-600 mb-2">
+                                  {activity.preis_chf === 0
+                                    ? <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">🎉 Kostenlos</span>
+                                    : <>💰 CHF {activity.preis_chf}</>
+                                  }
+                                </p>
+                              )}
 
                                 {/* Beschreibung */}
                                 {activity.beschreibung && (
@@ -523,6 +555,17 @@ export default function Home() {
         </div>
         </footer>
       </div>
+
+      {/* Scroll to Top */}
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-4 z-50 bg-indigo-600 text-white rounded-full w-11 h-11 flex items-center justify-center shadow-lg hover:bg-indigo-700 transition"
+          title="Nach oben"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+      )}
     </main>
   );
 }

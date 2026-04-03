@@ -363,7 +363,13 @@ export default function Home() {
                                 key={event.id}
                                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer hover:border-indigo-400 relative group bg-gradient-to-br from-blue-50 to-white"
                               >
-                                {/* Favorite Heart Button */}
+                                {/* Category Image */}
+                            {event.kategorie_bild_url && (
+                              <div className="relative h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden">
+                                <img src={event.kategorie_bild_url} alt={event.kategorien?.[0] || 'Event'} className="w-full h-full object-cover" loading="lazy" />
+                              </div>
+                            )}
+                            {/* Favorite Heart Button */}
                                 <button
                                   onClick={() => {
                                     toggleFavorite(event.id);
@@ -474,7 +480,13 @@ export default function Home() {
                                 key={activity.id}
                                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer hover:border-green-400 relative group bg-gradient-to-br from-green-50 to-white"
                               >
-                                {/* Favorite Heart Button */}
+                                {/* Category Image */}
+                            {activity.kategorie_bild_url && (
+                              <div className="relative h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden">
+                                <img src={activity.kategorie_bild_url} alt={activity.kategorien?.[0] || 'Event'} className="w-full h-full object-cover" loading="lazy" />
+                              </div>
+                            )}
+                            {/* Favorite Heart Button */}
                                 <button
                                   onClick={() => {
                                     toggleFavorite(activity.id);

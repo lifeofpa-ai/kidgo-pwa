@@ -25,6 +25,7 @@ export default function Home() {
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "weekend" | "week" | "month">("all");
+  const [eventType, setEventType] = useState<"all" | "event" | "camp">("all");
 
   useEffect(() => {
     setMounted(true);
@@ -65,6 +66,11 @@ export default function Home() {
       // Filter by category if not "Alle"
       if (category !== "Alle") {
         eventsQuery = eventsQuery.contains("kategorien", [category]);
+      }
+
+      // Filter by event type
+      if (eventType !== "all") {
+        eventsQuery = eventsQuery.eq("event_typ", eventType);
       }
 
       // Filter by search text if provided
@@ -116,7 +122,7 @@ export default function Home() {
     if (mounted && !loading) {
       setEvents([]);
     }
-  }, [search, category, mounted]);
+  }, [search, category, eventType, mounted]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
@@ -181,6 +187,27 @@ export default function Home() {
             {loading ? "⏳ Lädt..." : "✅ Suchen"}
           </button>
         </section>
+
+        {/* Event Type Tabs */}
+        <div className="flex gap-2 mb-4">
+          {[
+            { key: "all", label: "📌 Alle" },
+            { key: "event", label: "🎪 Events" },
+            { key: "camp", label: "🏕️ Camps & Ferienlager" },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setEventType(key as "all" | "event" | "camp")}
+              className={`px-4 py-2 rounded-lg font-semibold transition ${
+                eventType === key
+                  ? "bg-indigo-600 text-white shadow-md"
+                  : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* Date Quick Filters */}
         <div className="flex gap-2 mb-4 flex-wrap">
@@ -410,6 +437,13 @@ export default function Home() {
                                   <p className="text-sm text-gray-700 mb-2">
                                     📍 {event.ort}
                                   </p>
+                                )}
+
+                                {/* Camp Badge */}
+                                {event.event_typ === "camp" && (
+                                  <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
+                                    🏕️ Camp
+                                  </span>
                                 )}
 
                                 {/* Categories */}

@@ -333,8 +333,14 @@ export default function Home() {
                 const allYearActivities = dateFiltered.filter((e) => !e.datum);
 
                 // Helper function to format date
-                const formatDate = (dateStr: string) => {
+                const formatDate = (dateStr: string, dateEndStr?: string | null) => {
                   const date = new Date(dateStr + "T00:00:00");
+                  if (dateEndStr) {
+                    const dateEnd = new Date(dateEndStr + "T00:00:00");
+                    const startFormatted = date.toLocaleDateString("de-CH", { day: "numeric", month: "short" });
+                    const endFormatted = dateEnd.toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" });
+                    return `${startFormatted} – ${endFormatted}`;
+                  }
                   return date.toLocaleDateString("de-CH", {
                     weekday: "short",
                     day: "numeric",
@@ -396,7 +402,7 @@ export default function Home() {
 
                                 {/* Date */}
                                 <p className="text-sm font-semibold text-indigo-600 mb-1">
-                                  📅 {formatDate(event.datum)}
+                                  📅 {formatDate(event.datum, event.datum_ende)}
                                 </p>
 
                                 {/* Location */}

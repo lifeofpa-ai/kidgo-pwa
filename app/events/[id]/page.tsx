@@ -10,10 +10,18 @@ const categoryEmojis: Record<string, string> = {
   "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
 };
 
-const formatDate = (dateStr: string) =>
-  new Date(dateStr + "T00:00:00").toLocaleDateString("de-CH", {
+const formatDate = (dateStr: string, dateEndStr?: string | null) => {
+  const date = new Date(dateStr + "T00:00:00");
+  if (dateEndStr) {
+    const dateEnd = new Date(dateEndStr + "T00:00:00");
+    const startFormatted = date.toLocaleDateString("de-CH", { day: "numeric", month: "short" });
+    const endFormatted = dateEnd.toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" });
+    return `${startFormatted} – ${endFormatted}`;
+  }
+  return date.toLocaleDateString("de-CH", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
+};
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -116,7 +124,7 @@ export default function EventDetailPage() {
                   <span className="text-xl">📅</span>
                   <div>
                     <p className="text-xs text-indigo-500 font-medium uppercase tracking-wide mb-0.5">Datum</p>
-                    <p className="font-semibold text-indigo-700">{formatDate(event.datum)}</p>
+                    <p className="font-semibold text-indigo-700">{formatDate(event.datum, event.datum_ende)}</p>
                   </div>
                 </div>
               ) : (

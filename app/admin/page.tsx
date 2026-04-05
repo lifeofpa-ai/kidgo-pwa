@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
   const [openReviewInputs, setOpenReviewInputs] = useState<Set<string>>(new Set());
   const [reviewSending, setReviewSending] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const login = () => {
     if (pw === ADMIN_PW) { setAuthed(true); }
@@ -34,13 +35,27 @@ export default function AdminPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: ev }, { data: qu }, { data: followUps }, { data: live }, { data: reviewEvs }] = await Promise.all([
+    setErrorMsg("");
+    const [
+      { data: ev, error: evErr },
+      { data: qu, error: quErr },
+      { data: followUps, error: followUpsErr },
+      { data: live, error: liveErr },
+      { data: reviewEvs, error: reviewErr },
+    ] = await Promise.all([
       supabase.from("events").select("*").eq("status", "pending").is("serie_id", null).order("created_at", { ascending: false }),
       supabase.from("quellen").select("*").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("events").select("*").eq("status", "pending").not("serie_id", "is", null).order("datum", { ascending: true }),
       supabase.from("events").select("*").eq("status", "approved").order("datum", { ascending: true }).limit(200),
       supabase.from("events").select("*").eq("status", "review").order("created_at", { ascending: false }),
     ]);
+
+    const firstError = evErr || quErr || followUpsErr || liveErr || reviewErr;
+    if (firstError) {
+      setErrorMsg("Fehler beim Laden der Daten: " + firstError.message);
+      setLoading(false);
+      return;
+    }
 
     const counts: Record<string, number> = {};
     const eventsMap: Record<string, any[]> = {};
@@ -65,7 +80,8 @@ export default function AdminPage() {
   useEffect(() => { if (authed) loadData(); }, [authed]);
 
   const approveEvent = async (id: string) => {
-    await supabase.from("events").update({ status: "approved" }).eq("id", id);
+    const { error } = await supabase.from("events").update({ status: "approved" }).eq("id", id);
+    if (error) { alert("Fehler beim Freischalten: " + error.message); return; }
     await supabase.from("events").update({ status: "approved" }).eq("serie_id", id);
     setTaggingId(id);
     setMsg("Event freigeschaltet — KI taggt...");
@@ -85,10 +101,13 @@ export default function AdminPage() {
   };
 
   const rejectEvent = async (id: string) => {
-    await supabase.from("events").update({ status: "rejected" }).eq("id", id);
+    const { error: childError } = await supabase.from("events").delete().eq("serie_id", id);
+    if (childError) { alert("Fehler beim Löschen der Serien-Kinder: " + childError.message); return; }
+    const { error } = await supabase.from("events").delete().eq("id", id);
+    if (error) { alert("Fehler beim Löschen: " + error.message); return; }
     setPendingEvents((p) => p.filter((e) => e.id !== id));
     setReviewEvents((p) => p.filter((e) => e.id !== id));
-    setMsg("❌ Event abgelehnt"); setTimeout(() => setMsg(""), 2000);
+    setMsg("❌ Event gelöscht"); setTimeout(() => setMsg(""), 2000);
   };
 
   const approveQuelle = async (id: string) => {
@@ -129,7 +148,8 @@ export default function AdminPage() {
     setMsg("Batch-Freigabe läuft...");
     const ids = Array.from(selectedIds);
 
-    await supabase.from("events").update({ status: "approved" }).in("id", ids);
+    const { error: batchErr } = await supabase.from("events").update({ status: "approved" }).in("id", ids);
+    if (batchErr) { alert("Fehler bei Batch-Freigabe: " + batchErr.message); setBatchLoading(false); return; }
     await supabase.from("events").update({ status: "approved" }).in("serie_id", ids);
 
     try {
@@ -155,8 +175,10 @@ export default function AdminPage() {
     setMsg("Batch-Ablehnung läuft...");
     const ids = Array.from(selectedIds);
 
-    await supabase.from("events").delete().in("serie_id", ids);
-    await supabase.from("events").delete().in("id", ids);
+    const { error: childErr } = await supabase.from("events").delete().in("serie_id", ids);
+    if (childErr) { alert("Fehler beim Löschen der Serien-Kinder: " + childErr.message); setBatchLoading(false); return; }
+    const { error: deleteErr } = await supabase.from("events").delete().in("id", ids);
+    if (deleteErr) { alert("Fehler beim Löschen: " + deleteErr.message); setBatchLoading(false); return; }
 
     setMsg(`❌ ${ids.length} Events abgelehnt & gelöscht`);
     setBatchLoading(false);
@@ -254,6 +276,14 @@ export default function AdminPage() {
           <a href="/" className="text-sm text-indigo-600 hover:underline">← Zur App</a>
         </div>
 
+        {/* Error Banner */}
+        {errorMsg && (
+          <div className="mb-4 bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between">
+            <span>⚠️ {errorMsg}</span>
+            <button onClick={() => setErrorMsg("")} className="ml-4 text-red-500 hover:text-red-700 font-bold">✕</button>
+          </div>
+        )}
+
         {/* Toast */}
         {msg && (
           <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl text-sm font-medium">
@@ -264,7 +294,7 @@ export default function AdminPage() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-orange-400">
-            <div className="text-3xl font-bold text-orange-500">{pendingEvents.length}</div>
+            <div className="text-3xl font-bold text-orange-500">{pendingEvents.length + reviewEvents.length}</div>
             <div className="text-sm text-gray-500 mt-1">Events ausstehend</div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-400">

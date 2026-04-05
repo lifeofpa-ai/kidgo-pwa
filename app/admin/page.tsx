@@ -14,6 +14,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [taggingId, setTaggingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [serienCounts, setSerienCounts] = useState<Record<string, number>>({});
+  const [serienEvents, setSerienEvents] = useState<Record<string, any[]>>({});
+  const [expandedSerie, setExpandedSerie] = useState<string | null>(null);
 
   const login = () => {
     if (pw === ADMIN_PW) { setAuthed(true); }
@@ -22,12 +25,27 @@ export default function AdminPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: ev }, { data: qu }] = await Promise.all([
-      supabase.from("events").select("*").eq("status", "pending").order("created_at", { ascending: false }),
+    const [{ data: ev }, { data: qu }, { data: followUps }] = await Promise.all([
+      supabase.from("events").select("*").eq("status", "pending").is("serie_id", null).order("created_at", { ascending: false }),
       supabase.from("quellen").select("*").eq("status", "pending").order("created_at", { ascending: false }),
+      supabase.from("events").select("*").eq("status", "pending").not("serie_id", "is", null).order("datum", { ascending: true }),
     ]);
+
+    // Build serie counts and events map
+    const counts: Record<string, number> = {};
+    const eventsMap: Record<string, any[]> = {};
+    followUps?.forEach((e) => {
+      if (e.serie_id) {
+        counts[e.serie_id] = (counts[e.serie_id] || 0) + 1;
+        if (!eventsMap[e.serie_id]) eventsMap[e.serie_id] = [];
+        eventsMap[e.serie_id].push(e);
+      }
+    });
+
     setPendingEvents(ev || []);
     setPendingQuellen(qu || []);
+    setSerienCounts(counts);
+    setSerienEvents(eventsMap);
     setLoading(false);
   };
 
@@ -153,7 +171,18 @@ export default function AdminPage() {
               <div key={ev.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-200 transition">
                 <div className="flex gap-4">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
+                      {serienCounts[ev.id] && (
+                        <button
+                          onClick={() => setExpandedSerie(expandedSerie === ev.id ? null : ev.id)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full hover:bg-indigo-200 transition"
+                          title="Serien-Termine anzeigen"
+                        >
+                          🔄 +{serienCounts[ev.id]} Termine
+                        </button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
                       {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
                       {ev.ort && <span>📍 {ev.ort}</span>}
@@ -167,6 +196,19 @@ export default function AdminPage() {
                         className="mt-1 text-xs text-indigo-500 hover:underline break-all block">
                         🔗 {ev.anmelde_link}
                       </a>
+                    )}
+                    {expandedSerie === ev.id && serienEvents[ev.id] && (
+                      <div className="mt-3 border-t border-indigo-100 pt-3">
+                        <p className="text-xs font-semibold text-indigo-600 mb-2">📅 Weitere Serien-Termine:</p>
+                        <ul className="space-y-1">
+                          {serienEvents[ev.id].map((se) => (
+                            <li key={se.id} className="text-xs text-gray-600 flex gap-2">
+                              <span className="text-gray-400">{se.datum || "—"}</span>
+                              <span>{se.ort || se.titel}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-col gap-2 flex-shrink-0">

@@ -110,10 +110,7 @@ export default function Home() {
 
         const filteredEvents = allEvents.filter((event) => {
           if (!event.datum) return true; // Include all-year activities
-          const eventDate = new Date(event.datum);
-          const eventEndDate = event.datum_ende ? new Date(event.datum_ende) : null;
-          // Show if start date is in the future, OR if it's currently running (datum_ende >= today)
-          return eventDate >= now || (eventEndDate !== null && eventEndDate >= now);
+          return new Date(event.datum) >= now || (event.datum_ende && new Date(event.datum_ende) >= now);
         });
 
         setEvents(filteredEvents);
@@ -451,11 +448,9 @@ export default function Home() {
                                 </p>
 
                                 {/* Serie Badge */}
-                                {serienCounts[event.id] > 0 && (
-                                  <p className="text-xs font-semibold text-purple-600 mb-1">
-                                    🔄 +{serienCounts[event.id]} weitere Termine
-                                  </p>
-                                )}
+                                {serienCounts[event.id] ? (
+                                  <p className="text-xs text-indigo-400 mb-1">🔄 +{serienCounts[event.id]} weitere Termine</p>
+                                ) : null}
 
                                 {/* Location */}
                                 {event.ort && (

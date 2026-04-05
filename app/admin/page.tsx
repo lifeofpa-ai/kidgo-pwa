@@ -8,9 +8,10 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState(false);
-  const [tab, setTab] = useState<"events" | "quellen">("events");
+  const [tab, setTab] = useState<"events" | "quellen" | "live">("events");
   const [pendingEvents, setPendingEvents] = useState<any[]>([]);
   const [pendingQuellen, setPendingQuellen] = useState<any[]>([]);
+  const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [taggingId, setTaggingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
@@ -19,6 +20,8 @@ export default function AdminPage() {
   const [expandedSerie, setExpandedSerie] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editFields, setEditFields] = useState<Record<string, any>>({});
 
   const login = () => {
     if (pw === ADMIN_PW) { setAuthed(true); }
@@ -27,13 +30,13 @@ export default function AdminPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: ev }, { data: qu }, { data: followUps }] = await Promise.all([
+    const [{ data: ev }, { data: qu }, { data: followUps }, { data: live }] = await Promise.all([
       supabase.from("events").select("*").eq("status", "pending").is("serie_id", null).order("created_at", { ascending: false }),
       supabase.from("quellen").select("*").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("events").select("*").eq("status", "pending").not("serie_id", "is", null).order("datum", { ascending: true }),
+      supabase.from("events").select("*").eq("status", "approved").order("datum", { ascending: true }).limit(200),
     ]);
 
-    // Build serie counts and events map
     const counts: Record<string, number> = {};
     const eventsMap: Record<string, any[]> = {};
     followUps?.forEach((e) => {
@@ -48,6 +51,7 @@ export default function AdminPage() {
     setPendingQuellen(qu || []);
     setSerienCounts(counts);
     setSerienEvents(eventsMap);
+    setLiveEvents(live || []);
     setSelectedIds(new Set());
     setLoading(false);
   };
@@ -56,7 +60,6 @@ export default function AdminPage() {
 
   const approveEvent = async (id: string) => {
     await supabase.from("events").update({ status: "approved" }).eq("id", id);
-    // Also approve serie follow-ups
     await supabase.from("events").update({ status: "approved" }).eq("serie_id", id);
     setTaggingId(id);
     setMsg("Event freigeschaltet — KI taggt...");
@@ -118,9 +121,7 @@ export default function AdminPage() {
     setMsg("Batch-Freigabe läuft...");
     const ids = Array.from(selectedIds);
 
-    // Approve selected events
     await supabase.from("events").update({ status: "approved" }).in("id", ids);
-    // Approve serie follow-ups for selected events
     await supabase.from("events").update({ status: "approved" }).in("serie_id", ids);
 
     try {
@@ -146,7 +147,6 @@ export default function AdminPage() {
     setMsg("Batch-Ablehnung läuft...");
     const ids = Array.from(selectedIds);
 
-    // Delete serie follow-ups first, then the events themselves
     await supabase.from("events").delete().in("serie_id", ids);
     await supabase.from("events").delete().in("id", ids);
 
@@ -154,6 +154,38 @@ export default function AdminPage() {
     setBatchLoading(false);
     await loadData();
     setTimeout(() => setMsg(""), 3000);
+  };
+
+  const startEdit = (ev: any) => {
+    setEditingId(ev.id);
+    setEditFields({
+      titel: ev.titel || "",
+      datum: ev.datum || "",
+      datum_ende: ev.datum_ende || "",
+      ort: ev.ort || "",
+      preis_chf: ev.preis_chf ?? "",
+      beschreibung: ev.beschreibung || "",
+      anmelde_link: ev.anmelde_link || "",
+      kontakt_email: ev.kontakt_email || "",
+    });
+  };
+
+  const saveEdit = async (id: string) => {
+    const updates: Record<string, any> = { ...editFields };
+    if (updates.preis_chf === "") updates.preis_chf = null;
+    else if (updates.preis_chf !== null) updates.preis_chf = Number(updates.preis_chf);
+    await supabase.from("events").update(updates).eq("id", id);
+    setLiveEvents((prev) => prev.map((e) => e.id === id ? { ...e, ...updates } : e));
+    setEditingId(null);
+    setMsg("✅ Event gespeichert"); setTimeout(() => setMsg(""), 2000);
+  };
+
+  const deleteLiveEvent = async (id: string) => {
+    if (!window.confirm("Live-Event wirklich löschen?")) return;
+    await supabase.from("events").delete().eq("serie_id", id);
+    await supabase.from("events").delete().eq("id", id);
+    setLiveEvents((prev) => prev.filter((e) => e.id !== id));
+    setMsg("🗑️ Event gelöscht"); setTimeout(() => setMsg(""), 2000);
   };
 
   if (!authed) {
@@ -199,7 +231,7 @@ export default function AdminPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-orange-400">
             <div className="text-3xl font-bold text-orange-500">{pendingEvents.length}</div>
             <div className="text-sm text-gray-500 mt-1">Events ausstehend</div>
@@ -207,6 +239,10 @@ export default function AdminPage() {
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-400">
             <div className="text-3xl font-bold text-blue-500">{pendingQuellen.length}</div>
             <div className="text-sm text-gray-500 mt-1">Quellen ausstehend</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-400">
+            <div className="text-3xl font-bold text-green-500">{liveEvents.length}</div>
+            <div className="text-sm text-gray-500 mt-1">Live Events</div>
           </div>
         </div>
 
@@ -219,6 +255,10 @@ export default function AdminPage() {
           <button onClick={() => setTab("quellen")}
             className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "quellen" ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
             🔗 Quellen ({pendingQuellen.length})
+          </button>
+          <button onClick={() => setTab("live")}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "live" ? "bg-green-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
+            ✅ Live ({liveEvents.length})
           </button>
           <button onClick={loadData} disabled={loading}
             className="ml-auto px-3 py-2 bg-white text-gray-600 rounded-lg hover:bg-gray-100 text-sm shadow-sm transition disabled:opacity-50">
@@ -254,7 +294,6 @@ export default function AdminPage() {
               <div key={ev.id}
                 className={`bg-white rounded-xl p-5 shadow-sm border transition ${selectedIds.has(ev.id) ? "border-indigo-400 ring-1 ring-indigo-300" : "border-gray-100 hover:border-indigo-200"}`}>
                 <div className="flex gap-3">
-                  {/* Checkbox */}
                   <div className="flex-shrink-0 pt-0.5">
                     <input
                       type="checkbox"
@@ -318,7 +357,7 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : tab === "quellen" ? (
           <div className="space-y-3">
             {pendingQuellen.length === 0 ? (
               <div className="text-center py-16 text-gray-400 bg-white rounded-xl shadow-sm">
@@ -346,6 +385,99 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Live Events Tab */
+          <div className="space-y-3">
+            {liveEvents.length === 0 ? (
+              <div className="text-center py-16 text-gray-400 bg-white rounded-xl shadow-sm">
+                <div className="text-4xl mb-2">📭</div>
+                <p>Keine freigeschalteten Events</p>
+              </div>
+            ) : liveEvents.map((ev) => (
+              <div key={ev.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-green-200 transition">
+                {editingId === ev.id ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 font-medium">Titel</label>
+                        <input value={editFields.titel} onChange={(e) => setEditFields((f) => ({ ...f, titel: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Datum von</label>
+                        <input value={editFields.datum} onChange={(e) => setEditFields((f) => ({ ...f, datum: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="YYYY-MM-DD" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Datum bis</label>
+                        <input value={editFields.datum_ende} onChange={(e) => setEditFields((f) => ({ ...f, datum_ende: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="YYYY-MM-DD" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Ort</label>
+                        <input value={editFields.ort} onChange={(e) => setEditFields((f) => ({ ...f, ort: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Preis CHF</label>
+                        <input type="number" value={editFields.preis_chf} onChange={(e) => setEditFields((f) => ({ ...f, preis_chf: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 font-medium">Beschreibung</label>
+                        <textarea value={editFields.beschreibung} onChange={(e) => setEditFields((f) => ({ ...f, beschreibung: e.target.value }))}
+                          rows={3}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Anmelde-Link</label>
+                        <input value={editFields.anmelde_link} onChange={(e) => setEditFields((f) => ({ ...f, anmelde_link: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Kontakt E-Mail</label>
+                        <input value={editFields.kontakt_email} onChange={(e) => setEditFields((f) => ({ ...f, kontakt_email: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => saveEdit(ev.id)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition">
+                        💾 Speichern
+                      </button>
+                      <button onClick={() => setEditingId(null)}
+                        className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm font-semibold transition">
+                        Abbrechen
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+                        {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
+                        {ev.ort && <span>📍 {ev.ort}</span>}
+                        {ev.preis_chf != null && <span>💰 CHF {ev.preis_chf}</span>}
+                        {ev.altersgruppen?.length > 0 && <span>👦 {ev.altersgruppen.join(", ")}</span>}
+                      </div>
+                      {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button onClick={() => startEdit(ev)}
+                        className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                        ✏️ Bearbeiten
+                      </button>
+                      <button onClick={() => deleteLiveEvent(ev.id)}
+                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
+                        🗑️ Löschen
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

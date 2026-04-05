@@ -17,6 +17,8 @@ export default function AdminPage() {
   const [serienCounts, setSerienCounts] = useState<Record<string, number>>({});
   const [serienEvents, setSerienEvents] = useState<Record<string, any[]>>({});
   const [expandedSerie, setExpandedSerie] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
 
   const login = () => {
     if (pw === ADMIN_PW) { setAuthed(true); }
@@ -46,6 +48,7 @@ export default function AdminPage() {
     setPendingQuellen(qu || []);
     setSerienCounts(counts);
     setSerienEvents(eventsMap);
+    setSelectedIds(new Set());
     setLoading(false);
   };
 
@@ -53,6 +56,8 @@ export default function AdminPage() {
 
   const approveEvent = async (id: string) => {
     await supabase.from("events").update({ status: "approved" }).eq("id", id);
+    // Also approve serie follow-ups
+    await supabase.from("events").update({ status: "approved" }).eq("serie_id", id);
     setTaggingId(id);
     setMsg("Event freigeschaltet — KI taggt...");
     try {
@@ -87,6 +92,70 @@ export default function AdminPage() {
     setMsg("❌ Quelle abgelehnt"); setTimeout(() => setMsg(""), 2000);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allPendingIds = pendingEvents.map((e) => e.id);
+  const allSelected = allPendingIds.length > 0 && allPendingIds.every((id) => selectedIds.has(id));
+  const someSelected = allPendingIds.some((id) => selectedIds.has(id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allPendingIds));
+    }
+  };
+
+  const batchApprove = async () => {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    setMsg("Batch-Freigabe läuft...");
+    const ids = Array.from(selectedIds);
+
+    // Approve selected events
+    await supabase.from("events").update({ status: "approved" }).in("id", ids);
+    // Approve serie follow-ups for selected events
+    await supabase.from("events").update({ status: "approved" }).in("serie_id", ids);
+
+    try {
+      const res = await fetch("https://wfkzxqscskppfivqsgno.supabase.co/functions/v1/tag-events-intelligently", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      setMsg(data.success ? `✅ ${ids.length} Events freigegeben & KI-getaggt!` : `✅ ${ids.length} Events freigegeben (Tagging fehlgeschlagen)`);
+    } catch { setMsg(`✅ ${ids.length} Events freigegeben (Tagging offline)`); }
+
+    setBatchLoading(false);
+    await loadData();
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  const batchReject = async () => {
+    if (selectedIds.size === 0) return;
+    const confirmed = window.confirm(`${selectedIds.size} Events wirklich ablehnen und löschen?`);
+    if (!confirmed) return;
+    setBatchLoading(true);
+    setMsg("Batch-Ablehnung läuft...");
+    const ids = Array.from(selectedIds);
+
+    // Delete serie follow-ups first, then the events themselves
+    await supabase.from("events").delete().in("serie_id", ids);
+    await supabase.from("events").delete().in("id", ids);
+
+    setMsg(`❌ ${ids.length} Events abgelehnt & gelöscht`);
+    setBatchLoading(false);
+    await loadData();
+    setTimeout(() => setMsg(""), 3000);
+  };
+
   if (!authed) {
     return (
       <main className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
@@ -112,7 +181,7 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-28">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 pt-2">
           <div>
@@ -142,7 +211,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex gap-2 mb-5 flex-wrap">
           <button onClick={() => setTab("events")}
             className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "events" ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
             📅 Events ({pendingEvents.length})
@@ -157,6 +226,20 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* "Alle auswählen" — only shown in events tab with pending events */}
+        {tab === "events" && pendingEvents.length > 0 && (
+          <label className="flex items-center gap-2 mb-3 cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+            />
+            <span className="text-sm text-gray-600 font-medium">Alle auswählen</span>
+          </label>
+        )}
+
         {/* Content */}
         {loading ? (
           <div className="text-center py-16 text-gray-400">⏳ Lädt...</div>
@@ -168,8 +251,18 @@ export default function AdminPage() {
                 <p>Keine ausstehenden Events</p>
               </div>
             ) : pendingEvents.map((ev) => (
-              <div key={ev.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-200 transition">
-                <div className="flex gap-4">
+              <div key={ev.id}
+                className={`bg-white rounded-xl p-5 shadow-sm border transition ${selectedIds.has(ev.id) ? "border-indigo-400 ring-1 ring-indigo-300" : "border-gray-100 hover:border-indigo-200"}`}>
+                <div className="flex gap-3">
+                  {/* Checkbox */}
+                  <div className="flex-shrink-0 pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(ev.id)}
+                      onChange={() => toggleSelect(ev.id)}
+                      className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
@@ -258,6 +351,38 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Sticky Batch Action-Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl px-4 py-3">
+          <div className="max-w-4xl mx-auto flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold text-gray-700 mr-auto">
+              {selectedIds.size} {selectedIds.size === 1 ? "Event" : "Events"} ausgewählt
+            </span>
+            <button
+              onClick={batchApprove}
+              disabled={batchLoading}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap"
+            >
+              ✅ Alle freigeben
+            </button>
+            <button
+              onClick={batchReject}
+              disabled={batchLoading}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap"
+            >
+              ❌ Alle ablehnen
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={batchLoading}
+              className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap"
+            >
+              Auswahl aufheben
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

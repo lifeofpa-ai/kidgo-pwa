@@ -22,6 +22,10 @@ export default function AdminPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Record<string, any>>({});
+  const [reviewEvents, setReviewEvents] = useState<any[]>([]);
+  const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
+  const [openReviewInputs, setOpenReviewInputs] = useState<Set<string>>(new Set());
+  const [reviewSending, setReviewSending] = useState<string | null>(null);
 
   const login = () => {
     if (pw === ADMIN_PW) { setAuthed(true); }
@@ -30,11 +34,12 @@ export default function AdminPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: ev }, { data: qu }, { data: followUps }, { data: live }] = await Promise.all([
+    const [{ data: ev }, { data: qu }, { data: followUps }, { data: live }, { data: reviewEvs }] = await Promise.all([
       supabase.from("events").select("*").eq("status", "pending").is("serie_id", null).order("created_at", { ascending: false }),
       supabase.from("quellen").select("*").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("events").select("*").eq("status", "pending").not("serie_id", "is", null).order("datum", { ascending: true }),
       supabase.from("events").select("*").eq("status", "approved").order("datum", { ascending: true }).limit(200),
+      supabase.from("events").select("*").eq("status", "review").order("created_at", { ascending: false }),
     ]);
 
     const counts: Record<string, number> = {};
@@ -52,6 +57,7 @@ export default function AdminPage() {
     setSerienCounts(counts);
     setSerienEvents(eventsMap);
     setLiveEvents(live || []);
+    setReviewEvents(reviewEvs || []);
     setSelectedIds(new Set());
     setLoading(false);
   };
@@ -74,12 +80,14 @@ export default function AdminPage() {
     } catch { setMsg("✅ Freigeschaltet (Tagging offline)"); }
     setTaggingId(null);
     setPendingEvents((p) => p.filter((e) => e.id !== id));
+    setReviewEvents((p) => p.filter((e) => e.id !== id));
     setTimeout(() => setMsg(""), 3000);
   };
 
   const rejectEvent = async (id: string) => {
     await supabase.from("events").update({ status: "rejected" }).eq("id", id);
     setPendingEvents((p) => p.filter((e) => e.id !== id));
+    setReviewEvents((p) => p.filter((e) => e.id !== id));
     setMsg("❌ Event abgelehnt"); setTimeout(() => setMsg(""), 2000);
   };
 
@@ -188,6 +196,29 @@ export default function AdminPage() {
     setMsg("🗑️ Event gelöscht"); setTimeout(() => setMsg(""), 2000);
   };
 
+  const toggleReviewInput = (id: string) => {
+    setOpenReviewInputs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const sendToReview = async (id: string) => {
+    setReviewSending(id);
+    const comment = reviewComments[id] || "";
+    await supabase.from("events").update({
+      status: "review",
+      review_comment: comment,
+      review_requested_at: new Date().toISOString(),
+    }).eq("id", id);
+    setMsg("📋 An PO zum Review gesendet");
+    setReviewSending(null);
+    setOpenReviewInputs((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    await loadData();
+    setTimeout(() => setMsg(""), 3000);
+  };
+
   if (!authed) {
     return (
       <main className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
@@ -291,7 +322,7 @@ export default function AdminPage() {
                 <p>Keine ausstehenden Events</p>
               </div>
             ) : pendingEvents.map((ev) => (
-              <div key={ev.id}
+              <div key={`pending-${ev.id}`}
                 className={`bg-white rounded-xl p-5 shadow-sm border transition ${selectedIds.has(ev.id) ? "border-indigo-400 ring-1 ring-indigo-300" : "border-gray-100 hover:border-indigo-200"}`}>
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 pt-0.5">
@@ -356,6 +387,46 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+            {reviewEvents.length > 0 && (
+              <>
+                <div className="mt-6 mb-3 flex items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-600">Wartet auf PO-Entscheid</span>
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">{reviewEvents.length}</span>
+                </div>
+                {reviewEvents.map((ev) => (
+                  <div key={`review-${ev.id}`} className="bg-white rounded-xl p-5 shadow-sm border border-yellow-200">
+                    <div className="flex gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
+                          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">🔍 PO Review</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+                          {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
+                          {ev.ort && <span>📍 {ev.ort}</span>}
+                          {ev.preis_chf != null && <span>💰 CHF {ev.preis_chf}</span>}
+                        </div>
+                        {ev.review_comment && (
+                          <div className="mt-2 p-2 bg-yellow-50 rounded-lg text-xs text-yellow-800 border border-yellow-100">
+                            💬 {ev.review_comment}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2 flex-shrink-0">
+                        <button onClick={() => approveEvent(ev.id)} disabled={taggingId === ev.id}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap">
+                          {taggingId === ev.id ? "⏳ KI taggt..." : "✅ Freischalten"}
+                        </button>
+                        <button onClick={() => rejectEvent(ev.id)}
+                          className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
+                          ❌ Ablehnen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         ) : tab === "quellen" ? (
           <div className="space-y-3">
@@ -455,28 +526,52 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
-                        {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
-                        {ev.ort && <span>📍 {ev.ort}</span>}
-                        {ev.preis_chf != null && <span>💰 CHF {ev.preis_chf}</span>}
-                        {ev.altersgruppen?.length > 0 && <span>👦 {ev.altersgruppen.join(", ")}</span>}
+                  <>
+                    <div className="flex gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+                          {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
+                          {ev.ort && <span>📍 {ev.ort}</span>}
+                          {ev.preis_chf != null && <span>💰 CHF {ev.preis_chf}</span>}
+                          {ev.altersgruppen?.length > 0 && <span>👦 {ev.altersgruppen.join(", ")}</span>}
+                        </div>
+                        {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
                       </div>
-                      {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
+                      <div className="flex flex-col gap-2 flex-shrink-0">
+                        <button onClick={() => startEdit(ev)}
+                          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                          ✏️ Bearbeiten
+                        </button>
+                        <button onClick={() => toggleReviewInput(ev.id)}
+                          className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 text-sm font-semibold transition whitespace-nowrap">
+                          📋 An PO
+                        </button>
+                        <button onClick={() => deleteLiveEvent(ev.id)}
+                          className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
+                          🗑️ Löschen
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-2 flex-shrink-0">
-                      <button onClick={() => startEdit(ev)}
-                        className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
-                        ✏️ Bearbeiten
-                      </button>
-                      <button onClick={() => deleteLiveEvent(ev.id)}
-                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
-                        🗑️ Löschen
-                      </button>
-                    </div>
-                  </div>
+                    {openReviewInputs.has(ev.id) && (
+                      <div className="mt-3 border-t border-yellow-100 pt-3 space-y-2">
+                        <textarea
+                          value={reviewComments[ev.id] || ""}
+                          onChange={(e) => setReviewComments((prev) => ({ ...prev, [ev.id]: e.target.value }))}
+                          placeholder="Kommentar für den PO..."
+                          rows={3}
+                          className="w-full px-3 py-2 border border-yellow-200 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none"
+                        />
+                        <button
+                          onClick={() => sendToReview(ev.id)}
+                          disabled={reviewSending === ev.id}
+                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap"
+                        >
+                          {reviewSending === ev.id ? "⏳ Wird gesendet..." : "📋 An PO zum Review senden"}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}

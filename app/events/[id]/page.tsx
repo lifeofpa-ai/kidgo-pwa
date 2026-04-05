@@ -28,6 +28,7 @@ export default function EventDetailPage() {
   const id = params.id as string;
   const [event, setEvent] = useState<any>(null);
   const [source, setSource] = useState<any>(null);
+  const [serieDaten, setSerieDaten] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [shared, setShared] = useState(false);
 
@@ -47,6 +48,15 @@ export default function EventDetailPage() {
             .eq("id", eventData.quelle_id)
             .single();
           setSource(sourceData);
+        }
+        // If this is a main event of a serie (serie_id === null), load all follow-up events
+        if (!eventData.serie_id) {
+          const { data: serieData } = await supabase
+            .from("events")
+            .select("id, datum, datum_ende, ort")
+            .eq("serie_id", eventData.id)
+            .order("datum", { ascending: true });
+          setSerieDaten(serieData || []);
         }
       }
       setLoading(false);
@@ -191,6 +201,28 @@ export default function EventDetailPage() {
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold text-gray-800 mb-3">Beschreibung</h2>
                   <p className="text-gray-600 leading-relaxed whitespace-pre-line">{event.beschreibung}</p>
+                </div>
+              </>
+            )}
+
+            {serieDaten.length > 0 && (
+              <>
+                <hr className="my-5 border-gray-100" />
+                <div className="mb-6">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-3">📅 Alle Termine dieser Serie</h2>
+                  <ul className="space-y-2">
+                    {serieDaten.map((termin) => (
+                      <li key={termin.id} className="flex items-start gap-2 text-gray-600">
+                        <span className="text-indigo-400 mt-0.5">•</span>
+                        <span>
+                          {formatDate(termin.datum, termin.datum_ende)}
+                          {termin.ort && termin.ort !== event.ort && (
+                            <span className="text-gray-400 text-sm"> — {termin.ort}</span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </>
             )}

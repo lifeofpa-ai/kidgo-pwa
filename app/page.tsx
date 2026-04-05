@@ -26,6 +26,7 @@ export default function Home() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "weekend" | "week" | "month">("all");
   const [eventType, setEventType] = useState<"all" | "event" | "camp">("all");
+  const [serienCounts, setSerienCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setMounted(true);
@@ -80,6 +81,20 @@ export default function Home() {
         );
       }
 
+      // Only load main events (Einzel-Events + Haupt-Events von Serien)
+      eventsQuery = eventsQuery.is("serie_id", null);
+
+      // Load serie counts (how many follow-up events per main event)
+      const { data: serienData } = await supabase
+        .from("events")
+        .select("serie_id")
+        .not("serie_id", "is", null);
+      const counts: Record<string, number> = {};
+      serienData?.forEach((e) => {
+        if (e.serie_id) counts[e.serie_id] = (counts[e.serie_id] || 0) + 1;
+      });
+      setSerienCounts(counts);
+
       // Fetch all events first, then filter in-memory for date range
       const { data: allEvents, error: eventsError } = await eventsQuery.order(
         "datum",
@@ -95,7 +110,10 @@ export default function Home() {
 
         const filteredEvents = allEvents.filter((event) => {
           if (!event.datum) return true; // Include all-year activities
-          return new Date(event.datum) >= now; // Only future events
+          const eventDate = new Date(event.datum);
+          const eventEndDate = event.datum_ende ? new Date(event.datum_ende) : null;
+          // Show if start date is in the future, OR if it's currently running (datum_ende >= today)
+          return eventDate >= now || (eventEndDate !== null && eventEndDate >= now);
         });
 
         setEvents(filteredEvents);
@@ -431,6 +449,13 @@ export default function Home() {
                                 <p className="text-sm font-semibold text-indigo-600 mb-1">
                                   📅 {formatDate(event.datum, event.datum_ende)}
                                 </p>
+
+                                {/* Serie Badge */}
+                                {serienCounts[event.id] > 0 && (
+                                  <p className="text-xs font-semibold text-purple-600 mb-1">
+                                    🔄 +{serienCounts[event.id]} weitere Termine
+                                  </p>
+                                )}
 
                                 {/* Location */}
                                 {event.ort && (

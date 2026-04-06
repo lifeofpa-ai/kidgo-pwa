@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 const categoryEmojis: Record<string, string> = {
   "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
@@ -25,6 +25,7 @@ const formatDate = (dateStr: string, dateEndStr?: string | null) => {
 
 export default function EventDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const [event, setEvent] = useState<any>(null);
   const [source, setSource] = useState<any>(null);
@@ -106,15 +107,12 @@ export default function EventDetailPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
-        <Link
-          href="/"
-          className="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium mb-6 group transition"
+        <button
+          onClick={() => router.back()}
+          className="text-indigo-600 hover:text-indigo-800 font-medium mb-6 transition"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1 group-hover:-translate-x-1 transition">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Zurück zur Übersicht
-        </Link>
+          ← Zurück
+        </button>
 
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className={`h-2 ${event.datum ? "bg-indigo-500" : "bg-green-500"}`} />

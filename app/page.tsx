@@ -125,19 +125,15 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Auto-load all sources on mount
+  // Auto-search on mount and whenever filters change; debounce only for free-text search
   useEffect(() => {
-    if (mounted) {
+    if (!mounted) return;
+    const timer = setTimeout(() => {
       handleSearch();
-    }
-  }, [mounted]);
-
-  // Reset events when filters change
-  useEffect(() => {
-    if (mounted && !loading) {
-      setEvents([]);
-    }
-  }, [search, category, eventType, mounted]);
+    }, search ? 300 : 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, category, dateFilter, eventType, search]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">

@@ -1,5 +1,4 @@
 "use client";
-// Deployment trigger - force Vercel rebuild
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +10,56 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
   loading: () => <div className="h-96 bg-gray-200 rounded-lg animate-pulse" />,
 });
+
+const PAGE_SIZE = 15;
+
+const categoryEmojis: Record<string, string> = {
+  "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
+  "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
+  "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
+};
+
+const categoryColors: Record<string, string> = {
+  "Kreativ": "bg-pink-100 text-pink-600",
+  "Natur": "bg-green-100 text-green-600",
+  "Tiere": "bg-yellow-100 text-yellow-600",
+  "Sport": "bg-blue-100 text-blue-600",
+  "Tanz": "bg-purple-100 text-purple-600",
+  "Theater": "bg-red-100 text-red-600",
+  "Musik": "bg-indigo-100 text-indigo-600",
+  "Mode & Design": "bg-rose-100 text-rose-600",
+  "Wissenschaft": "bg-cyan-100 text-cyan-600",
+  "Bildung": "bg-orange-100 text-orange-600",
+  "Ausflug": "bg-teal-100 text-teal-600",
+  "Feriencamp": "bg-amber-100 text-amber-600",
+};
+
+function CategoryImage({ url, kategorien }: { url?: string | null; kategorien?: string[] }) {
+  const [imgError, setImgError] = useState(false);
+  const cat = kategorien?.[0] || "";
+  const emoji = categoryEmojis[cat] || "🎪";
+  const colors = categoryColors[cat] || "bg-indigo-100 text-indigo-600";
+
+  if (url && !imgError) {
+    return (
+      <div className="h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden">
+        <img
+          src={url}
+          alt={cat || "Event"}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden flex items-center justify-center ${colors}`}>
+      <span className="text-6xl">{emoji}</span>
+    </div>
+  );
+}
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -27,6 +76,8 @@ export default function Home() {
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "weekend" | "week" | "month">("all");
   const [eventType, setEventType] = useState<"all" | "event" | "camp">("all");
   const [serienCounts, setSerienCounts] = useState<Record<string, number>>({});
+  const [visibleCountFuture, setVisibleCountFuture] = useState(PAGE_SIZE);
+  const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
 
   useEffect(() => {
     setMounted(true);
@@ -36,11 +87,6 @@ export default function Home() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const categoryEmojis: Record<string, string> = {
-    "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
-    "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
-    "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
-  };
   const categories = [
     "Alle", "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
     "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Feriencamp",
@@ -51,6 +97,8 @@ export default function Home() {
     setError("");
     setEvents([]);
     setSources([]);
+    setVisibleCountFuture(PAGE_SIZE);
+    setVisibleCountAllYear(PAGE_SIZE);
 
     try {
       // 1. Fetch all Quellen (for linking)
@@ -84,6 +132,12 @@ export default function Home() {
       // Only load main events (Einzel-Events + Haupt-Events von Serien)
       eventsQuery = eventsQuery.is("serie_id", null);
 
+      // C) Filter past events server-side: only future events or all-year (datum IS NULL)
+      const todayStr = new Date().toISOString().split("T")[0];
+      eventsQuery = eventsQuery.or(
+        `datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`
+      );
+
       // Load serie counts (how many follow-up events per main event)
       const { data: serienData } = await supabase
         .from("events")
@@ -104,17 +158,8 @@ export default function Home() {
       if (eventsError) throw eventsError;
 
       if (allEvents) {
-        // Filter: Only show future events or events without date
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-
-        const filteredEvents = allEvents.filter((event) => {
-          if (!event.datum) return true; // Include all-year activities
-          return new Date(event.datum) >= now || (event.datum_ende && new Date(event.datum_ende) >= now);
-        });
-
-        setEvents(filteredEvents);
-        console.log(`Gefunden: ${filteredEvents.length} Events`);
+        setEvents(allEvents);
+        console.log(`Gefunden: ${allEvents.length} Events`);
       }
     } catch (error) {
       console.error("Fehler bei Suche:", error);
@@ -400,19 +445,15 @@ export default function Home() {
                           🗓️ Anstehende Events ({futureEvents.length})
                         </h4>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          {futureEvents.map((event: any) => {
+                          {futureEvents.slice(0, visibleCountFuture).map((event: any) => {
                             const source = getSource(event.quelle_id);
                             return (
                               <div
                                 key={event.id}
                                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer hover:border-indigo-400 relative group bg-gradient-to-br from-blue-50 to-white"
                               >
-                                {/* Category Image */}
-                            {event.kategorie_bild_url && (
-                              <div className="relative h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden">
-                                <img src={event.kategorie_bild_url} alt={event.kategorien?.[0] || 'Event'} className="w-full h-full object-cover" loading="lazy" />
-                              </div>
-                            )}
+                                {/* Category Image with fallback */}
+                                <CategoryImage url={event.kategorie_bild_url} kategorien={event.kategorien} />
                             {/* Favorite Heart Button */}
                                 <button
                                   onClick={() => {
@@ -519,6 +560,16 @@ export default function Home() {
                             );
                           })}
                         </div>
+                        {visibleCountFuture < futureEvents.length && (
+                          <div className="text-center mt-6">
+                            <button
+                              onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
+                              className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
+                            >
+                              ⬇️ Mehr laden ({futureEvents.length - visibleCountFuture} weitere)
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -529,19 +580,15 @@ export default function Home() {
                           🎢 Ganzjährig geöffnet ({allYearActivities.length})
                         </h4>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          {allYearActivities.map((activity: any) => {
+                          {allYearActivities.slice(0, visibleCountAllYear).map((activity: any) => {
                             const source = getSource(activity.quelle_id);
                             return (
                               <div
                                 key={activity.id}
                                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer hover:border-green-400 relative group bg-gradient-to-br from-green-50 to-white"
                               >
-                                {/* Category Image */}
-                            {activity.kategorie_bild_url && (
-                              <div className="relative h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden">
-                                <img src={activity.kategorie_bild_url} alt={activity.kategorien?.[0] || 'Event'} className="w-full h-full object-cover" loading="lazy" />
-                              </div>
-                            )}
+                                {/* Category Image with fallback */}
+                                <CategoryImage url={activity.kategorie_bild_url} kategorien={activity.kategorien} />
                             {/* Favorite Heart Button */}
                                 <button
                                   onClick={() => {
@@ -631,6 +678,16 @@ export default function Home() {
                             );
                           })}
                         </div>
+                        {visibleCountAllYear < allYearActivities.length && (
+                          <div className="text-center mt-6">
+                            <button
+                              onClick={() => setVisibleCountAllYear((v) => v + PAGE_SIZE)}
+                              className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+                            >
+                              ⬇️ Mehr laden ({allYearActivities.length - visibleCountAllYear} weitere)
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>

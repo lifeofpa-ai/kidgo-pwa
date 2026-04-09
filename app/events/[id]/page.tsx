@@ -10,6 +10,47 @@ const categoryEmojis: Record<string, string> = {
   "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
 };
 
+const categoryColors: Record<string, string> = {
+  "Kreativ": "bg-pink-100 text-pink-600",
+  "Natur": "bg-green-100 text-green-600",
+  "Tiere": "bg-yellow-100 text-yellow-600",
+  "Sport": "bg-blue-100 text-blue-600",
+  "Tanz": "bg-purple-100 text-purple-600",
+  "Theater": "bg-red-100 text-red-600",
+  "Musik": "bg-indigo-100 text-indigo-600",
+  "Mode & Design": "bg-rose-100 text-rose-600",
+  "Wissenschaft": "bg-cyan-100 text-cyan-600",
+  "Bildung": "bg-orange-100 text-orange-600",
+  "Ausflug": "bg-teal-100 text-teal-600",
+  "Feriencamp": "bg-amber-100 text-amber-600",
+};
+
+function CategoryImage({ url, kategorien }: { url?: string | null; kategorien?: string[] }) {
+  const [imgError, setImgError] = useState(false);
+  const cat = kategorien?.[0] || "";
+  const emoji = categoryEmojis[cat] || "🎪";
+  const colors = categoryColors[cat] || "bg-indigo-100 text-indigo-600";
+
+  if (url && !imgError) {
+    return (
+      <div className="w-full h-52 sm:h-64 overflow-hidden rounded-xl mb-6">
+        <img
+          src={url}
+          alt={cat || "Event"}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`w-full h-52 sm:h-64 rounded-xl mb-6 flex items-center justify-center ${colors}`}>
+      <span className="text-8xl">{emoji}</span>
+    </div>
+  );
+}
+
 const formatDate = (dateStr: string, dateEndStr?: string | null) => {
   const date = new Date(dateStr + "T00:00:00");
   if (dateEndStr) {
@@ -117,6 +158,7 @@ export default function EventDetailPage() {
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className={`h-2 ${event.datum ? "bg-indigo-500" : "bg-green-500"}`} />
           <div className="p-6 sm:p-8">
+            <CategoryImage url={event.kategorie_bild_url} kategorien={event.kategorien} />
             <div className="flex flex-wrap gap-2 mb-4">
               {isNew && <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">✨ Neu</span>}
               {event.preis_chf === 0 && <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">🎉 Kostenlos</span>}

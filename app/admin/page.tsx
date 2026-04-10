@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Record<string, any>>({});
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [reviewEvents, setReviewEvents] = useState<any[]>([]);
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
   const [openReviewInputs, setOpenReviewInputs] = useState<Set<string>>(new Set());
@@ -188,6 +189,7 @@ export default function AdminPage() {
 
   const startEdit = (ev: any) => {
     setEditingId(ev.id);
+    setEditModalOpen(true);
     setEditFields({
       titel: ev.titel || "",
       datum: ev.datum || "",
@@ -197,17 +199,28 @@ export default function AdminPage() {
       beschreibung: ev.beschreibung || "",
       anmelde_link: ev.anmelde_link || "",
       kontakt_email: ev.kontakt_email || "",
+      altersgruppen: (ev.altersgruppen || []).join(", "),
+      event_typ: ev.event_typ || "event",
+      status: ev.status || "approved",
+      _url: ev.url || "",
     });
   };
 
   const saveEdit = async (id: string) => {
     const updates: Record<string, any> = { ...editFields };
+    delete updates._url;
     if (updates.preis_chf === "") updates.preis_chf = null;
     else if (updates.preis_chf !== null) updates.preis_chf = Number(updates.preis_chf);
-    await supabase.from("events").update(updates).eq("id", id);
-    setLiveEvents((prev) => prev.map((e) => e.id === id ? { ...e, ...updates } : e));
+    if (typeof updates.altersgruppen === "string") {
+      updates.altersgruppen = updates.altersgruppen.split(",").map((s: string) => s.trim()).filter(Boolean);
+    }
+    const { error } = await supabase.from("events").update(updates).eq("id", id);
+    if (error) { alert("Fehler beim Speichern: " + error.message); return; }
     setEditingId(null);
-    setMsg("✅ Event gespeichert"); setTimeout(() => setMsg(""), 2000);
+    setEditModalOpen(false);
+    setMsg("✅ Event gespeichert");
+    await loadData();
+    setTimeout(() => setMsg(""), 2000);
   };
 
   const deleteLiveEvent = async (id: string) => {
@@ -409,6 +422,10 @@ export default function AdminPage() {
                       className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap">
                       {taggingId === ev.id ? "⏳ KI taggt..." : "✅ Freischalten"}
                     </button>
+                    <button onClick={() => startEdit(ev)}
+                      className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                      ✏️ Bearbeiten
+                    </button>
                     <button onClick={() => rejectEvent(ev.id)}
                       className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
                       ❌ Ablehnen
@@ -446,6 +463,10 @@ export default function AdminPage() {
                         <button onClick={() => approveEvent(ev.id)} disabled={taggingId === ev.id}
                           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap">
                           {taggingId === ev.id ? "⏳ KI taggt..." : "✅ Freischalten"}
+                        </button>
+                        <button onClick={() => startEdit(ev)}
+                          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                          ✏️ Bearbeiten
                         </button>
                         <button onClick={() => rejectEvent(ev.id)}
                           className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
@@ -499,115 +520,155 @@ export default function AdminPage() {
               </div>
             ) : liveEvents.map((ev) => (
               <div key={ev.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-green-200 transition">
-                {editingId === ev.id ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="col-span-2">
-                        <label className="text-xs text-gray-500 font-medium">Titel</label>
-                        <input value={editFields.titel} onChange={(e) => setEditFields((f) => ({ ...f, titel: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                <>
+                  <div className="flex gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+                        {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
+                        {ev.ort && <span>📍 {ev.ort}</span>}
+                        {ev.preis_chf != null && <span>💰 CHF {ev.preis_chf}</span>}
+                        {ev.altersgruppen?.length > 0 && <span>👦 {ev.altersgruppen.join(", ")}</span>}
                       </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Datum von</label>
-                        <input value={editFields.datum} onChange={(e) => setEditFields((f) => ({ ...f, datum: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="YYYY-MM-DD" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Datum bis</label>
-                        <input value={editFields.datum_ende} onChange={(e) => setEditFields((f) => ({ ...f, datum_ende: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="YYYY-MM-DD" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Ort</label>
-                        <input value={editFields.ort} onChange={(e) => setEditFields((f) => ({ ...f, ort: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Preis CHF</label>
-                        <input type="number" value={editFields.preis_chf} onChange={(e) => setEditFields((f) => ({ ...f, preis_chf: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs text-gray-500 font-medium">Beschreibung</label>
-                        <textarea value={editFields.beschreibung} onChange={(e) => setEditFields((f) => ({ ...f, beschreibung: e.target.value }))}
-                          rows={3}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Anmelde-Link</label>
-                        <input value={editFields.anmelde_link} onChange={(e) => setEditFields((f) => ({ ...f, anmelde_link: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Kontakt E-Mail</label>
-                        <input value={editFields.kontakt_email} onChange={(e) => setEditFields((f) => ({ ...f, kontakt_email: e.target.value }))}
-                          className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
-                      </div>
+                      {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
                     </div>
-                    <div className="flex gap-2 pt-1">
-                      <button onClick={() => saveEdit(ev.id)}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition">
-                        💾 Speichern
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button onClick={() => startEdit(ev)}
+                        className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                        ✏️ Bearbeiten
                       </button>
-                      <button onClick={() => setEditingId(null)}
-                        className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm font-semibold transition">
-                        Abbrechen
+                      <button onClick={() => toggleReviewInput(ev.id)}
+                        className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 text-sm font-semibold transition whitespace-nowrap">
+                        📋 An PO
+                      </button>
+                      <button onClick={() => deleteLiveEvent(ev.id)}
+                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
+                        🗑️ Löschen
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 text-base">{ev.titel}</h3>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
-                          {ev.datum && <span>📅 {ev.datum}{ev.datum_ende ? ` – ${ev.datum_ende}` : ""}</span>}
-                          {ev.ort && <span>📍 {ev.ort}</span>}
-                          {ev.preis_chf != null && <span>💰 CHF {ev.preis_chf}</span>}
-                          {ev.altersgruppen?.length > 0 && <span>👦 {ev.altersgruppen.join(", ")}</span>}
-                        </div>
-                        {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
-                      </div>
-                      <div className="flex flex-col gap-2 flex-shrink-0">
-                        <button onClick={() => startEdit(ev)}
-                          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
-                          ✏️ Bearbeiten
-                        </button>
-                        <button onClick={() => toggleReviewInput(ev.id)}
-                          className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 text-sm font-semibold transition whitespace-nowrap">
-                          📋 An PO
-                        </button>
-                        <button onClick={() => deleteLiveEvent(ev.id)}
-                          className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-semibold transition">
-                          🗑️ Löschen
-                        </button>
-                      </div>
+                  {openReviewInputs.has(ev.id) && (
+                    <div className="mt-3 border-t border-yellow-100 pt-3 space-y-2">
+                      <textarea
+                        value={reviewComments[ev.id] || ""}
+                        onChange={(e) => setReviewComments((prev) => ({ ...prev, [ev.id]: e.target.value }))}
+                        placeholder="Kommentar für den PO..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-yellow-200 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none"
+                      />
+                      <button
+                        onClick={() => sendToReview(ev.id)}
+                        disabled={reviewSending === ev.id}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap"
+                      >
+                        {reviewSending === ev.id ? "⏳ Wird gesendet..." : "📋 An PO zum Review senden"}
+                      </button>
                     </div>
-                    {openReviewInputs.has(ev.id) && (
-                      <div className="mt-3 border-t border-yellow-100 pt-3 space-y-2">
-                        <textarea
-                          value={reviewComments[ev.id] || ""}
-                          onChange={(e) => setReviewComments((prev) => ({ ...prev, [ev.id]: e.target.value }))}
-                          placeholder="Kommentar für den PO..."
-                          rows={3}
-                          className="w-full px-3 py-2 border border-yellow-200 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none"
-                        />
-                        <button
-                          onClick={() => sendToReview(ev.id)}
-                          disabled={reviewSending === ev.id}
-                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition disabled:opacity-60 whitespace-nowrap"
-                        >
-                          {reviewSending === ev.id ? "⏳ Wird gesendet..." : "📋 An PO zum Review senden"}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
+                  )}
+                </>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editModalOpen && editingId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) { setEditModalOpen(false); setEditingId(null); } }}
+        >
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+              <h2 className="text-lg font-bold text-gray-900">✏️ Event bearbeiten</h2>
+              <button onClick={() => { setEditModalOpen(false); setEditingId(null); }} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">✕</button>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 font-medium">Titel</label>
+                  <input value={editFields.titel} onChange={(e) => setEditFields((f) => ({ ...f, titel: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Datum von</label>
+                  <input type="date" value={editFields.datum} onChange={(e) => setEditFields((f) => ({ ...f, datum: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Datum bis</label>
+                  <input type="date" value={editFields.datum_ende} onChange={(e) => setEditFields((f) => ({ ...f, datum_ende: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Ort</label>
+                  <input value={editFields.ort} onChange={(e) => setEditFields((f) => ({ ...f, ort: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Preis CHF</label>
+                  <input type="number" value={editFields.preis_chf} onChange={(e) => setEditFields((f) => ({ ...f, preis_chf: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 font-medium">Beschreibung</label>
+                  <textarea value={editFields.beschreibung} onChange={(e) => setEditFields((f) => ({ ...f, beschreibung: e.target.value }))}
+                    rows={3} className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Altersgruppen</label>
+                  <input value={editFields.altersgruppen} onChange={(e) => setEditFields((f) => ({ ...f, altersgruppen: e.target.value }))}
+                    placeholder="z.B. 4-6, 7-10, 11-14"
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Event-Typ</label>
+                  <select value={editFields.event_typ} onChange={(e) => setEditFields((f) => ({ ...f, event_typ: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                    <option value="event">Event</option>
+                    <option value="camp">Camp</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Status</label>
+                  <select value={editFields.status} onChange={(e) => setEditFields((f) => ({ ...f, status: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Anmelde-Link</label>
+                  <input value={editFields.anmelde_link} onChange={(e) => setEditFields((f) => ({ ...f, anmelde_link: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium">Kontakt E-Mail</label>
+                  <input value={editFields.kontakt_email} onChange={(e) => setEditFields((f) => ({ ...f, kontakt_email: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                {editFields._url && (
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 font-medium">Bild-URL</label>
+                    <p className="mt-1 text-xs text-gray-400 break-all px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">{editFields._url}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button onClick={() => saveEdit(editingId)}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition">
+                  💾 Speichern
+                </button>
+                <button onClick={() => { setEditModalOpen(false); setEditingId(null); }}
+                  className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm font-semibold transition">
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Batch Action-Bar */}
       {selectedIds.size > 0 && (

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { getFavorites, toggleFavorite, isFavorite } from "@/lib/favorites";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
@@ -70,8 +69,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "weekend" | "week" | "month">("all");
   const [eventType, setEventType] = useState<"all" | "event" | "camp">("all");
@@ -82,7 +79,6 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    setFavorites(getFavorites());
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
@@ -191,16 +187,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Hero Section */}
-        <section className="text-center mb-3 pt-4 pb-2">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-            🎪 Entdecke Events für deine Kinder
-          </h2>
-          <p className="text-sm text-gray-500">
-            Finde die besten Aktivitäten in der Region Zürich
-          </p>
-        </section>
-
         {/* Search Section */}
         <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-3">
           {/* Search Input */}
@@ -334,27 +320,7 @@ export default function Home() {
         <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h3 className="text-2xl font-bold">
-              🗓️ Events {(()=>{
-              const _f=events.filter(e=>showOnlyFavorites?favorites.includes(e.id):true);
-              const _n=new Date();_n.setHours(0,0,0,0);
-              const _ew=new Date(_n);_ew.setDate(_n.getDate()+7);
-              const _em=new Date(_n);_em.setDate(_n.getDate()+30);
-              const _d=_f.filter(e=>{
-                if(!e.datum||dateFilter==="all")return true;
-                const d=new Date(e.datum+"T00:00:00");
-                if(dateFilter==="today")return d>=_n&&d<=_n;
-                if(dateFilter==="weekend"){
-                  const dow=_n.getDay();
-                  const sat=new Date(_n);sat.setDate(_n.getDate()+(dow===6?7:6-dow));
-                  const sun=new Date(_n);sun.setDate(_n.getDate()+(dow===0?7:7-dow));
-                  return d>=sat&&d<=sun;
-                }
-                if(dateFilter==="week")return d<=_ew;
-                if(dateFilter==="month")return d<=_em;
-                return true;
-              });
-              return _d.length>0&&`(${_d.length})`;
-            })()}
+              🗓️ Events {events.length > 0 && `(${events.length})`}
             </h3>
 
             <div className="flex gap-2">
@@ -382,19 +348,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Favorites Filter */}
-              {events.length > 0 && (
-                <button
-                  onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-                  className={`px-3 py-2 rounded text-sm font-semibold transition ${
-                    showOnlyFavorites
-                      ? "bg-red-600 text-white"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  ❤️ Favoriten {favorites.length > 0 && `(${favorites.length})`}
-                </button>
-              )}
             </div>
           </div>
 
@@ -417,18 +370,12 @@ export default function Home() {
               </p>
             </div>
           ) : viewMode === "map" ? (
-            <MapView
-              sources={sources.filter((s) =>
-                showOnlyFavorites ? favorites.includes(s.id) : true
-              )}
-            />
+            <MapView sources={sources} />
           ) : (
             <>
               {/* Separate sections: Events with date vs. All-year activities */}
               {(() => {
-                const filteredEvents = events.filter((e) =>
-                  showOnlyFavorites ? favorites.includes(e.id) : true
-                );
+                const filteredEvents = events;
 
                 // Apply date quick filter
             const now2 = new Date();
@@ -496,23 +443,7 @@ export default function Home() {
                               >
                                 {/* Category Image with fallback */}
                                 <CategoryImage url={event.kategorie_bild_url} kategorien={event.kategorien} />
-                            {/* Favorite Heart Button */}
-                                <button
-                                  onClick={() => {
-                                    toggleFavorite(event.id);
-                                    setFavorites(getFavorites());
-                                  }}
-                                  className="absolute top-2 right-2 text-2xl transition transform hover:scale-125"
-                                  title={
-                                    isFavorite(event.id)
-                                      ? "Aus Favoriten entfernen"
-                                      : "Zu Favoriten hinzufügen"
-                                  }
-                                >
-                                  {isFavorite(event.id) ? "❤️" : "🤍"}
-                                </button>
-
-                                                                {event.created_at && new Date(event.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
+                                {event.created_at && new Date(event.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
                                   <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">✨ Neu</span>
                                 )}
 <Link href={`/events/${event.id}`} className="block hover:text-indigo-600 transition">
@@ -631,23 +562,7 @@ export default function Home() {
                               >
                                 {/* Category Image with fallback */}
                                 <CategoryImage url={activity.kategorie_bild_url} kategorien={activity.kategorien} />
-                            {/* Favorite Heart Button */}
-                                <button
-                                  onClick={() => {
-                                    toggleFavorite(activity.id);
-                                    setFavorites(getFavorites());
-                                  }}
-                                  className="absolute top-2 right-2 text-2xl transition transform hover:scale-125"
-                                  title={
-                                    isFavorite(activity.id)
-                                      ? "Aus Favoriten entfernen"
-                                      : "Zu Favoriten hinzufügen"
-                                  }
-                                >
-                                  {isFavorite(activity.id) ? "❤️" : "🤍"}
-                                </button>
-
-                                                                {activity.created_at && new Date(activity.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
+                                {activity.created_at && new Date(activity.created_at) > new Date(Date.now() - 7*24*60*60*1000) && (
                                   <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">✨ Neu</span>
                                 )}
 <Link href={`/events/${activity.id}`} className="block hover:text-green-700 transition">

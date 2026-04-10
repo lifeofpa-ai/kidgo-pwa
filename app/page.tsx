@@ -184,23 +184,21 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Hero Section */}
-        <section className="text-center mb-12 py-8">
-          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+        <section className="text-center mb-3 pt-4 pb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
             🎪 Entdecke Events für deine Kinder
           </h2>
-          <p className="text-lg text-gray-600">
+          <p className="text-sm text-gray-500">
             Finde die besten Aktivitäten in der Region Zürich
           </p>
         </section>
 
         {/* Search Section */}
-        <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8">
-          <h3 className="text-2xl font-bold mb-6">🔍 Events suchen</h3>
-
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-3">
           {/* Search Input */}
-          <div className="mb-6">
+          <div className="mb-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Event-Name oder Ort:
+              🔍 Event-Name oder Ort:
             </label>
             <input
               type="text"
@@ -213,8 +211,8 @@ export default function Home() {
           </div>
 
           {/* Category Filter */}
-          <div className="mb-6 sticky top-2 bg-white z-10 rounded-lg">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+          <div className="mb-3 sticky top-2 bg-white z-10 rounded-lg">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Kategorie:
             </label>
             <div className="flex flex-wrap gap-2">
@@ -245,7 +243,7 @@ export default function Home() {
         </section>
 
         {/* Event Type Tabs */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-2">
           {[
             { key: "all", label: "📌 Alle" },
             { key: "event", label: "🎪 Events" },
@@ -266,7 +264,7 @@ export default function Home() {
         </div>
 
         {/* Date Quick Filters */}
-        <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="flex gap-2 mb-3 flex-wrap">
           {[
             { key: "all", label: "📅 Alle Daten" },
             { key: "today", label: "☀️ Heute" },
@@ -289,8 +287,8 @@ export default function Home() {
         </div>
 
         {/* Results Section */}
-        <section className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h3 className="text-2xl font-bold">
               🗓️ Events {(()=>{
               const _f=events.filter(e=>showOnlyFavorites?favorites.includes(e.id):true);
@@ -363,11 +361,11 @@ export default function Home() {
           )}
 
           {loading ? (
-            <div className="text-center py-16">
+            <div className="text-center py-8">
               <p className="text-gray-500 text-lg">⏳ Events werden geladen...</p>
             </div>
           ) : events.length === 0 ? (
-            <div className="text-center py-16">
+            <div className="text-center py-8">
               <p className="text-gray-500 text-lg mb-4">
                 {search || category !== "Alle"
                   ? "😢 Keine Events gefunden"

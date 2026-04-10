@@ -78,6 +78,7 @@ export default function Home() {
   const [serienCounts, setSerienCounts] = useState<Record<string, number>>({});
   const [visibleCountFuture, setVisibleCountFuture] = useState(PAGE_SIZE);
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
+  const [selectedAgeBuckets, setSelectedAgeBuckets] = useState<string[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -129,6 +130,11 @@ export default function Home() {
         );
       }
 
+      // Filter by age buckets if any selected (events without alters_buckets are hidden when filter active)
+      if (selectedAgeBuckets.length > 0) {
+        eventsQuery = eventsQuery.overlaps("alters_buckets", selectedAgeBuckets);
+      }
+
       // Only load main events (Einzel-Events + Haupt-Events von Serien)
       eventsQuery = eventsQuery.is("serie_id", null);
 
@@ -173,12 +179,14 @@ export default function Home() {
   // Auto-search on mount and whenever filters change; debounce only for free-text search
   useEffect(() => {
     if (!mounted) return;
+    setVisibleCountFuture(PAGE_SIZE);
+    setVisibleCountAllYear(PAGE_SIZE);
     const timer = setTimeout(() => {
       handleSearch();
     }, search ? 300 : 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, category, dateFilter, eventType, search]);
+  }, [mounted, category, dateFilter, eventType, search, selectedAgeBuckets]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
@@ -284,6 +292,42 @@ export default function Home() {
               {label}
             </button>
           ))}
+        </div>
+
+        {/* Age Bucket Filter */}
+        <div className="flex gap-2 mb-4 flex-wrap items-center">
+          <span className="text-xs font-medium text-gray-500 flex-shrink-0">👶 Alter:</span>
+          {[
+            { key: "0-3", label: "0–3 J.", title: "Babys & Kleinkinder" },
+            { key: "4-6", label: "4–6 J.", title: "Vorschule" },
+            { key: "7-9", label: "7–9 J.", title: "Unterstufe" },
+            { key: "10-12", label: "10–12 J.", title: "Mittelstufe" },
+          ].map(({ key, label, title }) => (
+            <button
+              key={key}
+              title={title}
+              onClick={() =>
+                setSelectedAgeBuckets((prev) =>
+                  prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key]
+                )
+              }
+              className={`px-2 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex-shrink-0 ${
+                selectedAgeBuckets.includes(key)
+                  ? "bg-purple-600 text-white shadow"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {selectedAgeBuckets.length > 0 && (
+            <button
+              onClick={() => setSelectedAgeBuckets([])}
+              className="px-2 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-600 transition"
+            >
+              ✕ Alle Altersgruppen
+            </button>
+          )}
         </div>
 
         {/* Results Section */}

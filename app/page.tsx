@@ -33,15 +33,17 @@ const categoryColors: Record<string, string> = {
   "Feriencamp": "bg-amber-100 text-amber-600",
 };
 
-function CategoryImage({ url, kategorien }: { url?: string | null; kategorien?: string[] }) {
+function CategoryImage({ url, kategorien, containerClassName }: { url?: string | null; kategorien?: string[]; containerClassName?: string }) {
   const [imgError, setImgError] = useState(false);
   const cat = kategorien?.[0] || "";
   const emoji = categoryEmojis[cat] || "🎪";
   const colors = categoryColors[cat] || "bg-indigo-100 text-indigo-600";
 
+  const containerClass = containerClassName ?? "h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden";
+
   if (url && !imgError) {
     return (
-      <div className="h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden">
+      <div className={containerClass}>
         <img
           src={url}
           alt={cat || "Event"}
@@ -54,7 +56,7 @@ function CategoryImage({ url, kategorien }: { url?: string | null; kategorien?: 
   }
 
   return (
-    <div className={`h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden flex items-center justify-center ${colors}`}>
+    <div className={`${containerClass} flex items-center justify-center ${colors}`}>
       <span className="text-6xl">{emoji}</span>
     </div>
   );
@@ -315,6 +317,72 @@ export default function Home() {
             </button>
           )}
         </div>
+
+        {/* Highlight: Nächste 3 Tage / Dieses Wochenende */}
+        {!loading && events.length > 0 && (() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todayPlus3 = new Date(today);
+          todayPlus3.setDate(today.getDate() + 3);
+          const todayStr = today.toISOString().split("T")[0];
+          const todayPlus3Str = todayPlus3.toISOString().split("T")[0];
+
+          const upcomingEvents = events
+            .filter((e) => e.datum && e.datum >= todayStr && e.datum <= todayPlus3Str)
+            .slice(0, 6);
+
+          if (upcomingEvents.length === 0) return null;
+
+          const dayOfWeek = today.getDay(); // 0=So, 5=Fr, 6=Sa
+          const highlightTitle =
+            dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0
+              ? "🌟 Dieses Wochenende"
+              : "⚡ In den nächsten Tagen";
+
+          const formatDateShort = (dateStr: string) =>
+            new Date(dateStr + "T00:00:00").toLocaleDateString("de-CH", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+
+          return (
+            <section className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 sm:p-5">
+              <h3 className="text-lg font-bold text-amber-800 mb-3">{highlightTitle}</h3>
+              <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
+                {upcomingEvents.map((event: any) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
+                    className="flex-shrink-0 w-44 sm:w-52 bg-white rounded-xl border border-amber-100 hover:border-amber-400 hover:shadow-md transition snap-start overflow-hidden"
+                  >
+                    <CategoryImage
+                      url={event.kategorie_bild_url}
+                      kategorien={event.kategorien}
+                      containerClassName="h-20 overflow-hidden rounded-t-xl"
+                    />
+                    <div className="p-3">
+                      <p className="font-semibold text-sm text-gray-900 line-clamp-2 leading-tight mb-1">
+                        {event.titel}
+                      </p>
+                      <p className="text-xs text-amber-700 font-medium mb-0.5">
+                        📅 {formatDateShort(event.datum)}
+                      </p>
+                      {event.ort && (
+                        <p className="text-xs text-gray-500 truncate">📍 {event.ort}</p>
+                      )}
+                      {event.event_typ === "camp" && (
+                        <span className="inline-block mt-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded">
+                          🏕️ Camp
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Results Section */}
         <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6">

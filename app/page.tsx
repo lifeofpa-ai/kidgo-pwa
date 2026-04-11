@@ -6,6 +6,32 @@ import Link from "next/link";
 
 const PAGE_SIZE = 15;
 
+// Weather sort: re-order within same date group based on indoor/outdoor preference
+function applyWeatherSort(evts: any[], badWeather: boolean): any[] {
+  const rank = (v: string | null | undefined): number => {
+    if (badWeather) {
+      if (v === "indoor") return 0;
+      if (v === "beides") return 1;
+      if (!v) return 2;
+      return 3; // outdoor last
+    } else {
+      if (v === "outdoor") return 0;
+      if (v === "beides") return 1;
+      if (!v) return 2;
+      return 3; // indoor last
+    }
+  };
+  return [...evts].sort((a, b) => {
+    // Primary sort: date ascending (preserve server order)
+    if (a.datum && b.datum) {
+      const dateDiff = a.datum.localeCompare(b.datum);
+      if (dateDiff !== 0) return dateDiff;
+    }
+    // Secondary: weather-based indoor/outdoor rank
+    return rank(a.indoor_outdoor) - rank(b.indoor_outdoor);
+  });
+}
+
 const categoryEmojis: Record<string, string> = {
   "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
   "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
@@ -70,12 +96,28 @@ export default function Home() {
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
   const [selectedAgeBuckets, setSelectedAgeBuckets] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [weatherCode, setWeatherCode] = useState<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Fetch current weather silently — used only for background sorting
+  useEffect(() => {
+    fetch(
+      "https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m"
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        const code = data?.current?.weather_code;
+        if (typeof code === "number") setWeatherCode(code);
+      })
+      .catch(() => {
+        // Fallback: leave weatherCode null → no sorting change
+      });
   }, []);
 
   const categories = [
@@ -415,8 +457,15 @@ export default function Home() {
               if (dateFilter === "month") return d <= endOfMonth;
               return true;
             });
-            const futureEvents = dateFiltered.filter((e) => e.datum);
-                const allYearActivities = dateFiltered.filter((e) => !e.datum);
+                const isBadWeather = weatherCode !== null && weatherCode >= 51;
+                const futureEvents = applyWeatherSort(
+                  dateFiltered.filter((e) => e.datum),
+                  isBadWeather
+                );
+                const allYearActivities = applyWeatherSort(
+                  dateFiltered.filter((e) => !e.datum),
+                  isBadWeather
+                );
 
                 // Helper function to format date
                 const formatDate = (dateStr: string, dateEndStr?: string | null) => {

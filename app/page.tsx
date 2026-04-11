@@ -3,12 +3,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-
-const MapView = dynamic(() => import("@/components/MapView"), {
-  ssr: false,
-  loading: () => <div className="h-96 bg-gray-200 rounded-lg animate-pulse" />,
-});
 
 const PAGE_SIZE = 15;
 
@@ -65,19 +59,17 @@ function CategoryImage({ url, kategorien, containerClassName }: { url?: string |
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Alle");
   const [sources, setSources] = useState<any[]>([]); // Quellen für Link-Buttons
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "weekend" | "week" | "month">("all");
-  const [eventType, setEventType] = useState<"all" | "event" | "camp">("all");
   const [serienCounts, setSerienCounts] = useState<Record<string, number>>({});
   const [visibleCountFuture, setVisibleCountFuture] = useState(PAGE_SIZE);
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
   const [selectedAgeBuckets, setSelectedAgeBuckets] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -87,7 +79,7 @@ export default function Home() {
   }, []);
 
   const categories = [
-    "Alle", "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
+    "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
     "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Feriencamp",
   ];
 
@@ -111,14 +103,9 @@ export default function Home() {
       // 2. Fetch Events with filtering
       let eventsQuery = supabase.from("events").select("*");
 
-      // Filter by category if not "Alle"
-      if (category !== "Alle") {
-        eventsQuery = eventsQuery.contains("kategorien", [category]);
-      }
-
-      // Filter by event type
-      if (eventType !== "all") {
-        eventsQuery = eventsQuery.eq("event_typ", eventType);
+      // Filter by selected categories (multi-select, overlaps = event must have at least one selected category)
+      if (selectedCategories.length > 0) {
+        eventsQuery = eventsQuery.overlaps("kategorien", selectedCategories);
       }
 
       // Filter by search text if provided
@@ -184,7 +171,7 @@ export default function Home() {
     }, search ? 300 : 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, category, dateFilter, eventType, search, selectedAgeBuckets]);
+  }, [mounted, selectedCategories, dateFilter, search, selectedAgeBuckets]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
@@ -206,25 +193,34 @@ export default function Home() {
             />
           </div>
 
-          {/* Category Filter */}
-          <div className="mb-3 sticky top-2 bg-white z-10 rounded-lg">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Kategorie:
-            </label>
-            <div className="flex flex-wrap gap-2">
+          {/* Category Filter (multi-select) */}
+          <div className="mb-3">
+            <div className="flex flex-wrap gap-2 items-center">
               {categories.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setCategory(cat)}
-                  className={`px-4 py-2 rounded-lg font-medium transition transform hover:scale-105 ${
-                    category === cat
+                  onClick={() =>
+                    setSelectedCategories((prev) =>
+                      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+                    )
+                  }
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex-shrink-0 ${
+                    selectedCategories.includes(cat)
                       ? "bg-indigo-600 text-white shadow-md"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
                   {categoryEmojis[cat] ? `${categoryEmojis[cat]} ` : ""}{cat}
                 </button>
               ))}
+              {selectedCategories.length > 0 && (
+                <button
+                  onClick={() => setSelectedCategories([])}
+                  className="px-2 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-600 transition"
+                >
+                  ✕ Alle Kategorien
+                </button>
+              )}
             </div>
           </div>
 
@@ -237,27 +233,6 @@ export default function Home() {
             {loading ? "⏳ Lädt..." : "✅ Suchen"}
           </button>
         </section>
-
-        {/* Event Type Tabs */}
-        <div className="flex gap-2 mb-2">
-          {[
-            { key: "all", label: "📌 Alle" },
-            { key: "event", label: "🎪 Events" },
-            { key: "camp", label: "🏕️ Camps & Ferienlager" },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setEventType(key as "all" | "event" | "camp")}
-              className={`px-4 py-2 rounded-lg font-semibold transition ${
-                eventType === key
-                  ? "bg-indigo-600 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
 
         {/* Date Quick Filters */}
         <div className="flex gap-2 mb-3 flex-wrap">
@@ -386,37 +361,10 @@ export default function Home() {
 
         {/* Results Section */}
         <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <div className="mb-4">
             <h3 className="text-2xl font-bold">
               🗓️ Events {events.length > 0 && `(${events.length})`}
             </h3>
-
-            <div className="flex gap-2">
-              {/* View Toggle */}
-              <div className="flex gap-1 bg-gray-200 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`px-3 py-2 rounded text-sm font-semibold transition ${
-                    viewMode === "list"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-transparent text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  📋 Liste
-                </button>
-                <button
-                  onClick={() => setViewMode("map")}
-                  className={`px-3 py-2 rounded text-sm font-semibold transition ${
-                    viewMode === "map"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-transparent text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  🗺️ Karte
-                </button>
-              </div>
-
-            </div>
           </div>
 
           {error && (
@@ -432,13 +380,11 @@ export default function Home() {
           ) : events.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 text-lg mb-4">
-                {search || category !== "Alle"
+                {search || selectedCategories.length > 0
                   ? "😢 Keine Events gefunden"
                   : "🎯 Nutze die Suchfunktion oben, um Events zu finden!"}
               </p>
             </div>
-          ) : viewMode === "map" ? (
-            <MapView sources={sources} />
           ) : (
             <>
               {/* Separate sections: Events with date vs. All-year activities */}

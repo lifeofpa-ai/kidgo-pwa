@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 const categoryEmojis: Record<string, string> = {
   "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
@@ -66,7 +66,6 @@ const formatDate = (dateStr: string, dateEndStr?: string | null) => {
 
 export default function EventDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
   const [event, setEvent] = useState<any>(null);
   const [source, setSource] = useState<any>(null);
@@ -148,12 +147,12 @@ export default function EventDetailPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
-        <button
-          onClick={() => router.back()}
-          className="text-indigo-600 hover:text-indigo-800 font-medium mb-6 transition"
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium mb-6 transition"
         >
-          ← Zurück
-        </button>
+          ← Zurück zu meinen Empfehlungen
+        </Link>
 
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className={`h-2 ${event.datum ? "bg-indigo-500" : "bg-green-500"}`} />
@@ -295,9 +294,9 @@ export default function EventDetailPage() {
         </div>
 
         <footer className="mt-8 text-center text-gray-400 text-sm">
-          <Link href="/" className="hover:text-indigo-500 transition">← Alle Events</Link>
+          <Link href="/" className="hover:text-indigo-500 transition">← Zurück zu meinen Empfehlungen</Link>
           {" · "}
-          <span>kidgo-app.vercel.app</span>
+          <Link href="/explore" className="hover:text-indigo-500 transition">Alle Events</Link>
         </footer>
       </div>
     </main>

@@ -1054,6 +1054,9 @@ export default function Home() {
   const [recentVisits, setRecentVisits] = useState<CompactEvent[]>([]);
   const [bookmarks, setBookmarks] = useState<CompactEvent[]>([]);
 
+  // Sprint 7: Search history
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
   useEffect(() => {
     setMounted(true);
     setIsDark(document.documentElement.classList.contains("dark"));
@@ -1092,6 +1095,32 @@ export default function Home() {
       const raw = localStorage.getItem("kidgo_bookmarks");
       if (raw) setBookmarks(JSON.parse(raw));
     } catch {}
+    try {
+      const raw = localStorage.getItem("kidgo_search_history");
+      if (raw) setSearchHistory(JSON.parse(raw));
+    } catch {}
+
+    // Register service worker + check reminders on app open
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        const raw = localStorage.getItem("kidgo_reminders");
+        if (raw) {
+          const reminders: { id: string; titel: string; datum: string; ort: string }[] = JSON.parse(raw);
+          const today = new Date().toISOString().split("T")[0];
+          const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+          navigator.serviceWorker.ready.then((reg) => {
+            for (const r of reminders) {
+              if (r.datum === today || r.datum === tomorrow) {
+                reg.active?.postMessage({ type: "SHOW_REMINDER", ...r });
+              }
+            }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
   }, []);
 
   useEffect(() => {
@@ -1367,6 +1396,12 @@ export default function Home() {
 
     const message = buildChatResponse(parsedWithBuckets, filtered.length, weatherCode, now);
     setChatResult({ message, events: scored });
+
+    setSearchHistory((prev) => {
+      const next = [q, ...prev.filter((h) => h !== q)].slice(0, 5);
+      try { localStorage.setItem("kidgo_search_history", JSON.stringify(next)); } catch {}
+      return next;
+    });
 
     setTimeout(() => {
       chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -2082,6 +2117,51 @@ export default function Home() {
                 ))}
               </div>
 
+              {/* Search history — shown when input is empty */}
+              {chatInput.trim() === "" && searchHistory.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-gray-400 font-medium">Letzte Suchen:</span>
+                    <button
+                      onClick={() => {
+                        setSearchHistory([]);
+                        try { localStorage.removeItem("kidgo_search_history"); } catch {}
+                      }}
+                      className="text-xs text-gray-300 hover:text-gray-400 transition ml-auto"
+                    >
+                      Verlauf löschen
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {searchHistory.map((h) => (
+                      <div key={h} className="inline-flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1">
+                        <button
+                          onClick={() => handleChatQuery(h)}
+                          className="text-xs text-gray-600 hover:text-orange-600 transition"
+                        >
+                          {h}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSearchHistory((prev) => {
+                              const next = prev.filter((x) => x !== h);
+                              try { localStorage.setItem("kidgo_search_history", JSON.stringify(next)); } catch {}
+                              return next;
+                            });
+                          }}
+                          className="text-gray-300 hover:text-gray-500 transition leading-none"
+                          aria-label="Entfernen"
+                        >
+                          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                            <path d="M2 2l6 6M8 2l-6 6"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -2431,9 +2511,49 @@ export default function Home() {
           </div>
         )}
 
+        {/* Kidgo in Zahlen — only show when events are loaded */}
+        {!loading && allEventsPool.length > 0 && (() => {
+          const now = new Date();
+          const dayOfWeek = now.getDay();
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+          startOfWeek.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          const ws = startOfWeek.toISOString().split("T")[0];
+          const we = endOfWeek.toISOString().split("T")[0];
+          const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+          const eventsThisWeek = allEventsPool.filter((e) => e.datum && e.datum >= ws && e.datum <= we).length;
+          const newEvents = allEventsPool.filter((e) => e.created_at > oneWeekAgo).length;
+          const uniqueSources = new Set(allEventsPool.map((e) => e.quelle_id).filter(Boolean)).size;
+          return (
+            <div className="mt-8 border-t border-gray-100 pt-6">
+              <p className="text-xs text-gray-400 uppercase tracking-wider text-center mb-4 font-semibold">
+                Kidgo in Zahlen
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-gray-700">{eventsThisWeek}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">Events<br/>diese Woche</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-700">{newEvents}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">Neue<br/>Events</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-700">{uniqueSources}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">Quellen<br/>verknüpft</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <footer className="mt-10 border-t border-gray-100 pt-6 pb-8 text-center">
           <p className="text-xs text-gray-400 mb-2">© 2026 kidgo · Zürich</p>
           <nav aria-label="Footer-Navigation" className="flex items-center justify-center gap-4 text-xs text-gray-400">
+            <Link href="/map" className="hover:text-gray-600 transition">Karte</Link>
+            <span aria-hidden="true">·</span>
             <Link href="/impressum" className="hover:text-gray-600 transition">Impressum</Link>
             <span aria-hidden="true">·</span>
             <Link href="/datenschutz" className="hover:text-gray-600 transition">Datenschutz</Link>

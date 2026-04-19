@@ -158,29 +158,68 @@ const categoryEmojis: Record<string, string> = {
 // UTILITY FUNCTIONS
 // ============================================================
 
+const ZH_HOLIDAYS_2026 = [
+  { name: "Frühlingsferien",  from: "2026-04-11", to: "2026-04-25" },
+  { name: "Sommerferien",     from: "2026-07-11", to: "2026-08-15" },
+  { name: "Herbstferien",     from: "2026-10-10", to: "2026-10-24" },
+  { name: "Weihnachtsferien", from: "2026-12-19", to: "2027-01-02" },
+];
+
+function localDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  const d = date.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getActiveHoliday(date: Date): string | null {
+  const ds = localDateStr(date);
+  for (const h of ZH_HOLIDAYS_2026) {
+    if (ds >= h.from && ds <= h.to) return h.name;
+  }
+  return null;
+}
+
 function isSchoolHoliday(date: Date): boolean {
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  return (
-    (m === 4 && d >= 11 && d <= 25) ||
-    (m === 7 && d >= 11) ||
-    (m === 8 && d <= 15) ||
-    (m === 10 && d >= 10 && d <= 24) ||
-    (m === 12 && d >= 19) ||
-    (m === 1 && d <= 2)
-  );
+  return getActiveHoliday(date) !== null;
+}
+
+function getWeekStart(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  return localDateStr(d);
+}
+
+function computeEntdeckerScore(count: number): number {
+  if (count <= 1) return 10;
+  if (count <= 3) return 9;
+  if (count <= 5) return 8;
+  if (count <= 7) return 7;
+  if (count <= 9) return 6;
+  if (count <= 15) return 5;
+  if (count <= 25) return 4;
+  if (count <= 40) return 3;
+  return 2;
 }
 
 function getHeadline(now: Date): { title: string; subtitle: string } {
   const dow = now.getDay();
   const h = now.getHours();
-  if (isSchoolHoliday(now))
-    return { title: "Ferientipp für euch", subtitle: "Schulferien — Zeit für Abenteuer!" };
+  const holiday = getActiveHoliday(now);
+  if (holiday)
+    return { title: "Ferientipp für euch 🏖️", subtitle: `${holiday} — Zeit für Abenteuer!` };
   if (dow === 6 || dow === 0 || (dow === 5 && h >= 15))
     return { title: "Dieses Wochenende für euch", subtitle: "Passend ausgewählt für dein Kind" };
   if (dow === 3 && h >= 11 && h <= 18)
     return { title: "Mittwochnachmittag-Tipps 🎒", subtitle: "Heute Nachmittag was Tolles unternehmen" };
-  return { title: "Heute für euch", subtitle: "Passend ausgewählt für dein Kind" };
+  if (h >= 6 && h < 12)
+    return { title: "Guten Morgen! Was unternehmt ihr heute?", subtitle: "Passend ausgewählt für dein Kind" };
+  if (h >= 12 && h < 17)
+    return { title: "Nachmittagsprogramm gesucht?", subtitle: "Passend ausgewählt für dein Kind" };
+  if (h >= 17 && h < 21)
+    return { title: "Für morgen planen?", subtitle: "Schau was morgen passt" };
+  return { title: "Schlaf gut! Hier sind Ideen für morgen.", subtitle: "Schon mal für morgen planen" };
 }
 
 function weatherIcon(code: number): string {
@@ -281,6 +320,21 @@ function scoreEvent(
   if (m >= 9 && m <= 11 && (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor" || descLow.includes("bastel") || titleLow.includes("bastel"))) score += 3;
   if ((m === 12 || m <= 2) && (descLow.includes("weihnacht") || descLow.includes("eis") || descLow.includes("advent") || cats.includes("Kreativ"))) score += 3;
 
+  // +5: holiday camp boost
+  if (isSchoolHoliday(now)) {
+    const isCamp =
+      event.event_typ === "camp" ||
+      cats.includes("Feriencamp") ||
+      descLow.includes("camp") ||
+      descLow.includes("ferienlager");
+    if (isCamp) { score += 5; reasons.push("🏖️ Ferientipp!"); }
+  }
+
+  // Time-of-day bonus
+  const hour = now.getHours();
+  if (hour >= 6 && hour < 12 && !event.datum) score += 3;
+  else if (hour >= 12 && hour < 17 && event.datum && !event.datum_ende) score += 2;
+
   // -5: old (>30 days)
   if (
     event.created_at &&
@@ -376,7 +430,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
     Theater:     ["theater", "zirkus", "puppentheater"],
     Musik:       ["musik", "konzert", "singen"],
     Tanz:        ["tanz", "tanzen"],
-    Feriencamp:  ["camp", "ferienlager"],
+    Feriencamp:  ["camp", "ferienlager", "ferien"],
   };
   const keywords: string[] = [];
   for (const [cat, kws] of Object.entries(kwMap)) {
@@ -596,6 +650,8 @@ function RecommendationCard({
   animIndex,
   selectedBuckets = [],
   isSeriesParent = false,
+  isGeheimtipp = false,
+  entdeckerScore,
 }: {
   event: KidgoEvent;
   reasons: string[];
@@ -604,6 +660,8 @@ function RecommendationCard({
   animIndex: number;
   selectedBuckets?: string[];
   isSeriesParent?: boolean;
+  isGeheimtipp?: boolean;
+  entdeckerScore?: number;
 }) {
   const source = sources.find((s) => s.id === event.quelle_id);
 
@@ -636,18 +694,21 @@ function RecommendationCard({
           className="h-48 w-full overflow-hidden"
         />
         <div className="p-4">
-          {shownReasons.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-2.5">
-              {shownReasons.map((r, i) => (
-                <span
-                  key={i}
-                  className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-100"
-                >
-                  {r}
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1.5 mb-2.5">
+            {isGeheimtipp && (
+              <span className="bg-purple-50 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full border border-purple-200">
+                💎 Geheimtipp
+              </span>
+            )}
+            {shownReasons.map((r, i) => (
+              <span
+                key={i}
+                className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-100"
+              >
+                {r}
+              </span>
+            ))}
+          </div>
 
           <h3 className="font-bold text-gray-900 text-lg leading-snug mb-1.5 group-hover:text-orange-600 transition-colors">
             {event.titel}
@@ -684,23 +745,28 @@ function RecommendationCard({
             </p>
           )}
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
-            {event.datum && (
-              <span className="flex items-center gap-1">
-                <span className="text-orange-400">📅</span>
-                {formatDateShort(event.datum)}
-              </span>
-            )}
-            {!event.datum && (
-              <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                <span>🎢</span> Ganzjährig geöffnet
-              </span>
-            )}
-            {event.ort && (
-              <span className="flex items-center gap-1 truncate max-w-[200px]">
-                <span className="text-orange-400">📍</span>
-                {event.ort}
-              </span>
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+              {event.datum && (
+                <span className="flex items-center gap-1">
+                  <span className="text-orange-400">📅</span>
+                  {formatDateShort(event.datum)}
+                </span>
+              )}
+              {!event.datum && (
+                <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                  <span>🎢</span> Ganzjährig geöffnet
+                </span>
+              )}
+              {event.ort && (
+                <span className="flex items-center gap-1 truncate max-w-[200px]">
+                  <span className="text-orange-400">📍</span>
+                  {event.ort}
+                </span>
+              )}
+            </div>
+            {entdeckerScore !== undefined && (
+              <span className="flex-shrink-0 text-xs text-amber-500 font-medium">⭐ {entdeckerScore}/10</span>
             )}
           </div>
         </div>
@@ -752,6 +818,13 @@ export default function Home() {
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [seriesParentIds, setSeriesParentIds] = useState<Set<string>>(new Set());
 
+  // Feature 2: Entdecker-Score
+  const [sourceCountMap, setSourceCountMap] = useState<Map<string, number>>(new Map());
+  const [smallSourceIds, setSmallSourceIds] = useState<Set<string>>(new Set());
+
+  // Feature 4: Streak
+  const [visitCount, setVisitCount] = useState(0);
+
   useEffect(() => {
     setMounted(true);
     try {
@@ -763,6 +836,13 @@ export default function Home() {
           if (parsed.length > 1) setMultiChild(true);
           setStep("recommendations");
         }
+      }
+    } catch {}
+    try {
+      const raw = localStorage.getItem("kidgo_visit_streak");
+      if (raw) {
+        const streak = JSON.parse(raw);
+        if (streak.weekStart === getWeekStart(new Date())) setVisitCount(streak.count);
       }
     } catch {}
   }, []);
@@ -890,6 +970,18 @@ export default function Home() {
 
       setAllEventsPool(eventsData);
 
+      // Compute source event counts for Entdecker-Score
+      const countMap = new Map<string, number>();
+      for (const e of eventsData) {
+        if (e.quelle_id) countMap.set(e.quelle_id, (countMap.get(e.quelle_id) || 0) + 1);
+      }
+      setSourceCountMap(countMap);
+      const smallIds = new Set<string>();
+      for (const [sid, cnt] of countMap) {
+        if (cnt < 10) smallIds.add(sid);
+      }
+      setSmallSourceIds(smallIds);
+
       const ageFiltered = eventsData.filter(
         (e) =>
           !e.alters_buckets ||
@@ -906,7 +998,17 @@ export default function Home() {
 
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
       shuffled.sort((a, b) => b.score - a.score);
-      setRecommendations(shuffled.slice(0, 3));
+
+      // Ensure 1 of top 3 is a Geheimtipp if available
+      const geheimtipps = shuffled.filter((e) => e.quelle_id && smallIds.has(e.quelle_id));
+      const regular = shuffled.filter((e) => !e.quelle_id || !smallIds.has(e.quelle_id));
+      let recs: ScoredEvent[];
+      if (geheimtipps.length > 0 && regular.length >= 2) {
+        recs = [regular[0], regular[1], geheimtipps[0]];
+      } else {
+        recs = shuffled.slice(0, 3);
+      }
+      setRecommendations(recs);
     } catch (e) {
       console.error("Fehler beim Laden der Empfehlungen:", e);
     }
@@ -1148,6 +1250,17 @@ export default function Home() {
           )}
         </header>
 
+        {/* Feature 1: Holiday banner */}
+        {isSchoolHoliday(now) && (
+          <div className="mb-5 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow-md">
+            <span className="text-3xl">🏖️</span>
+            <div>
+              <p className="font-bold text-base">Ferienzeit! Entdecke Camps und Ausflüge</p>
+              <p className="text-amber-100 text-sm mt-0.5">{getActiveHoliday(now)} — Zürich</p>
+            </div>
+          </div>
+        )}
+
         {/* Loading state */}
         {loading && (
           <div className="flex flex-col items-center py-16 gap-4">
@@ -1174,18 +1287,23 @@ export default function Home() {
         {/* Recommendation cards */}
         {!loading && recommendations.length > 0 && (
           <div className="space-y-4">
-            {recommendations.map((event, i) => (
-              <RecommendationCard
-                key={event.id}
-                event={event}
-                reasons={event.reasons}
-                sources={sources}
-                userLocation={userLocation}
-                animIndex={i}
-                selectedBuckets={selectedBuckets}
-                isSeriesParent={seriesParentIds.has(event.id)}
-              />
-            ))}
+            {recommendations.map((event, i) => {
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <RecommendationCard
+                  key={event.id}
+                  event={event}
+                  reasons={event.reasons}
+                  sources={sources}
+                  userLocation={userLocation}
+                  animIndex={i}
+                  selectedBuckets={selectedBuckets}
+                  isSeriesParent={seriesParentIds.has(event.id)}
+                  isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                  entdeckerScore={computeEntdeckerScore(cnt)}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -1485,6 +1603,22 @@ export default function Home() {
             Alle Events entdecken →
           </Link>
         </div>
+
+        {/* Feature 4: Weekly visit streak */}
+        {visitCount > 0 && (
+          <div className="mt-4 text-center">
+            {visitCount >= 3 ? (
+              <span className="text-sm text-orange-500 font-semibold">
+                🔥 Du bist ein Kidgo-Entdecker! {visitCount} Events diese Woche angeschaut
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400">
+                {visitCount} {visitCount === 1 ? "Event" : "Events"} diese Woche angeschaut
+                {" — "}noch {3 - visitCount} bis zum Wochenend-Entdecker!
+              </span>
+            )}
+          </div>
+        )}
 
         <footer className="mt-6 text-center text-xs text-gray-300 pb-4">
           <a href="/admin" className="hover:text-gray-400 transition">Admin</a>

@@ -111,7 +111,23 @@ export default function EventDetailPage() {
   const [serieTermine, setSerieTermine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [shared, setShared] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [similarEvents, setSimilarEvents] = useState<any[]>([]);
+
+  // Feature 4: Record weekly visit
+  useEffect(() => {
+    try {
+      const now = new Date();
+      const day = now.getDay();
+      const d = new Date(now);
+      d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+      const ws = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+      const raw = localStorage.getItem("kidgo_visit_streak");
+      const streak = raw ? JSON.parse(raw) : { count: 0, weekStart: ws };
+      const newCount = streak.weekStart === ws ? streak.count + 1 : 1;
+      localStorage.setItem("kidgo_visit_streak", JSON.stringify({ count: newCount, weekStart: ws }));
+    } catch {}
+  }, [id]);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -172,16 +188,41 @@ export default function EventDetailPage() {
     fetchEvent();
   }, [id]);
 
-  const handleShare = () => {
+  const buildShareText = () => {
+    if (!event) return "";
     const url = window.location.href;
+    const dateStr = event.datum
+      ? new Date(event.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "long" })
+      : null;
+    const loc = event.ort ? ` in ${event.ort.split(",")[0].trim()}` : "";
+    return `Schau dir das an: ${event.titel}${dateStr ? ` am ${dateStr}` : ""}${loc} — gefunden auf Kidgo! ${url}`;
+  };
+
+  const handleShare = () => {
+    if (!event) return;
+    const url = window.location.href;
+    const text = buildShareText();
     if (navigator.share) {
-      navigator.share({ title: event?.titel, text: event?.beschreibung?.slice(0, 100), url });
+      navigator.share({ title: event.titel, text, url }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(url).then(() => {
-        setShared(true);
-        setTimeout(() => setShared(false), 2000);
-      });
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {});
     }
+  };
+
+  const handleCopyLink = () => {
+    const text = buildShareText();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  const getWhatsAppUrl = () => {
+    const text = buildShareText();
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
 
   const handleICSDownload = () => {
@@ -431,20 +472,32 @@ export default function EventDetailPage() {
               )}
               <button
                 onClick={handleShare}
-                className={`flex items-center justify-center gap-2 px-5 py-4 rounded-xl font-semibold transition ${shared ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                className="flex items-center justify-center gap-2 px-5 py-4 rounded-xl font-semibold transition bg-gray-100 text-gray-700 hover:bg-gray-200"
               >
-                {shared ? (
-                  <>✓ Link kopiert!</>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                    </svg>
-                    Teilen
-                  </>
-                )}
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+                Teilen
               </button>
+            </div>
+
+            {/* Feature 5: Share options */}
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={handleCopyLink}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition ${copied ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
+              >
+                {copied ? "✓ Kopiert!" : "🔗 Link kopieren"}
+              </button>
+              <a
+                href={getWhatsAppUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+              >
+                💬 WhatsApp
+              </a>
             </div>
 
             {/* ===== FEATURE 2: ÄHNLICHE EVENTS ===== */}

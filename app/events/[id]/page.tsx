@@ -165,6 +165,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [similarEvents, setSimilarEvents] = useState<any[]>([]);
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
     try {
@@ -189,6 +190,25 @@ export default function EventDetailPage() {
         .single();
       if (eventData) {
         setEvent(eventData);
+
+        // Track this visit
+        try {
+          const raw = localStorage.getItem("kidgo_recent_visits");
+          const visits: any[] = raw ? JSON.parse(raw) : [];
+          const filtered = visits.filter((v: any) => v.id !== eventData.id);
+          const compact = { id: eventData.id, titel: eventData.titel, datum: eventData.datum, ort: eventData.ort, kategorie_bild_url: eventData.kategorie_bild_url, kategorien: eventData.kategorien };
+          localStorage.setItem("kidgo_recent_visits", JSON.stringify([compact, ...filtered].slice(0, 10)));
+        } catch {}
+
+        // Load bookmark state
+        try {
+          const raw = localStorage.getItem("kidgo_bookmarks");
+          if (raw) {
+            const bms: { id: string }[] = JSON.parse(raw);
+            setIsBookmarked(bms.some((b) => b.id === eventData.id));
+          }
+        } catch {}
+
         if (eventData.quelle_id) {
           const { data: sourceData } = await supabase
             .from("quellen")
@@ -236,6 +256,20 @@ export default function EventDetailPage() {
     };
     fetchEvent();
   }, [id]);
+
+  const toggleBookmarkDetail = () => {
+    if (!event) return;
+    try {
+      const raw = localStorage.getItem("kidgo_bookmarks");
+      const bms: any[] = raw ? JSON.parse(raw) : [];
+      const exists = bms.some((b) => b.id === event.id);
+      const next = exists
+        ? bms.filter((b) => b.id !== event.id)
+        : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...bms];
+      localStorage.setItem("kidgo_bookmarks", JSON.stringify(next));
+      setIsBookmarked(!exists);
+    } catch {}
+  };
 
   const buildShareText = () => {
     if (!event) return "";
@@ -548,6 +582,19 @@ export default function EventDetailPage() {
 
           {/* CTA buttons */}
           <div className="mt-8 space-y-3">
+            <button
+              onClick={toggleBookmarkDetail}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition border ${
+                isBookmarked
+                  ? "bg-orange-50 text-orange-600 border-orange-200"
+                  : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-orange-300 hover:text-orange-600"
+              }`}
+            >
+              <svg width="15" height="15" viewBox="0 0 14 14" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 2h10v11L7 10 2 13V2z"/>
+              </svg>
+              {isBookmarked ? "Gemerkt" : "Event merken"}
+            </button>
             {ctaUrl && (
               <a
                 href={ctaUrl}

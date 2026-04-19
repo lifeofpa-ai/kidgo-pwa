@@ -38,6 +38,15 @@ interface ScoredEvent extends KidgoEvent {
   reasons: string[];
 }
 
+interface CompactEvent {
+  id: string;
+  titel: string;
+  datum: string | null;
+  ort: string | null;
+  kategorie_bild_url: string | null;
+  kategorien: string[] | null;
+}
+
 interface ParsedQuery {
   ageBuckets: string[];
   indoor: boolean | null;
@@ -587,27 +596,56 @@ function filterByQuery(events: KidgoEvent[], parsed: ParsedQuery): KidgoEvent[] 
   });
 }
 
-function buildChatResponse(parsed: ParsedQuery, total: number): string {
+function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: number | null, now: Date): string {
   if (total === 0) {
-    return "Hmm, da habe ich gerade nichts Passendes. Versuch's mit anderen Worten oder schau in alle Events.";
+    const alts = [["Museum", "Outdoor"], ["Theater", "Gratis"], ["Sport", "Kreativ"], ["Ausflug", "Natur"]];
+    const pair = alts[Math.floor(Date.now() / 1000) % alts.length];
+    return `Dazu habe ich leider nichts gefunden. Versuch mal "${pair[0]}" oder "${pair[1]}" — oder schau in alle Events.`;
   }
-  const parts: string[] = [];
-  if (parsed.childNames.length >= 2) {
-    const names = parsed.childNames.map((c) => `${c.name} (${c.bucket})`).join(" und ");
-    parts.push(`Für ${names}`);
-  } else if (parsed.ageBuckets.length > 0) {
-    const labels = parsed.ageBuckets
-      .map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b)
-      .join(" und ");
-    parts.push(`Für ${labels}`);
-  }
-  if (parsed.indoor === true) parts.push("bei Regen");
-  if (parsed.indoor === false) parts.push("bei schönem Wetter");
-  if (parsed.freeOnly) parts.push("gratis");
-  if (parsed.keywords.length > 0) parts.push(parsed.keywords.join(" & "));
-  const ctx = parts.length ? parts.join(", ") + " — " : "";
   const n = Math.min(3, total);
-  return `${ctx}${n} ${n === 1 ? "Tipp" : "Tipps"} gefunden:`;
+  const h = now.getHours();
+  const dow = now.getDay();
+  const isRainy = weatherCode !== null && weatherCode >= 51;
+  const weatherCtx = isRainy ? " bei Regen" : "";
+
+  if (parsed.childNames.length >= 2) {
+    const names = parsed.childNames.map((c) => c.name).join(" und ");
+    return `Für ${names}${weatherCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+  }
+
+  if (parsed.dateFrom) {
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((parsed.dateFrom.getTime() - today.getTime()) / 86400000);
+    const dateLabel = diff === 0 ? "heute" : diff === 1 ? "morgen" :
+      parsed.dateFrom.toLocaleDateString("de-CH", { weekday: "long" });
+    const kwCtx = parsed.keywords.length > 0 ? ` ${parsed.keywords[0].toLowerCase()}` : "";
+    return `Für euren ${dateLabel}${kwCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+  }
+
+  if (parsed.keywords.length > 0) {
+    const kw = parsed.keywords[0].toLowerCase();
+    const ageCtx = parsed.ageBuckets.length > 0
+      ? ` für ${parsed.ageBuckets.map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b).join(" & ")}`
+      : "";
+    return `${n} ${kw}${ageCtx ? `-Ideen${ageCtx}` : " Tipps"} gefunden:`;
+  }
+
+  if (parsed.ageBuckets.length > 0) {
+    const labels = parsed.ageBuckets.map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b).join(" & ");
+    const timeCtx = dow === 3 && h >= 11 && h <= 18 ? "Mittwochnachmittag" :
+      (dow === 0 || dow === 6) ? "Wochenende" :
+      h < 12 ? "Vormittag" : h < 17 ? "Nachmittag" : "Abend";
+    return `Für ${labels}${weatherCtx} — ${n} ${n === 1 ? "Tipp" : "Tipps"} für euren ${timeCtx}:`;
+  }
+
+  if (parsed.freeOnly) {
+    return `${n} kostenlose ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+  }
+
+  const timeCtx = dow === 3 && h >= 11 && h <= 18 ? "Mittwochnachmittag" :
+    (dow === 0 || dow === 6) ? "Wochenende" :
+    h < 12 ? "Vormittag" : h < 17 ? "Nachmittag" : "Abend";
+  return `${n} ${n === 1 ? "Tipp" : "Tipps"} für euren ${timeCtx}${weatherCtx}:`;
 }
 
 // ============================================================
@@ -767,6 +805,19 @@ function formatDateShort(dateStr: string): string {
   });
 }
 
+function getCountdownLabel(dateStr: string, now: Date): { label: string; urgent: boolean } {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eventDate = new Date(dateStr + "T00:00:00");
+  const diff = Math.round((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { label: formatDateShort(dateStr), urgent: false };
+  if (diff === 0) return { label: "Heute", urgent: true };
+  if (diff === 1) return { label: "Morgen", urgent: true };
+  if (diff === 2) return { label: "Übermorgen", urgent: false };
+  if (diff <= 6) return { label: `In ${diff} Tagen`, urgent: false };
+  if (diff <= 13) return { label: "Nächste Woche", urgent: false };
+  return { label: formatDateShort(dateStr), urgent: false };
+}
+
 function RecommendationCard({
   event,
   reasons,
@@ -777,6 +828,8 @@ function RecommendationCard({
   isSeriesParent = false,
   isGeheimtipp = false,
   entdeckerScore,
+  isBookmarked = false,
+  onBookmark,
 }: {
   event: KidgoEvent;
   reasons: string[];
@@ -787,6 +840,8 @@ function RecommendationCard({
   isSeriesParent?: boolean;
   isGeheimtipp?: boolean;
   entdeckerScore?: number;
+  isBookmarked?: boolean;
+  onBookmark?: (e: React.MouseEvent) => void;
 }) {
   const source = sources.find((s) => s.id === event.quelle_id);
 
@@ -812,7 +867,22 @@ function RecommendationCard({
       className="block group card-enter"
       style={{ animationDelay: `${animIndex * 80}ms` }}
     >
-      <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-orange-200 group-hover:-translate-y-0.5">
+      <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-orange-200 group-hover:-translate-y-0.5 relative">
+          {onBookmark && (
+            <button
+              onClick={onBookmark}
+              aria-label={isBookmarked ? "Aus Merkliste entfernen" : "Event merken"}
+              className={`absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full shadow-sm transition-all ${
+                isBookmarked
+                  ? "bg-orange-400 text-white"
+                  : "bg-white/90 text-gray-300 hover:text-orange-500"
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 14 14" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 2h10v11L7 10 2 13V2z"/>
+              </svg>
+            </button>
+          )}
         <EventImage
           url={event.kategorie_bild_url}
           kategorien={event.kategorien}
@@ -873,14 +943,17 @@ function RecommendationCard({
 
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
-              {event.datum && (
-                <span className="flex items-center gap-1.5">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400 flex-shrink-0">
-                    <rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/>
-                  </svg>
-                  {formatDateShort(event.datum)}
-                </span>
-              )}
+              {event.datum && (() => {
+                const { label, urgent } = getCountdownLabel(event.datum, new Date());
+                return (
+                  <span className={`flex items-center gap-1.5 ${urgent ? "font-semibold" : ""}`}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={`flex-shrink-0 ${urgent ? "text-orange-500" : "text-orange-400"}`}>
+                      <rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/>
+                    </svg>
+                    <span className={urgent ? "text-orange-500" : ""}>{label}</span>
+                  </span>
+                );
+              })()}
               {!event.datum && (
                 <span className="text-emerald-600 font-medium">Ganzjährig</span>
               )}
@@ -976,6 +1049,11 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // Sprint 6: Week planner, recent visits, bookmarks
+  const [selectedWeekDay, setSelectedWeekDay] = useState<number | null>(null);
+  const [recentVisits, setRecentVisits] = useState<CompactEvent[]>([]);
+  const [bookmarks, setBookmarks] = useState<CompactEvent[]>([]);
+
   useEffect(() => {
     setMounted(true);
     setIsDark(document.documentElement.classList.contains("dark"));
@@ -1005,6 +1083,14 @@ export default function Home() {
     } catch {}
     try {
       if (localStorage.getItem("kidgo_challenge_accepted") === "true") setChallengeAccepted(true);
+    } catch {}
+    try {
+      const raw = localStorage.getItem("kidgo_recent_visits");
+      if (raw) setRecentVisits(JSON.parse(raw));
+    } catch {}
+    try {
+      const raw = localStorage.getItem("kidgo_bookmarks");
+      if (raw) setBookmarks(JSON.parse(raw));
     } catch {}
   }, []);
 
@@ -1279,7 +1365,7 @@ export default function Home() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);
 
-    const message = buildChatResponse(parsedWithBuckets, filtered.length);
+    const message = buildChatResponse(parsedWithBuckets, filtered.length, weatherCode, now);
     setChatResult({ message, events: scored });
 
     setTimeout(() => {
@@ -1353,6 +1439,27 @@ export default function Home() {
     setTimeout(() => {
       document.getElementById("surprise-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
+  };
+
+  const toggleBookmark = (event: KidgoEvent, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBookmarks((prev) => {
+      const exists = prev.some((b) => b.id === event.id);
+      const next: CompactEvent[] = exists
+        ? prev.filter((b) => b.id !== event.id)
+        : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...prev];
+      try { localStorage.setItem("kidgo_bookmarks", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const removeBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const next = prev.filter((b) => b.id !== id);
+      try { localStorage.setItem("kidgo_bookmarks", JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
 
   // Sprint 3: Complete onboarding
@@ -1585,7 +1692,7 @@ export default function Home() {
         <header className="mb-7">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <KidgoLogo className="h-5 w-auto mb-1.5" />
+              <KidgoLogo className="mb-1.5" />
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight">
                 {headline.title}
               </h1>
@@ -1793,6 +1900,8 @@ export default function Home() {
                     animIndex={i}
                     selectedBuckets={selectedBuckets}
                     isSeriesParent={seriesParentIds.has(event.id)}
+                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                    onBookmark={(e) => toggleBookmark(event, e)}
                   />
                 ))}
               </div>
@@ -1841,11 +1950,114 @@ export default function Home() {
                   isSeriesParent={seriesParentIds.has(event.id)}
                   isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
                   entdeckerScore={computeEntdeckerScore(cnt)}
+                  isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                  onBookmark={(e) => toggleBookmark(event, e)}
                 />
               );
             })}
           </div>
         )}
+
+        {/* ===== SPRINT 6A: WOCHENPLANER ===== */}
+        {!loading && allEventsPool.length > 0 && (() => {
+          const todayNow = new Date();
+          const dow = todayNow.getDay();
+          const mondayOffset = dow === 0 ? -6 : 1 - dow;
+          const weekDays = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(todayNow);
+            d.setDate(d.getDate() + mondayOffset + i);
+            d.setHours(0, 0, 0, 0);
+            return d;
+          });
+          const dayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+          const eventsByDay = weekDays.map((day) => {
+            const dayStr = localDateStr(day);
+            return allEventsPool.filter((e) => e.datum === dayStr);
+          });
+          const selectedDayEvents = selectedWeekDay !== null ? eventsByDay[selectedWeekDay] : [];
+          const todayStr = localDateStr(todayNow);
+
+          return (
+            <div className="mt-8">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Deine Woche</p>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex">
+                  {weekDays.map((day, i) => {
+                    const isToday = localDateStr(day) === todayStr;
+                    const hasEvents = eventsByDay[i].length > 0;
+                    const selected = selectedWeekDay === i;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedWeekDay(selected ? null : i)}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors ${
+                          selected ? "bg-orange-50" : "hover:bg-gray-50"
+                        } ${isToday ? "border-b-2 border-orange-400" : "border-b-2 border-transparent"}`}
+                      >
+                        <span className={`text-xs font-semibold ${
+                          isToday ? "text-orange-500" : selected ? "text-orange-600" : "text-gray-400"
+                        }`}>
+                          {dayLabels[i]}
+                        </span>
+                        <span className={`text-sm font-bold ${
+                          isToday ? "text-orange-600" : selected ? "text-gray-800" : "text-gray-600"
+                        }`}>
+                          {day.getDate()}
+                        </span>
+                        <div className="h-1.5 flex items-center">
+                          {hasEvents ? (
+                            <span className={`w-1.5 h-1.5 rounded-full ${isToday ? "bg-orange-400" : "bg-gray-300"}`} />
+                          ) : (
+                            <span className="w-1.5 h-1.5" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedWeekDay !== null && (
+                  <div className="border-t border-gray-100 p-4">
+                    {selectedDayEvents.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-3">Keine Events an diesem Tag</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {selectedDayEvents.slice(0, 5).map((ev) => (
+                          <Link
+                            key={ev.id}
+                            href={`/events/${ev.id}`}
+                            className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-orange-50 transition group"
+                          >
+                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-orange-100">
+                              {ev.kategorie_bild_url ? (
+                                <img src={ev.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-orange-300 text-xs font-bold">
+                                  {(ev.kategorien?.[0] || "K").slice(0, 1)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-orange-600 transition-colors">{ev.titel}</p>
+                              {ev.ort && <p className="text-xs text-gray-400 truncate">{ev.ort}</p>}
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 group-hover:text-orange-400 flex-shrink-0 transition">
+                              <path d="M4 9l3-3-3-3"/>
+                            </svg>
+                          </Link>
+                        ))}
+                        {selectedDayEvents.length > 5 && (
+                          <Link href="/explore" className="block text-center text-xs text-orange-500 hover:text-orange-600 pt-2 transition">
+                            +{selectedDayEvents.length - 5} weitere Events
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ===== FEATURE A: FRAG KIDGO CHAT ===== */}
         {!loading && allEventsPool.length > 0 && (
@@ -1903,6 +2115,8 @@ export default function Home() {
                         userLocation={userLocation}
                         animIndex={i}
                         selectedBuckets={selectedBuckets}
+                        isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                        onBookmark={(e) => toggleBookmark(event, e)}
                       />
                     ))}
                   </div>
@@ -2007,6 +2221,8 @@ export default function Home() {
                       animIndex={i}
                       selectedBuckets={selectedBuckets}
                       isSeriesParent={seriesParentIds.has(event.id)}
+                      isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                      onBookmark={(e) => toggleBookmark(event, e)}
                     />
                   ))}
                 </div>
@@ -2023,11 +2239,13 @@ export default function Home() {
             </p>
             <RecommendationCard
               event={surpriseEvent}
-              reasons={["🎲 Zufällig für euch ausgewählt"]}
+              reasons={["Zufällig für euch ausgewählt"]}
               sources={sources}
               userLocation={userLocation}
               animIndex={0}
               selectedBuckets={selectedBuckets}
+              isBookmarked={bookmarks.some((b) => b.id === surpriseEvent.id)}
+              onBookmark={(e) => toggleBookmark(surpriseEvent, e)}
             />
           </div>
         )}
@@ -2108,6 +2326,83 @@ export default function Home() {
               >
                 Anderen Plan generieren
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ===== SPRINT 6B: KÜRZLICH ANGESCHAUT ===== */}
+        {recentVisits.length > 0 && !loading && (
+          <div className="mt-8">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Kürzlich angeschaut</p>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+            >
+              {recentVisits.slice(0, 3).map((visit) => (
+                <Link
+                  key={visit.id}
+                  href={`/events/${visit.id}`}
+                  className="flex-shrink-0 w-36 sm:w-44 group"
+                >
+                  <div className="w-full h-24 rounded-xl overflow-hidden bg-gray-100 mb-2">
+                    {visit.kategorie_bild_url ? (
+                      <img src={visit.kategorie_bild_url} alt={visit.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-50 flex items-center justify-center">
+                        <span className="text-orange-300 text-xs font-bold">{(visit.kategorien?.[0] || "K").slice(0, 1)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">{visit.titel}</p>
+                  {visit.datum && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(visit.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ===== SPRINT 6E: GEMERKTE EVENTS ===== */}
+        {bookmarks.length > 0 && !loading && (
+          <div className="mt-8">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Gemerkte Events</p>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+            >
+              {bookmarks.map((bm) => (
+                <Link
+                  key={bm.id}
+                  href={`/events/${bm.id}`}
+                  className="flex-shrink-0 w-36 sm:w-44 group"
+                >
+                  <div className="relative w-full h-24 rounded-xl overflow-hidden bg-gray-100 mb-2">
+                    {bm.kategorie_bild_url ? (
+                      <img src={bm.kategorie_bild_url} alt={bm.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-50" />
+                    )}
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeBookmark(bm.id); }}
+                      aria-label="Merker entfernen"
+                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 transition"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M2 2l6 6M8 2l-6 6"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">{bm.titel}</p>
+                  {bm.datum && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(bm.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
+                    </p>
+                  )}
+                </Link>
+              ))}
             </div>
           </div>
         )}

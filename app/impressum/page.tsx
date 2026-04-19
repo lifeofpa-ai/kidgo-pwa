@@ -32,7 +32,7 @@ export default function ImpressumPage() {
               <p>
                 <a
                   href="mailto:contact@kidgo.ch"
-                  className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
+                  className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
                 >
                   contact@kidgo.ch
                 </a>

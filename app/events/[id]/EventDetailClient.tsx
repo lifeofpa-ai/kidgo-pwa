@@ -10,27 +10,27 @@ const categoryColors: Record<string, string> = {
   "Sport": "bg-blue-50 text-blue-600 border-blue-100",
   "Tanz": "bg-purple-50 text-purple-600 border-purple-100",
   "Theater": "bg-red-50 text-red-600 border-red-100",
-  "Musik": "bg-indigo-50 text-indigo-600 border-indigo-100",
+  "Musik": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
   "Mode & Design": "bg-rose-50 text-rose-600 border-rose-100",
   "Wissenschaft": "bg-cyan-50 text-cyan-600 border-cyan-100",
-  "Bildung": "bg-orange-50 text-orange-600 border-orange-100",
+  "Bildung": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
   "Ausflug": "bg-teal-50 text-teal-600 border-teal-100",
-  "Feriencamp": "bg-amber-50 text-amber-600 border-amber-100",
+  "Feriencamp": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
 };
 
 const categoryFallbackColors: Record<string, string> = {
   "Kreativ": "from-pink-100 to-rose-50",
   "Natur": "from-green-100 to-emerald-50",
-  "Tiere": "from-yellow-100 to-amber-50",
+  "Tiere": "from-kidgo-100 to-kidgo-50",
   "Sport": "from-blue-100 to-sky-50",
-  "Tanz": "from-purple-100 to-violet-50",
+  "Tanz": "from-purple-100 to-kidgo-50",
   "Theater": "from-red-100 to-rose-50",
-  "Musik": "from-indigo-100 to-violet-50",
+  "Musik": "from-kidgo-100 to-kidgo-50",
   "Mode & Design": "from-rose-100 to-pink-50",
   "Wissenschaft": "from-cyan-100 to-sky-50",
-  "Bildung": "from-orange-100 to-amber-50",
+  "Bildung": "from-kidgo-100 to-kidgo-50",
   "Ausflug": "from-teal-100 to-green-50",
-  "Feriencamp": "from-amber-100 to-orange-50",
+  "Feriencamp": "from-kidgo-100 to-kidgo-50",
 };
 
 function extractPrice(beschreibung: string | null): number | null {
@@ -74,7 +74,7 @@ function detectWeeklyPattern(termine: { datum: string }[]): string | null {
 function HeroImage({ url, kategorien, title }: { url?: string | null; kategorien?: string[]; title: string }) {
   const [imgError, setImgError] = useState(false);
   const cat = kategorien?.[0] || "";
-  const fallback = categoryFallbackColors[cat] || "from-orange-100 to-amber-50";
+  const fallback = categoryFallbackColors[cat] || "from-kidgo-100 to-kidgo-50";
 
   if (url && !imgError) {
     return (
@@ -394,7 +394,7 @@ export default function EventDetailClient({ id }: { id: string }) {
     return (
       <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-2 border-kidgo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--text-muted)] text-sm">Lädt...</p>
         </div>
       </main>
@@ -406,7 +406,7 @@ export default function EventDetailClient({ id }: { id: string }) {
       <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center p-8">
           <p className="text-[var(--text-secondary)] text-lg mb-6">Event nicht gefunden</p>
-          <Link href="/" className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-600 transition">
+          <Link href="/" className="bg-kidgo-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
             Zurück zur Übersicht
           </Link>
         </div>
@@ -480,7 +480,7 @@ export default function EventDetailClient({ id }: { id: string }) {
             <div className="pt-6 mb-5">
               <div className="flex flex-wrap gap-2 mb-3">
                 {isNew && (
-                  <span className="bg-orange-50 text-orange-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-orange-100">
+                  <span className="bg-kidgo-50 text-kidgo-500 text-xs font-semibold px-2.5 py-1 rounded-full border border-kidgo-100">
                     Neu
                   </span>
                 )}
@@ -533,7 +533,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                         href={mapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-orange-300 hover:text-orange-600 px-3 py-1.5 rounded-full transition"
+                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500 px-3 py-1.5 rounded-full transition"
                       >
                         Route
                       </a>
@@ -602,7 +602,7 @@ export default function EventDetailClient({ id }: { id: string }) {
               {(() => {
                 const weekly = detectWeeklyPattern(serieTermine);
                 return weekly ? (
-                  <p className="text-xs text-orange-500 font-semibold mb-3">Jeden {weekly}</p>
+                  <p className="text-xs text-kidgo-500 font-semibold mb-3">Jeden {weekly}</p>
                 ) : null;
               })()}
               <ul className="space-y-1.5">
@@ -610,12 +610,12 @@ export default function EventDetailClient({ id }: { id: string }) {
                   <li key={termin.id}>
                     <Link
                       href={`/events/${termin.id}`}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--bg-subtle)] hover:bg-orange-50 hover:text-orange-700 text-sm text-[var(--text-secondary)] transition group"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--bg-subtle)] hover:bg-kidgo-50 hover:text-kidgo-600 text-sm text-[var(--text-secondary)] transition group"
                     >
                       <IconCalendar />
                       <span className="flex-1 font-medium">{formatDate(termin.datum, termin.datum_ende)}</span>
                       {termin.ort && <span className="text-[var(--text-muted)] text-xs">{termin.ort}</span>}
-                      <span className="text-[var(--text-muted)] group-hover:text-orange-500 transition text-xs">→</span>
+                      <span className="text-[var(--text-muted)] group-hover:text-kidgo-500 transition text-xs">→</span>
                     </Link>
                   </li>
                 ))}
@@ -632,8 +632,8 @@ export default function EventDetailClient({ id }: { id: string }) {
                 onClick={handleReminder}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition border ${
                   isReminded
-                    ? "bg-indigo-50 text-indigo-600 border-indigo-200"
-                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-indigo-300 hover:text-indigo-600"
+                    ? "bg-kidgo-50 text-kidgo-500 border-kidgo-200"
+                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500"
                 }`}
               >
                 <IconBell />
@@ -645,8 +645,8 @@ export default function EventDetailClient({ id }: { id: string }) {
               onClick={toggleBookmarkDetail}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition border ${
                 isBookmarked
-                  ? "bg-orange-50 text-orange-600 border-orange-200"
-                  : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-orange-300 hover:text-orange-600"
+                  ? "bg-kidgo-50 text-kidgo-500 border-kidgo-200"
+                  : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500"
               }`}
             >
               <svg width="15" height="15" viewBox="0 0 14 14" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -660,7 +660,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                 href={ctaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-orange-500 text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-orange-600 transition shadow-sm"
+                className="flex items-center justify-center gap-2 w-full bg-kidgo-500 text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-kidgo-500 transition shadow-sm"
               >
                 <IconGlobe />
                 Zur Webseite
@@ -670,7 +670,7 @@ export default function EventDetailClient({ id }: { id: string }) {
               {event.datum && (
                 <button
                   onClick={handleICSDownload}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-orange-300 hover:text-orange-600 transition"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-kidgo-300 hover:text-kidgo-500 transition"
                 >
                   <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="1" y="2" width="13" height="12" rx="1.5"/>
@@ -728,10 +728,10 @@ export default function EventDetailClient({ id }: { id: string }) {
                       {sim.kategorie_bild_url ? (
                         <img src={sim.kategorie_bild_url} alt={sim.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
-                        <div className={`w-full h-full bg-gradient-to-br ${categoryFallbackColors[sim.kategorien?.[0] || ""] || "from-orange-100 to-amber-50"}`} />
+                        <div className={`w-full h-full bg-gradient-to-br ${categoryFallbackColors[sim.kategorien?.[0] || ""] || "from-kidgo-100 to-kidgo-50"}`} />
                       )}
                     </div>
-                    <p className="text-xs font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">
+                    <p className="text-xs font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors">
                       {sim.titel}
                     </p>
                     {sim.datum && (

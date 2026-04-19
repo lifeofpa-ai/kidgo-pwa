@@ -69,7 +69,7 @@ export default function SubmitPage() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center p-4">
+      <main className="min-h-screen bg-gradient-to-br from-kidgo-50 to-kidgo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Danke für deinen Beitrag!</h2>
@@ -84,35 +84,35 @@ export default function SubmitPage() {
               setEventForm({ titel: "", datum: "", datum_ende: "", ort: "", anmelde_link: "", beschreibung: "", preis_chf: "", altersgruppen: "", kontakt_email: "" });
               setQuelleForm({ name: "", url: "", notizen: "", kontakt_email: "" });
             }}
-            className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition font-semibold mr-3"
+            className="bg-kidgo-500 text-white px-6 py-3 rounded-lg hover:bg-kidgo-600 transition font-semibold mr-3"
           >
             Weiteres einreichen
           </button>
-          <a href="/" className="inline-block mt-2 text-indigo-600 hover:underline">← Zurück zur App</a>
+          <a href="/" className="inline-block mt-2 text-kidgo-500 hover:underline">← Zurück zur App</a>
         </div>
       </main>
     );
   }
 
-  const inputClass = "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm";
+  const inputClass = "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kidgo-400 focus:outline-none text-sm";
   const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-kidgo-50 to-kidgo-100">
       <div className="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="text-center mb-8 py-4">
-          <a href="/" className="inline-block mb-3 text-indigo-600 hover:underline text-sm">← Zurück zu Kidgo</a>
+          <a href="/" className="inline-block mb-3 text-kidgo-500 hover:underline text-sm">← Zurück zu Kidgo</a>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">📮 Beitrag leisten</h1>
           <p className="text-gray-500 text-sm">Kennst du ein tolles Kinder-Event oder eine gute Quelle?<br />Teile es — wir prüfen und schalten es frei.</p>
         </div>
 
         <div className="flex gap-2 mb-5">
           <button onClick={() => { setTab("event"); setError(""); }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition ${tab === "event" ? "bg-indigo-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm"}`}>
+            className={`flex-1 py-3 rounded-lg font-semibold transition ${tab === "event" ? "bg-kidgo-500 text-white shadow-md" : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm"}`}>
             📅 Event einreichen
           </button>
           <button onClick={() => { setTab("quelle"); setError(""); }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition ${tab === "quelle" ? "bg-indigo-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm"}`}>
+            className={`flex-1 py-3 rounded-lg font-semibold transition ${tab === "quelle" ? "bg-kidgo-500 text-white shadow-md" : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm"}`}>
             🔗 Quelle vorschlagen
           </button>
         </div>
@@ -203,7 +203,7 @@ export default function SubmitPage() {
           )}
 
           <button onClick={tab === "event" ? submitEvent : submitQuelle} disabled={loading}
-            className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed text-base">
+            className="w-full mt-6 bg-kidgo-500 text-white py-3 rounded-lg font-semibold hover:bg-kidgo-600 transition disabled:opacity-50 disabled:cursor-not-allowed text-base">
             {loading ? "⏳ Wird eingereicht..." : "📮 Einreichen"}
           </button>
         </div>

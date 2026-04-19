@@ -266,10 +266,10 @@ export default function AdminPage() {
           <input type="password" placeholder="Passwort" value={pw}
             onChange={(e) => { setPw(e.target.value); setPwError(false); }}
             onKeyDown={(e) => e.key === "Enter" && login()}
-            className={`w-full px-4 py-3 border rounded-xl mb-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${pwError ? "border-red-400 bg-red-50" : "border-gray-200"}`}
+            className={`w-full px-4 py-3 border rounded-xl mb-3 focus:ring-2 focus:ring-kidgo-400 focus:outline-none ${pwError ? "border-red-400 bg-red-50" : "border-gray-200"}`}
           />
           {pwError && <p className="text-red-500 text-sm mb-3 text-center">Falsches Passwort</p>}
-          <button onClick={login} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition">
+          <button onClick={login} className="w-full bg-kidgo-500 text-white py-3 rounded-xl font-semibold hover:bg-kidgo-600 transition">
             Einloggen
           </button>
         </div>
@@ -286,7 +286,7 @@ export default function AdminPage() {
             <h1 className="text-2xl font-bold text-gray-900">🛠️ Kidgo Admin</h1>
             <p className="text-sm text-gray-500">Einreichungen prüfen & freischalten</p>
           </div>
-          <a href="/" className="text-sm text-indigo-600 hover:underline">← Zur App</a>
+          <a href="/" className="text-sm text-kidgo-500 hover:underline">← Zur App</a>
         </div>
 
         {/* Error Banner */}
@@ -299,15 +299,15 @@ export default function AdminPage() {
 
         {/* Toast */}
         {msg && (
-          <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl text-sm font-medium">
+          <div className="mb-4 bg-kidgo-50 border border-kidgo-200 text-kidgo-700 px-4 py-3 rounded-xl text-sm font-medium">
             {msg}
           </div>
         )}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-orange-400">
-            <div className="text-3xl font-bold text-orange-500">{pendingEvents.length + reviewEvents.length}</div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-kidgo-400">
+            <div className="text-3xl font-bold text-kidgo-500">{pendingEvents.length + reviewEvents.length}</div>
             <div className="text-sm text-gray-500 mt-1">Events ausstehend</div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-400">
@@ -323,11 +323,11 @@ export default function AdminPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-5 flex-wrap">
           <button onClick={() => setTab("events")}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "events" ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "events" ? "bg-kidgo-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
             📅 Events ({pendingEvents.length})
           </button>
           <button onClick={() => setTab("quellen")}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "quellen" ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${tab === "quellen" ? "bg-kidgo-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"}`}>
             🔗 Quellen ({pendingQuellen.length})
           </button>
           <button onClick={() => setTab("live")}
@@ -348,7 +348,7 @@ export default function AdminPage() {
               checked={allSelected}
               ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
               onChange={toggleSelectAll}
-              className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+              className="w-4 h-4 rounded accent-kidgo-500 cursor-pointer"
             />
             <span className="text-sm text-gray-600 font-medium">Alle auswählen</span>
           </label>
@@ -366,14 +366,14 @@ export default function AdminPage() {
               </div>
             ) : pendingEvents.map((ev) => (
               <div key={`pending-${ev.id}`}
-                className={`bg-white rounded-xl p-5 shadow-sm border transition ${selectedIds.has(ev.id) ? "border-indigo-400 ring-1 ring-indigo-300" : "border-gray-100 hover:border-indigo-200"}`}>
+                className={`bg-white rounded-xl p-5 shadow-sm border transition ${selectedIds.has(ev.id) ? "border-kidgo-400 ring-1 ring-kidgo-300" : "border-gray-100 hover:border-kidgo-200"}`}>
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 pt-0.5">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(ev.id)}
                       onChange={() => toggleSelect(ev.id)}
-                      className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                      className="w-4 h-4 rounded accent-kidgo-500 cursor-pointer"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -382,7 +382,7 @@ export default function AdminPage() {
                       {serienCounts[ev.id] && (
                         <button
                           onClick={() => setExpandedSerie(expandedSerie === ev.id ? null : ev.id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full hover:bg-indigo-200 transition"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-kidgo-100 text-kidgo-600 text-xs font-semibold rounded-full hover:bg-kidgo-200 transition"
                           title="Serien-Termine anzeigen"
                         >
                           🔄 +{serienCounts[ev.id]} Termine
@@ -399,13 +399,13 @@ export default function AdminPage() {
                     {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
                     {ev.anmelde_link && (
                       <a href={ev.anmelde_link} target="_blank" rel="noopener noreferrer"
-                        className="mt-1 text-xs text-indigo-500 hover:underline break-all block">
+                        className="mt-1 text-xs text-kidgo-400 hover:underline break-all block">
                         🔗 {ev.anmelde_link}
                       </a>
                     )}
                     {expandedSerie === ev.id && serienEvents[ev.id] && (
-                      <div className="mt-3 border-t border-indigo-100 pt-3">
-                        <p className="text-xs font-semibold text-indigo-600 mb-2">📅 Weitere Serien-Termine:</p>
+                      <div className="mt-3 border-t border-kidgo-100 pt-3">
+                        <p className="text-xs font-semibold text-kidgo-500 mb-2">📅 Weitere Serien-Termine:</p>
                         <ul className="space-y-1">
                           {serienEvents[ev.id].map((se) => (
                             <li key={se.id} className="text-xs text-gray-600 flex gap-2">
@@ -423,7 +423,7 @@ export default function AdminPage() {
                       {taggingId === ev.id ? "⏳ KI taggt..." : "✅ Freischalten"}
                     </button>
                     <button onClick={() => startEdit(ev)}
-                      className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                      className="px-4 py-2 bg-kidgo-50 text-kidgo-500 rounded-lg hover:bg-kidgo-100 text-sm font-semibold transition whitespace-nowrap">
                       ✏️ Bearbeiten
                     </button>
                     <button onClick={() => rejectEvent(ev.id)}
@@ -465,7 +465,7 @@ export default function AdminPage() {
                           {taggingId === ev.id ? "⏳ KI taggt..." : "✅ Freischalten"}
                         </button>
                         <button onClick={() => startEdit(ev)}
-                          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                          className="px-4 py-2 bg-kidgo-50 text-kidgo-500 rounded-lg hover:bg-kidgo-100 text-sm font-semibold transition whitespace-nowrap">
                           ✏️ Bearbeiten
                         </button>
                         <button onClick={() => rejectEvent(ev.id)}
@@ -487,12 +487,12 @@ export default function AdminPage() {
                 <p>Keine ausstehenden Quellen</p>
               </div>
             ) : pendingQuellen.map((qu) => (
-              <div key={qu.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-200 transition">
+              <div key={qu.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-kidgo-200 transition">
                 <div className="flex gap-4">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 text-base">{qu.name}</h3>
                     <a href={qu.url} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-indigo-500 hover:underline break-all block mt-0.5">{qu.url}</a>
+                      className="text-xs text-kidgo-400 hover:underline break-all block mt-0.5">{qu.url}</a>
                     {qu.notizen && <p className="mt-2 text-sm text-gray-600">{qu.notizen}</p>}
                     {qu.kontakt_email && <p className="mt-1 text-xs text-gray-400">✉️ {qu.kontakt_email}</p>}
                   </div>
@@ -534,7 +534,7 @@ export default function AdminPage() {
                     </div>
                     <div className="flex flex-col gap-2 flex-shrink-0">
                       <button onClick={() => startEdit(ev)}
-                        className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition whitespace-nowrap">
+                        className="px-4 py-2 bg-kidgo-50 text-kidgo-500 rounded-lg hover:bg-kidgo-100 text-sm font-semibold transition whitespace-nowrap">
                         ✏️ Bearbeiten
                       </button>
                       <button onClick={() => toggleReviewInput(ev.id)}
@@ -588,43 +588,43 @@ export default function AdminPage() {
                 <div className="col-span-2">
                   <label className="text-xs text-gray-500 font-medium">Titel</label>
                   <input value={editFields.titel} onChange={(e) => setEditFields((f) => ({ ...f, titel: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Datum von</label>
                   <input type="date" value={editFields.datum} onChange={(e) => setEditFields((f) => ({ ...f, datum: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Datum bis</label>
                   <input type="date" value={editFields.datum_ende} onChange={(e) => setEditFields((f) => ({ ...f, datum_ende: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Ort</label>
                   <input value={editFields.ort} onChange={(e) => setEditFields((f) => ({ ...f, ort: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Preis CHF</label>
                   <input type="number" value={editFields.preis_chf} onChange={(e) => setEditFields((f) => ({ ...f, preis_chf: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs text-gray-500 font-medium">Beschreibung</label>
                   <textarea value={editFields.beschreibung} onChange={(e) => setEditFields((f) => ({ ...f, beschreibung: e.target.value }))}
-                    rows={3} className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none" />
+                    rows={3} className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none resize-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Altersgruppen</label>
                   <input value={editFields.altersgruppen} onChange={(e) => setEditFields((f) => ({ ...f, altersgruppen: e.target.value }))}
                     placeholder="z.B. 4-6, 7-10, 11-14"
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Event-Typ</label>
                   <select value={editFields.event_typ} onChange={(e) => setEditFields((f) => ({ ...f, event_typ: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none bg-white">
                     <option value="event">Event</option>
                     <option value="camp">Camp</option>
                   </select>
@@ -632,7 +632,7 @@ export default function AdminPage() {
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Status</label>
                   <select value={editFields.status} onChange={(e) => setEditFields((f) => ({ ...f, status: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none bg-white">
                     <option value="approved">Approved</option>
                     <option value="pending">Pending</option>
                     <option value="rejected">Rejected</option>
@@ -641,12 +641,12 @@ export default function AdminPage() {
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Anmelde-Link</label>
                   <input value={editFields.anmelde_link} onChange={(e) => setEditFields((f) => ({ ...f, anmelde_link: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Kontakt E-Mail</label>
                   <input value={editFields.kontakt_email} onChange={(e) => setEditFields((f) => ({ ...f, kontakt_email: e.target.value }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none" />
                 </div>
                 {editFields._url && (
                   <div className="col-span-2">
@@ -657,7 +657,7 @@ export default function AdminPage() {
               </div>
               <div className="flex gap-2 pt-4">
                 <button onClick={() => saveEdit(editingId)}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition">
+                  className="flex-1 px-4 py-2 bg-kidgo-500 text-white rounded-lg hover:bg-kidgo-600 text-sm font-semibold transition">
                   💾 Speichern
                 </button>
                 <button onClick={() => { setEditModalOpen(false); setEditingId(null); }}

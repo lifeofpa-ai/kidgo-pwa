@@ -791,7 +791,7 @@ function EventImage({
     );
   }
   return (
-    <div className={`${cls} bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center`}>
+    <div className={`${cls} bg-gradient-to-br from-kidgo-100 to-kidgo-50 flex items-center justify-center`}>
       <span className="text-6xl" role="img" aria-label={altText}>{emoji}</span>
     </div>
   );
@@ -867,15 +867,15 @@ function RecommendationCard({
       className="block group card-enter"
       style={{ animationDelay: `${animIndex * 80}ms` }}
     >
-      <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-orange-200 group-hover:-translate-y-0.5 relative">
+      <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-kidgo-200 group-hover:-translate-y-0.5 relative">
           {onBookmark && (
             <button
               onClick={onBookmark}
               aria-label={isBookmarked ? "Aus Merkliste entfernen" : "Event merken"}
               className={`absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full shadow-sm transition-all ${
                 isBookmarked
-                  ? "bg-orange-400 text-white"
-                  : "bg-white/90 text-gray-300 hover:text-orange-500"
+                  ? "bg-kidgo-400 text-white"
+                  : "bg-white/90 text-gray-300 hover:text-kidgo-500"
               }`}
             >
               <svg width="13" height="13" viewBox="0 0 14 14" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -899,20 +899,20 @@ function RecommendationCard({
             {shownReasons.map((r, i) => (
               <span
                 key={i}
-                className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-100"
+                className="bg-kidgo-50 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-kidgo-100"
               >
                 {r}
               </span>
             ))}
           </div>
 
-          <h3 className="font-bold text-gray-900 text-lg leading-snug mb-1.5 group-hover:text-orange-600 transition-colors">
+          <h3 className="font-bold text-gray-900 text-lg leading-snug mb-1.5 group-hover:text-kidgo-500 transition-colors">
             {event.titel}
           </h3>
 
           {(() => {
             const badges: { label: string; cls: string }[] = [];
-            if (isSeriesParent) badges.push({ label: "Regelmässig", cls: "bg-indigo-50 text-indigo-600 border border-indigo-100" });
+            if (isSeriesParent) badges.push({ label: "Regelmässig", cls: "bg-kidgo-50 text-kidgo-500 border border-kidgo-100" });
             if (isFreeEvent(event)) {
               badges.push({ label: "Gratis", cls: "bg-green-50 text-green-700 border border-green-100" });
             } else {
@@ -947,10 +947,10 @@ function RecommendationCard({
                 const { label, urgent } = getCountdownLabel(event.datum, new Date());
                 return (
                   <span className={`flex items-center gap-1.5 ${urgent ? "font-semibold" : ""}`}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={`flex-shrink-0 ${urgent ? "text-orange-500" : "text-orange-400"}`}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={`flex-shrink-0 ${urgent ? "text-kidgo-500" : "text-kidgo-400"}`}>
                       <rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/>
                     </svg>
-                    <span className={urgent ? "text-orange-500" : ""}>{label}</span>
+                    <span className={urgent ? "text-kidgo-500" : ""}>{label}</span>
                   </span>
                 );
               })()}
@@ -959,7 +959,7 @@ function RecommendationCard({
               )}
               {event.ort && (
                 <span className="flex items-center gap-1.5 truncate max-w-[200px]">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400 flex-shrink-0">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-kidgo-400 flex-shrink-0">
                     <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/>
                   </svg>
                   {event.ort}
@@ -967,7 +967,7 @@ function RecommendationCard({
               )}
             </div>
             {entdeckerScore !== undefined && (
-              <span className="flex-shrink-0 text-xs text-amber-500 font-medium">⭐ {entdeckerScore}/10</span>
+              <span className="flex-shrink-0 text-xs text-kidgo-400 font-medium">⭐ {entdeckerScore}/10</span>
             )}
           </div>
         </div>
@@ -1512,21 +1512,23 @@ export default function Home() {
   // ===== STEP: WELCOME (first-time only) =====
   if (step === "welcome") {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex flex-col items-center justify-center p-4">
+      <main className="min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md mx-auto text-center card-enter">
-          <div className="text-7xl mb-6 inline-block animate-bounce">🎪</div>
-          <h1 className="text-4xl font-extrabold text-gray-800 mb-3 leading-tight">
+          <div className="mb-8 flex justify-center">
+            <KidgoLogo size="lg" />
+          </div>
+          <h1 className="text-4xl font-extrabold text-white mb-3 leading-tight">
             Willkommen bei Kidgo!
           </h1>
-          <p className="text-gray-500 text-lg mb-2 leading-relaxed">
+          <p className="text-white/80 text-lg mb-2 leading-relaxed">
             Dein persönlicher Begleiter für die besten Kinder-Events in Zürich
           </p>
-          <p className="text-gray-400 text-sm mb-10">
+          <p className="text-white/60 text-sm mb-10">
             Passend fürs Alter, Wetter und deine Ferien ✨
           </p>
           <button
             onClick={() => setStep("age-select")}
-            className="w-full bg-orange-400 text-white py-4 rounded-2xl font-bold text-xl hover:bg-orange-500 transition shadow-lg active:scale-95"
+            className="w-full bg-white text-[#5BBAA7] py-4 rounded-2xl font-bold text-xl hover:bg-kidgo-50 transition shadow-lg active:scale-95"
           >
             Los geht&apos;s! 👋
           </button>
@@ -1538,12 +1540,12 @@ export default function Home() {
   // ===== STEP: LOCATION ASK (first-time only) =====
   if (step === "location-ask") {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex flex-col items-center justify-center p-4">
+      <main className="min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md mx-auto card-enter">
           <div className="text-center mb-8">
-            <div className="text-5xl mb-4">📍</div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Standort für dich</h1>
-            <p className="text-gray-500 leading-relaxed">
+            <div className="mb-4 flex justify-center"><KidgoLogo size="md" /></div>
+            <h1 className="text-2xl font-bold text-white mb-2">Standort für dich</h1>
+            <p className="text-white/80 leading-relaxed">
               Mit deinem Standort zeigen wir Events in deiner Nähe und berechnen die Entfernung.
             </p>
           </div>
@@ -1572,13 +1574,13 @@ export default function Home() {
               }
               finishOnboarding();
             }}
-            className="w-full bg-orange-400 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-500 transition shadow-lg active:scale-95 mb-3"
+            className="w-full bg-white text-[#5BBAA7] py-4 rounded-2xl font-bold text-lg hover:bg-kidgo-50 transition shadow-lg active:scale-95 mb-3"
           >
             📍 Standort erlauben
           </button>
           <button
             onClick={finishOnboarding}
-            className="w-full py-3 text-gray-400 text-sm hover:text-gray-600 transition"
+            className="w-full py-3 text-white/60 text-sm hover:text-white/80 transition"
           >
             Überspringen
           </button>
@@ -1590,12 +1592,12 @@ export default function Home() {
   // ===== STEP 1: AGE SELECTION =====
   if (step === "age-select") {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex flex-col items-center justify-center p-4">
+      <main className="min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md mx-auto">
           <div className="text-center mb-8">
-            <div className="text-5xl mb-3">🎪</div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Willkommen bei Kidgo</h1>
-            <p className="text-gray-500 text-lg">Wie alt ist dein Kind?</p>
+            <div className="mb-4 flex justify-center"><KidgoLogo size="md" /></div>
+            <h1 className="text-3xl font-bold text-white mb-2">Willkommen bei Kidgo</h1>
+            <p className="text-white/80 text-lg">Wie alt ist dein Kind?</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -1609,15 +1611,15 @@ export default function Home() {
                   aria-pressed={selected}
                   className={`relative p-5 rounded-2xl border-2 transition-all duration-200 text-left shadow-sm hover:shadow-md active:scale-95 bounce-hover ${
                     selected && multiChild
-                      ? "border-orange-400 bg-orange-50 shadow-md"
-                      : "border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/50"
+                      ? "border-kidgo-400 bg-kidgo-50 shadow-md"
+                      : "border-gray-200 bg-white hover:border-kidgo-300 hover:bg-kidgo-50/50"
                   }`}
                 >
                   <div className="text-4xl mb-2">{bucket.emoji}</div>
                   <div className="font-bold text-gray-800 text-lg leading-tight">{bucket.label}</div>
                   <div className="text-gray-500 text-sm mt-0.5">{bucket.desc}</div>
                   {selected && multiChild && (
-                    <div className="absolute top-3 right-3 w-6 h-6 bg-orange-400 rounded-full flex items-center justify-center">
+                    <div className="absolute top-3 right-3 w-6 h-6 bg-kidgo-400 rounded-full flex items-center justify-center">
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                         <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
@@ -1631,7 +1633,7 @@ export default function Home() {
           {!multiChild ? (
             <button
               onClick={() => { setMultiChild(true); setSelectedBuckets([]); }}
-              className="w-full py-3.5 border-2 border-dashed border-gray-300 rounded-2xl text-gray-500 font-medium hover:border-orange-300 hover:text-orange-500 transition text-sm"
+              className="w-full py-3.5 border-2 border-dashed border-gray-300 rounded-2xl text-gray-500 font-medium hover:border-kidgo-300 hover:text-kidgo-500 transition text-sm"
             >
               👨‍👩‍👧‍👦 Mehrere Kinder
             </button>
@@ -1640,7 +1642,7 @@ export default function Home() {
               <button
                 onClick={handleMultiChildConfirm}
                 disabled={selectedBuckets.length === 0}
-                className="w-full py-3.5 bg-orange-400 text-white rounded-2xl font-bold text-lg hover:bg-orange-500 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                className="w-full py-3.5 bg-kidgo-400 text-white rounded-2xl font-bold text-lg hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
               >
                 Empfehlungen anzeigen →
               </button>
@@ -1674,17 +1676,17 @@ export default function Home() {
   }).length;
 
   return (
-    <main id="main-content" role="main" className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50">
+    <main id="main-content" role="main" className="min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C]">
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
 
         {/* Sprint 3: PWA Install Banner */}
         {showInstallBanner && (
-          <div className="mb-5 bg-gradient-to-r from-orange-400 to-amber-400 text-white rounded-2xl px-5 py-4 shadow-md card-enter">
+          <div className="mb-5 bg-gradient-to-r from-kidgo-400 to-kidgo-300 text-white rounded-2xl px-5 py-4 shadow-md card-enter">
             <div className="flex items-center gap-3">
               <span className="text-3xl">📱</span>
               <div className="flex-1">
                 <p className="font-bold text-sm">📱 Als App installieren</p>
-                <p className="text-orange-100 text-xs mt-0.5">Schneller Zugriff direkt vom Homescreen</p>
+                <p className="text-kidgo-100 text-xs mt-0.5">Schneller Zugriff direkt vom Homescreen</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1694,7 +1696,7 @@ export default function Home() {
                       setShowInstallBanner(false);
                     }
                   }}
-                  className="bg-white text-orange-600 text-xs font-bold px-3 py-2 rounded-xl hover:bg-orange-50 transition active:scale-95"
+                  className="bg-white text-kidgo-500 text-xs font-bold px-3 py-2 rounded-xl hover:bg-kidgo-50 transition active:scale-95"
                 >
                   Installieren
                 </button>
@@ -1703,7 +1705,7 @@ export default function Home() {
                     setShowInstallBanner(false);
                     try { localStorage.setItem("kidgo_install_dismissed", "true"); } catch {}
                   }}
-                  className="text-orange-200 hover:text-white text-xl leading-none w-7 h-7 flex items-center justify-center"
+                  className="text-kidgo-200 hover:text-white text-xl leading-none w-7 h-7 flex items-center justify-center"
                 >
                   ✕
                 </button>
@@ -1724,61 +1726,58 @@ export default function Home() {
         )}
 
         {/* Header */}
-        <header className="mb-7">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <KidgoLogo className="mb-1.5" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight">
-                {headline.title}
-              </h1>
-              <p className="text-gray-500 mt-1 text-sm">{headline.subtitle}</p>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                {weatherCode !== null && (
-                  <div className="bg-white rounded-xl px-3 py-1.5 shadow-sm text-sm text-gray-600 flex items-center gap-1.5 border border-gray-100">
-                    <span aria-hidden="true">{weatherIcon(weatherCode)}</span>
-                    {weatherTemp !== null && (
-                      <span className="font-medium">{Math.round(weatherTemp)}°C</span>
-                    )}
-                  </div>
-                )}
-                <button
-                  onClick={toggleTheme}
-                  aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
-                  className="bg-white rounded-xl w-9 h-9 flex items-center justify-center shadow-sm border border-gray-100 hover:border-gray-200 transition text-gray-500"
-                >
-                  {isDark ? (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="8" cy="8" r="3.5"/>
-                      <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1 1M11.8 11.8l1 1M12.8 3.2l-1 1M4.2 11.8l-1 1"/>
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M13 9A6 6 0 1 1 7 3a4.5 4.5 0 0 0 6 6z"/>
-                    </svg>
+        <header className="mb-8">
+          <div className="flex items-center justify-between mb-5">
+            <KidgoLogo size="sm" />
+            <div className="flex items-center gap-2">
+              {weatherCode !== null && (
+                <div className="bg-white rounded-xl px-3 py-1.5 shadow-sm text-sm text-gray-600 flex items-center gap-1.5 border border-gray-100">
+                  <span aria-hidden="true">{weatherIcon(weatherCode)}</span>
+                  {weatherTemp !== null && (
+                    <span className="font-medium">{Math.round(weatherTemp)}°C</span>
                   )}
-                </button>
-              </div>
+                </div>
+              )}
               <button
-                onClick={handleChangeAge}
-                aria-label="Altersgruppe ändern"
-                className="text-xs text-gray-400 hover:text-orange-500 transition"
+                onClick={toggleTheme}
+                aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
+                className="bg-white rounded-xl w-9 h-9 flex items-center justify-center shadow-sm border border-gray-100 hover:border-gray-200 transition text-gray-500"
               >
-                Alter ändern
+                {isDark ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="8" r="3.5"/>
+                    <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1 1M11.8 11.8l1 1M12.8 3.2l-1 1M4.2 11.8l-1 1"/>
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 9A6 6 0 1 1 7 3a4.5 4.5 0 0 0 6 6z"/>
+                  </svg>
+                )}
               </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mt-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight mb-1">
+            {headline.title}
+          </h1>
+          <p className="text-gray-500 text-sm mb-3">{headline.subtitle}</p>
+
+          <div className="flex flex-wrap items-center gap-2">
             {selectedBuckets.map((b) => {
               const bucket = AGE_BUCKETS.find((a) => a.key === b)!;
               return (
-                <span key={b} className="bg-orange-100 text-orange-700 text-sm font-medium px-3 py-1 rounded-full">
+                <span key={b} className="bg-kidgo-100 text-kidgo-600 text-sm font-medium px-3 py-1 rounded-full">
                   {bucket.label}
                 </span>
               );
             })}
+            <button
+              onClick={handleChangeAge}
+              aria-label="Altersgruppe ändern"
+              className="text-xs text-gray-400 hover:text-kidgo-500 transition"
+            >
+              Alter ändern
+            </button>
           </div>
 
           {userLocation?.approximate && (
@@ -1811,15 +1810,15 @@ export default function Home() {
 
         {/* Holiday banner */}
         {isSchoolHoliday(now) && (
-          <div className="mb-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-100 text-orange-900 rounded-2xl px-5 py-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
+          <div className="mb-5 bg-gradient-to-r from-kidgo-50 to-kidgo-50 border border-kidgo-100 text-kidgo-800 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <div className="w-8 h-8 bg-kidgo-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-kidgo-500">
                 <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM8 5v3l2 2"/>
               </svg>
             </div>
             <div>
               <p className="font-semibold text-sm">Ferienzeit — Entdecke Camps und Ausflüge</p>
-              <p className="text-orange-600 text-xs mt-0.5">{getActiveHoliday(now)} · Zürich</p>
+              <p className="text-kidgo-500 text-xs mt-0.5">{getActiveHoliday(now)} · Zürich</p>
             </div>
           </div>
         )}
@@ -1961,7 +1960,7 @@ export default function Home() {
             <p className="text-gray-400 text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
             <Link
               href="/explore"
-              className="bg-orange-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-500 transition"
+              className="bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition"
             >
               Alle Events entdecken
             </Link>
@@ -2026,22 +2025,22 @@ export default function Home() {
                         key={i}
                         onClick={() => setSelectedWeekDay(selected ? null : i)}
                         className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors ${
-                          selected ? "bg-orange-50" : "hover:bg-gray-50"
-                        } ${isToday ? "border-b-2 border-orange-400" : "border-b-2 border-transparent"}`}
+                          selected ? "bg-kidgo-50" : "hover:bg-gray-50"
+                        } ${isToday ? "border-b-2 border-kidgo-400" : "border-b-2 border-transparent"}`}
                       >
                         <span className={`text-xs font-semibold ${
-                          isToday ? "text-orange-500" : selected ? "text-orange-600" : "text-gray-400"
+                          isToday ? "text-kidgo-500" : selected ? "text-kidgo-500" : "text-gray-400"
                         }`}>
                           {dayLabels[i]}
                         </span>
                         <span className={`text-sm font-bold ${
-                          isToday ? "text-orange-600" : selected ? "text-gray-800" : "text-gray-600"
+                          isToday ? "text-kidgo-500" : selected ? "text-gray-800" : "text-gray-600"
                         }`}>
                           {day.getDate()}
                         </span>
                         <div className="h-1.5 flex items-center">
                           {hasEvents ? (
-                            <span className={`w-1.5 h-1.5 rounded-full ${isToday ? "bg-orange-400" : "bg-gray-300"}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${isToday ? "bg-kidgo-400" : "bg-gray-300"}`} />
                           ) : (
                             <span className="w-1.5 h-1.5" />
                           )}
@@ -2060,28 +2059,28 @@ export default function Home() {
                           <Link
                             key={ev.id}
                             href={`/events/${ev.id}`}
-                            className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-orange-50 transition group"
+                            className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-kidgo-50 transition group"
                           >
-                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-orange-100">
+                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-kidgo-100">
                               {ev.kategorie_bild_url ? (
                                 <img src={ev.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-orange-300 text-xs font-bold">
+                                <div className="w-full h-full flex items-center justify-center text-kidgo-300 text-xs font-bold">
                                   {(ev.kategorien?.[0] || "K").slice(0, 1)}
                                 </div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-orange-600 transition-colors">{ev.titel}</p>
+                              <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-kidgo-500 transition-colors">{ev.titel}</p>
                               {ev.ort && <p className="text-xs text-gray-400 truncate">{ev.ort}</p>}
                             </div>
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 group-hover:text-orange-400 flex-shrink-0 transition">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 group-hover:text-kidgo-400 flex-shrink-0 transition">
                               <path d="M4 9l3-3-3-3"/>
                             </svg>
                           </Link>
                         ))}
                         {selectedDayEvents.length > 5 && (
-                          <Link href="/explore" className="block text-center text-xs text-orange-500 hover:text-orange-600 pt-2 transition">
+                          <Link href="/explore" className="block text-center text-xs text-kidgo-500 hover:text-kidgo-500 pt-2 transition">
                             +{selectedDayEvents.length - 5} weitere Events
                           </Link>
                         )}
@@ -2110,7 +2109,7 @@ export default function Home() {
                   <button
                     key={chip}
                     onClick={() => handleChatQuery(chip)}
-                    className="text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-full hover:bg-orange-100 hover:border-orange-300 transition active:scale-95"
+                    className="text-xs font-medium bg-kidgo-50 text-kidgo-500 border border-kidgo-200 px-3 py-1.5 rounded-full hover:bg-kidgo-100 hover:border-kidgo-300 transition active:scale-95"
                   >
                     {chip}
                   </button>
@@ -2137,7 +2136,7 @@ export default function Home() {
                       <div key={h} className="inline-flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1">
                         <button
                           onClick={() => handleChatQuery(h)}
-                          className="text-xs text-gray-600 hover:text-orange-600 transition"
+                          className="text-xs text-gray-600 hover:text-kidgo-500 transition"
                         >
                           {h}
                         </button>
@@ -2169,12 +2168,12 @@ export default function Home() {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
                   placeholder="Frag Kidgo..."
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition"
+                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
                 />
                 <button
                   onClick={() => handleChatQuery(chatInput)}
                   disabled={!chatInput.trim()}
-                  className="bg-orange-400 text-white rounded-xl px-4 py-2.5 font-bold text-sm hover:bg-orange-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
+                  className="bg-kidgo-400 text-white rounded-xl px-4 py-2.5 font-bold text-sm hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
                 >
                   →
                 </button>
@@ -2182,7 +2181,7 @@ export default function Home() {
             </div>
 
             {chatResult && (
-              <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-amber-50/40">
+              <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-kidgo-50/40">
                 <p className="text-sm font-semibold text-gray-700 mb-4">{chatResult.message}</p>
                 {chatResult.events.length > 0 ? (
                   <div className="space-y-3">
@@ -2203,7 +2202,7 @@ export default function Home() {
                 ) : (
                   <Link
                     href="/explore"
-                    className="inline-block text-sm text-orange-500 underline underline-offset-2 hover:text-orange-600 transition"
+                    className="inline-block text-sm text-kidgo-500 underline underline-offset-2 hover:text-kidgo-500 transition"
                   >
                     Alle Events durchsuchen →
                   </Link>
@@ -2219,7 +2218,7 @@ export default function Home() {
             <button
               onClick={handleSurprise}
               aria-label="Zufälliges Event entdecken"
-              className="bg-white border-2 border-orange-200 text-orange-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-orange-50 hover:border-orange-400 transition shadow-sm hover:shadow-md active:scale-95"
+              className="bg-white border-2 border-kidgo-200 text-kidgo-500 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-kidgo-50 hover:border-kidgo-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
               {showSurprise ? "Nochmal" : "Zufällige Empfehlung"}
             </button>
@@ -2227,7 +2226,7 @@ export default function Home() {
             <button
               onClick={handleGenerateDayPlan}
               aria-label="Tagesplan für Kinder generieren"
-              className="bg-white border-2 border-indigo-200 text-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-50 hover:border-indigo-400 transition shadow-sm hover:shadow-md active:scale-95"
+              className="bg-white border-2 border-kidgo-200 text-kidgo-500 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-kidgo-50 hover:border-kidgo-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
               Plan meinen Tag
             </button>
@@ -2249,13 +2248,13 @@ export default function Home() {
                     onClick={() => setActiveCollection(active ? null : col.id)}
                     className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border-2 font-semibold text-sm transition-all whitespace-nowrap active:scale-95 ${
                       active
-                        ? "bg-orange-400 text-white border-orange-400 shadow-md"
-                        : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50"
+                        ? "bg-kidgo-400 text-white border-kidgo-400 shadow-md"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-kidgo-300 hover:bg-kidgo-50"
                     }`}
                   >
                     <span>{col.label}</span>
                     {count > 0 && (
-                      <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center ${active ? "bg-white/25 text-white" : "bg-orange-100 text-orange-600"}`}>
+                      <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center ${active ? "bg-white/25 text-white" : "bg-kidgo-100 text-kidgo-500"}`}>
                         {count}
                       </span>
                     )}
@@ -2314,7 +2313,7 @@ export default function Home() {
         {/* Surprise card */}
         {showSurprise && surpriseEvent && (
           <div key={surpriseAnimKey} id="surprise-card" className="mt-5 flip-in">
-            <p className="text-center text-sm font-semibold text-orange-500 mb-3">
+            <p className="text-center text-sm font-semibold text-kidgo-500 mb-3">
               Zufällige Entdeckung
             </p>
             <RecommendationCard
@@ -2340,19 +2339,19 @@ export default function Home() {
 
             <div className="p-5">
               <div className="relative pl-7">
-                <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-orange-300 via-amber-200 to-indigo-300 rounded-full" />
+                <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-kidgo-300 via-kidgo-200 to-kidgo-300 rounded-full" />
 
                 {dayPlan.morning && (
                   <div className="relative mb-6">
-                    <div className="absolute -left-4 top-1 w-4 h-4 bg-orange-400 rounded-full border-2 border-white shadow-sm" />
-                    <div className="text-xs font-bold text-orange-500 mb-1.5 tracking-wide">
+                    <div className="absolute -left-4 top-1 w-4 h-4 bg-kidgo-400 rounded-full border-2 border-white shadow-sm" />
+                    <div className="text-xs font-bold text-kidgo-500 mb-1.5 tracking-wide">
                       10:00 – 12:00 Uhr · Vormittag
                     </div>
                     <Link
                       href={`/events/${dayPlan.morning.id}`}
-                      className="block bg-orange-50 border border-orange-100 rounded-xl p-3.5 hover:bg-orange-100 hover:border-orange-200 transition group"
+                      className="block bg-kidgo-50 border border-kidgo-100 rounded-xl p-3.5 hover:bg-kidgo-100 hover:border-kidgo-200 transition group"
                     >
-                      <div className="font-bold text-gray-800 text-sm group-hover:text-orange-700 transition leading-snug">
+                      <div className="font-bold text-gray-800 text-sm group-hover:text-kidgo-600 transition leading-snug">
                         {dayPlan.morning.titel}
                       </div>
                       {dayPlan.morning.ort && (
@@ -2366,11 +2365,11 @@ export default function Home() {
                 )}
 
                 <div className="relative mb-6">
-                  <div className="absolute -left-4 top-1 w-4 h-4 bg-amber-200 rounded-full border-2 border-white" />
-                  <div className="text-xs font-bold text-amber-500 mb-1.5 tracking-wide">
+                  <div className="absolute -left-4 top-1 w-4 h-4 bg-kidgo-200 rounded-full border-2 border-white" />
+                  <div className="text-xs font-bold text-kidgo-400 mb-1.5 tracking-wide">
                     12:00 – 14:00 Uhr · Mittagspause
                   </div>
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3.5">
+                  <div className="bg-kidgo-50 border border-kidgo-100 rounded-xl p-3.5">
                     <div className="text-gray-500 text-sm">Mittagessen & Erholung</div>
                     <div className="text-gray-400 text-xs mt-0.5">Zeit zum Entspannen und Auftanken</div>
                   </div>
@@ -2378,15 +2377,15 @@ export default function Home() {
 
                 {dayPlan.afternoon && (
                   <div className="relative">
-                    <div className="absolute -left-4 top-1 w-4 h-4 bg-indigo-400 rounded-full border-2 border-white shadow-sm" />
-                    <div className="text-xs font-bold text-indigo-500 mb-1.5 tracking-wide">
+                    <div className="absolute -left-4 top-1 w-4 h-4 bg-kidgo-400 rounded-full border-2 border-white shadow-sm" />
+                    <div className="text-xs font-bold text-kidgo-400 mb-1.5 tracking-wide">
                       14:00 – 16:00 Uhr · Nachmittag
                     </div>
                     <Link
                       href={`/events/${dayPlan.afternoon.id}`}
-                      className="block bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 hover:bg-indigo-100 hover:border-indigo-200 transition group"
+                      className="block bg-kidgo-50 border border-kidgo-100 rounded-xl p-3.5 hover:bg-kidgo-100 hover:border-kidgo-200 transition group"
                     >
-                      <div className="font-bold text-gray-800 text-sm group-hover:text-indigo-700 transition leading-snug">
+                      <div className="font-bold text-gray-800 text-sm group-hover:text-kidgo-600 transition leading-snug">
                         {dayPlan.afternoon.titel}
                       </div>
                       {dayPlan.afternoon.ort && (
@@ -2402,7 +2401,7 @@ export default function Home() {
 
               <button
                 onClick={handleGenerateDayPlan}
-                className="mt-5 w-full py-2.5 text-sm text-indigo-500 font-semibold border border-indigo-200 rounded-xl hover:bg-indigo-50 transition"
+                className="mt-5 w-full py-2.5 text-sm text-kidgo-400 font-semibold border border-kidgo-200 rounded-xl hover:bg-kidgo-50 transition"
               >
                 Anderen Plan generieren
               </button>
@@ -2428,12 +2427,12 @@ export default function Home() {
                     {visit.kategorie_bild_url ? (
                       <img src={visit.kategorie_bild_url} alt={visit.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-50 flex items-center justify-center">
-                        <span className="text-orange-300 text-xs font-bold">{(visit.kategorien?.[0] || "K").slice(0, 1)}</span>
+                      <div className="w-full h-full bg-gradient-to-br from-kidgo-100 to-kidgo-50 flex items-center justify-center">
+                        <span className="text-kidgo-300 text-xs font-bold">{(visit.kategorien?.[0] || "K").slice(0, 1)}</span>
                       </div>
                     )}
                   </div>
-                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">{visit.titel}</p>
+                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors">{visit.titel}</p>
                   {visit.datum && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(visit.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
@@ -2463,7 +2462,7 @@ export default function Home() {
                     {bm.kategorie_bild_url ? (
                       <img src={bm.kategorie_bild_url} alt={bm.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-50" />
+                      <div className="w-full h-full bg-gradient-to-br from-kidgo-100 to-kidgo-50" />
                     )}
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeBookmark(bm.id); }}
@@ -2475,7 +2474,7 @@ export default function Home() {
                       </svg>
                     </button>
                   </div>
-                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">{bm.titel}</p>
+                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors">{bm.titel}</p>
                   {bm.datum && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(bm.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
@@ -2499,7 +2498,7 @@ export default function Home() {
         {visitCount > 0 && (
           <div className="mt-4 text-center">
             {visitCount >= 3 ? (
-              <span className="text-sm text-orange-500 font-semibold">
+              <span className="text-sm text-kidgo-500 font-semibold">
                 Kidgo-Entdecker — {visitCount} Events diese Woche angeschaut
               </span>
             ) : (

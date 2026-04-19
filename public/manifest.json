@@ -4,8 +4,8 @@
   "description": "Finde die besten Events für deine Kinder in der Region Zürich",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#6366f1",
+  "background_color": "#F5F0E8",
+  "theme_color": "#5BBAA7",
   "scope": "/",
   "icons": [
     {

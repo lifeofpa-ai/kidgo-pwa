@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kidgo – Events & Aktivitäten für Kinder in der Schweiz</title>
+  <meta name="description" content="Die besten Kinder-Events, Kurse und Ausflüge in der Region Zürich. Täglich aktuell, kostenlos und einfach filterbar." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Nunito', 'Helvetica Neue', Arial, sans-serif;
+      background: #5BBAA7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      color: #fff;
+    }
+
+    .card {
+      background: #F5F0E8;
+      border-radius: 2rem;
+      padding: 3rem 2.5rem;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+
+    .logo-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-wrap svg {
+      width: 100px;
+      height: 100px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #2D3436;
+      margin-bottom: 0.75rem;
+      line-height: 1.2;
+    }
+
+    .tagline {
+      font-size: 1.05rem;
+      color: #636e72;
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+
+    .coming-soon {
+      display: inline-block;
+      background: #5BBAA7;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.35rem 1rem;
+      border-radius: 100px;
+      margin-bottom: 2rem;
+    }
+
+    .cta {
+      display: block;
+      background: #5BBAA7;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      padding: 0.9rem 2rem;
+      border-radius: 1rem;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.1s;
+      margin-bottom: 1rem;
+    }
+    .cta:hover { background: #4A9E8E; transform: translateY(-1px); }
+    .cta:active { transform: scale(0.98); }
+
+    .footer {
+      margin-top: 2.5rem;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.65);
+      text-align: center;
+    }
+    .footer a { color: rgba(255,255,255,0.75); text-decoration: underline; }
+
+    @media (max-width: 480px) {
+      .card { padding: 2rem 1.5rem; border-radius: 1.5rem; }
+      h1 { font-size: 1.7rem; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <div class="card">
+    <div class="logo-wrap">
+      <!-- Kidgo Hexagon Logo (inline SVG) -->
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Kidgo Logo" role="img">
+        <path d="M55.2,10.0 L82.0,25.5 Q87.2,28.5 87.2,34.5 L87.2,65.5 Q87.2,71.5 82.0,74.5 L55.2,90.0 Q50,93 44.8,90.0 L18.0,74.5 Q12.8,71.5 12.8,65.5 L12.8,34.5 Q12.8,28.5 18.0,25.5 L44.8,10.0 Q50,7 55.2,10.0 Z"
+          fill="#F5F0E8" stroke="#5BBAA7" stroke-width="3"/>
+        <rect x="39" y="22" width="5" height="10" rx="2" fill="#5BBAA7"/>
+        <rect x="56" y="22" width="5" height="10" rx="2" fill="#5BBAA7"/>
+        <rect x="32" y="28" width="36" height="29" rx="3" fill="#F5F0E8" stroke="#5BBAA7" stroke-width="1.8"/>
+        <rect x="33" y="29" width="34" height="6" rx="2" fill="#5BBAA7"/>
+        <rect x="33" y="33" width="34" height="4" fill="#5BBAA7"/>
+        <path d="M40,47 L46,53 L60,39" stroke="#5BBAA7" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="50" y="75" text-anchor="middle" font-family="Nunito, Arial, sans-serif"
+          font-weight="800" font-size="13" fill="#5BBAA7" letter-spacing="2">KIDGO</text>
+      </svg>
+    </div>
+
+    <h1>Events für Kinder</h1>
+    <p class="tagline">
+      Die besten Kinder-Events, Kurse und Ausflüge in der Region Zürich — täglich aktuell.
+    </p>
+    <span class="coming-soon">Coming Soon</span>
+
+    <a href="/app" class="cta">App öffnen →</a>
+  </div>
+
+  <footer class="footer">
+    <p>© 2026 Kidgo · Zürich ·
+      <a href="/app/impressum">Impressum</a> ·
+      <a href="/app/datenschutz">Datenschutz</a>
+    </p>
+  </footer>
+
+</body>
+</html>

@@ -82,7 +82,7 @@ export default function DatenschutzPage() {
                     href="https://supabase.com/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
+                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
                   >
                     supabase.com/privacy
                   </a>
@@ -100,7 +100,7 @@ export default function DatenschutzPage() {
                     href="https://open-meteo.com/en/terms"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
+                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
                   >
                     open-meteo.com/en/terms
                   </a>
@@ -116,7 +116,7 @@ export default function DatenschutzPage() {
                     href="https://www.pexels.com/privacy-policy/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
+                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
                   >
                     pexels.com/privacy-policy
                   </a>
@@ -133,7 +133,7 @@ export default function DatenschutzPage() {
                     href="https://vercel.com/legal/privacy-policy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
+                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
                   >
                     vercel.com/legal/privacy-policy
                   </a>
@@ -162,7 +162,7 @@ export default function DatenschutzPage() {
               Bei Fragen zum Datenschutz wende dich an:{" "}
               <a
                 href="mailto:contact@kidgo.ch"
-                className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
+                className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
               >
                 contact@kidgo.ch
               </a>

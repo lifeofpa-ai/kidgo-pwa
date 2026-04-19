@@ -37,27 +37,27 @@ const categoryColors: Record<string, string> = {
   "Sport": "bg-blue-50 text-blue-600 border-blue-100",
   "Tanz": "bg-purple-50 text-purple-600 border-purple-100",
   "Theater": "bg-red-50 text-red-600 border-red-100",
-  "Musik": "bg-indigo-50 text-indigo-600 border-indigo-100",
+  "Musik": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
   "Mode & Design": "bg-rose-50 text-rose-600 border-rose-100",
   "Wissenschaft": "bg-cyan-50 text-cyan-600 border-cyan-100",
-  "Bildung": "bg-orange-50 text-orange-600 border-orange-100",
+  "Bildung": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
   "Ausflug": "bg-teal-50 text-teal-600 border-teal-100",
-  "Feriencamp": "bg-amber-50 text-amber-600 border-amber-100",
+  "Feriencamp": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
 };
 
 const categoryFallback: Record<string, string> = {
   "Kreativ": "from-pink-100 to-rose-50",
   "Natur": "from-green-100 to-emerald-50",
-  "Tiere": "from-yellow-100 to-amber-50",
+  "Tiere": "from-kidgo-100 to-kidgo-50",
   "Sport": "from-blue-100 to-sky-50",
-  "Tanz": "from-purple-100 to-violet-50",
+  "Tanz": "from-purple-100 to-kidgo-50",
   "Theater": "from-red-100 to-rose-50",
-  "Musik": "from-indigo-100 to-violet-50",
+  "Musik": "from-kidgo-100 to-kidgo-50",
   "Mode & Design": "from-rose-100 to-pink-50",
   "Wissenschaft": "from-cyan-100 to-sky-50",
-  "Bildung": "from-orange-100 to-amber-50",
+  "Bildung": "from-kidgo-100 to-kidgo-50",
   "Ausflug": "from-teal-100 to-green-50",
-  "Feriencamp": "from-amber-100 to-orange-50",
+  "Feriencamp": "from-kidgo-100 to-kidgo-50",
 };
 
 function EventCard({ event, source, serienCount, formatDate }: {
@@ -74,7 +74,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
   const ctaUrl = event.anmelde_link || source?.url;
 
   return (
-    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-orange-200 hover:shadow-md transition-all duration-200 overflow-hidden group">
+    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all duration-200 overflow-hidden group">
       {/* Image */}
       <div className="h-40 overflow-hidden bg-[var(--bg-subtle)]">
         {event.kategorie_bild_url && !imgErr ? (
@@ -86,7 +86,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
             onError={() => setImgErr(true)}
           />
         ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${categoryFallback[cat] || "from-orange-100 to-amber-50"}`} />
+          <div className={`w-full h-full bg-gradient-to-br ${categoryFallback[cat] || "from-kidgo-100 to-kidgo-50"}`} />
         )}
       </div>
 
@@ -94,19 +94,19 @@ function EventCard({ event, source, serienCount, formatDate }: {
         {/* Badges row */}
         <div className="flex flex-wrap gap-1.5 mb-2">
           {isNew && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-100">Neu</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-kidgo-50 text-kidgo-500 border border-kidgo-100">Neu</span>
           )}
           {isFree && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">Gratis</span>
           )}
           {isCamp && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Camp</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-kidgo-50 text-kidgo-600 border border-kidgo-100">Camp</span>
           )}
         </div>
 
         {/* Title */}
         <Link href={`/events/${event.id}`} className="block">
-          <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
+          <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2 group-hover:text-kidgo-500 transition-colors line-clamp-2">
             {event.titel}
           </h3>
         </Link>
@@ -114,7 +114,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
         {/* Date + location */}
         <div className="space-y-1 text-xs text-[var(--text-secondary)] mb-3">
           {event.datum && (
-            <p className="font-medium text-orange-500">{formatDate(event.datum, event.datum_ende)}</p>
+            <p className="font-medium text-kidgo-500">{formatDate(event.datum, event.datum_ende)}</p>
           )}
           {!event.datum && (
             <p className="font-medium text-green-600">Ganzjährig geöffnet</p>
@@ -149,7 +149,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
             href={ctaUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block text-xs font-semibold text-orange-600 hover:text-orange-700 border border-orange-200 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full transition"
+            className="inline-block text-xs font-semibold text-kidgo-500 hover:text-kidgo-600 border border-kidgo-200 bg-kidgo-50 hover:bg-kidgo-100 px-3 py-1.5 rounded-full transition"
           >
             Zur Webseite →
           </a>
@@ -276,7 +276,7 @@ export default function ExplorePage() {
         <header className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <Link href="/" className="flex-shrink-0">
-              <KidgoLogo className="h-6 w-auto" />
+              <KidgoLogo size="sm" />
             </Link>
             <div className="h-4 w-px bg-[var(--border)]" />
             <Link
@@ -305,7 +305,7 @@ export default function ExplorePage() {
               placeholder="Event, Ort oder Aktivität suchen..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition"
+              className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
             />
           </div>
 
@@ -321,8 +321,8 @@ export default function ExplorePage() {
                 }
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
                   selectedCategories.includes(cat)
-                    ? "bg-orange-500 text-white border-orange-500 shadow-sm"
-                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-orange-300 hover:text-orange-600"
+                    ? "bg-kidgo-500 text-white border-kidgo-500 shadow-sm"
+                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500"
                 }`}
               >
                 {cat}
@@ -474,7 +474,7 @@ export default function ExplorePage() {
                     <div className="text-center mt-6">
                       <button
                         onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
-                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-orange-300 hover:text-orange-600 transition"
+                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-kidgo-300 hover:text-kidgo-500 transition"
                       >
                         {futureEvents.length - visibleCountFuture} weitere laden
                       </button>
@@ -504,7 +504,7 @@ export default function ExplorePage() {
                     <div className="text-center mt-6">
                       <button
                         onClick={() => setVisibleCountAllYear((v) => v + PAGE_SIZE)}
-                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-orange-300 hover:text-orange-600 transition"
+                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-kidgo-300 hover:text-kidgo-500 transition"
                       >
                         {allYearActivities.length - visibleCountAllYear} weitere laden
                       </button>
@@ -530,7 +530,7 @@ export default function ExplorePage() {
       {showScrollTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 right-4 z-50 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:shadow-lg hover:border-orange-300 hover:text-orange-500 transition-all"
+          className="fixed bottom-6 right-4 z-50 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:shadow-lg hover:border-kidgo-300 hover:text-kidgo-500 transition-all"
           title="Nach oben"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

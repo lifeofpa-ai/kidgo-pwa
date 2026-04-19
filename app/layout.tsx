@@ -26,7 +26,6 @@ export const metadata: Metadata = {
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich.",
   },
   manifest: "/manifest.json",
-  themeColor: "#F97316",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -40,8 +39,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de">
-      <body className={`${nunito.className} antialiased`}>
+    <html lang="de" suppressHydrationWarning>
+      <head>
+        {/* Prevent flash of unstyled content on theme switch */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('kidgo_theme');
+                var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (dark) document.documentElement.classList.add('dark');
+              } catch(e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className={`${nunito.variable} ${nunito.className} antialiased`}>
+        <a href="#main-content" className="skip-to-content">
+          Zum Inhalt springen
+        </a>
         {children}
       </body>
     </html>

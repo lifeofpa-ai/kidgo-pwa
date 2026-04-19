@@ -707,26 +707,43 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 // COMPONENTS
 // ============================================================
 
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" aria-hidden="true">
+      <div className="h-48 skeleton" />
+      <div className="p-4 space-y-3">
+        <div className="h-3.5 skeleton w-2/3" />
+        <div className="h-5 skeleton w-full" />
+        <div className="h-3.5 skeleton w-1/2" />
+        <div className="h-3 skeleton w-1/3" />
+      </div>
+    </div>
+  );
+}
+
 function EventImage({
   url,
   kategorien,
   className,
+  title,
 }: {
   url?: string | null;
   kategorien?: string[] | null;
   className?: string;
+  title?: string;
 }) {
   const [err, setErr] = useState(false);
   const cat = kategorien?.[0] || "";
   const emoji = categoryEmojis[cat] || "🎪";
   const cls = className ?? "h-48 w-full overflow-hidden";
+  const altText = title || cat || "Event";
 
   if (url && !err) {
     return (
       <div className={cls}>
         <img
           src={url}
-          alt={cat || "Event"}
+          alt={altText}
           className="w-full h-full object-cover"
           loading="lazy"
           onError={() => setErr(true)}
@@ -736,7 +753,7 @@ function EventImage({
   }
   return (
     <div className={`${cls} bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center`}>
-      <span className="text-6xl">{emoji}</span>
+      <span className="text-6xl" role="img" aria-label={altText}>{emoji}</span>
     </div>
   );
 }
@@ -799,6 +816,7 @@ function RecommendationCard({
           url={event.kategorie_bild_url}
           kategorien={event.kategorien}
           className="h-48 w-full overflow-hidden"
+          title={event.titel}
         />
         <div className="p-4">
           <div className="flex flex-wrap gap-1.5 mb-2.5">
@@ -883,6 +901,15 @@ function RecommendationCard({
 }
 
 // ============================================================
+// MODULE-LEVEL 5-MINUTE EVENT CACHE
+// ============================================================
+
+let _eventsCache: KidgoEvent[] | null = null;
+let _sourcesCache: { id: string; url: string | null; latitude: number | null; longitude: number | null }[] | null = null;
+let _cacheTimestamp = 0;
+const EVENTS_CACHE_TTL = 5 * 60 * 1000;
+
+// ============================================================
 // MAIN COMPONENT
 // ============================================================
 
@@ -942,8 +969,13 @@ export default function Home() {
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
+  // Sprint 4: Theme toggle + scroll-to-top
+  const [isDark, setIsDark] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
   useEffect(() => {
     setMounted(true);
+    setIsDark(document.documentElement.classList.contains("dark"));
     const onboarded = localStorage.getItem("kidgo_onboarded");
     if (!onboarded) {
       setIsFirstVisit(true);
@@ -994,6 +1026,14 @@ export default function Home() {
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, [mounted]);
+
+  // Sprint 4: Scroll-to-top visibility
+  useEffect(() => {
+    if (!mounted) return;
+    const handleScroll = () => setShowScrollTop(window.scrollY > 350);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [mounted]);
 
   // Sprint 3: PWA install banner
@@ -1112,6 +1152,25 @@ export default function Home() {
       return;
     }
 
+    // Sprint 4: 5-minute in-memory cache
+    if (_eventsCache && _sourcesCache && Date.now() - _cacheTimestamp < EVENTS_CACHE_TTL) {
+      setSources(_sourcesCache);
+      setAllEventsPool(_eventsCache);
+      const ageFiltered = _eventsCache.filter(
+        (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
+      );
+      setAllEvents(ageFiltered);
+      const now = new Date();
+      const scored: ScoredEvent[] = ageFiltered.map((event) => {
+        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now);
+        return { ...event, score, reasons };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      setRecommendations(scored.slice(0, 3));
+      setLoading(false);
+      return;
+    }
+
     try {
       const todayStr = new Date().toISOString().split("T")[0];
 
@@ -1129,7 +1188,7 @@ export default function Home() {
 
       const { data: eventsData } = await supabase
         .from("events")
-        .select("*")
+        .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorie,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id")
         .eq("status", "approved")
         .is("serie_id", null)
         .or(`datum.is.null,datum.gte.${todayStr}`)
@@ -1144,6 +1203,11 @@ export default function Home() {
       }
 
       setAllEventsPool(eventsData);
+
+      // Sprint 4: Populate module-level cache
+      _eventsCache = eventsData;
+      _sourcesCache = sourcesData || [];
+      _cacheTimestamp = Date.now();
 
       // Sprint 3: Cache for offline use
       try {
@@ -1228,6 +1292,13 @@ export default function Home() {
     setTimeout(() => {
       document.getElementById("day-plan")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
+  };
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    try { localStorage.setItem("kidgo_theme", next ? "dark" : "light"); } catch {}
   };
 
   const handleAgeSelect = (bucket: string) => {
@@ -1389,7 +1460,9 @@ export default function Home() {
                 <button
                   key={bucket.key}
                   onClick={() => handleAgeSelect(bucket.key)}
-                  className={`relative p-5 rounded-2xl border-2 transition-all duration-200 text-left shadow-sm hover:shadow-md active:scale-95 ${
+                  aria-label={`Altersgruppe ${bucket.label} auswählen`}
+                  aria-pressed={selected}
+                  className={`relative p-5 rounded-2xl border-2 transition-all duration-200 text-left shadow-sm hover:shadow-md active:scale-95 bounce-hover ${
                     selected && multiChild
                       ? "border-orange-400 bg-orange-50 shadow-md"
                       : "border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/50"
@@ -1456,7 +1529,7 @@ export default function Home() {
   }).length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50">
+    <main id="main-content" role="main" className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50">
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
 
         {/* Sprint 3: PWA Install Banner */}
@@ -1516,16 +1589,26 @@ export default function Home() {
               <p className="text-gray-500 mt-1 text-sm">{headline.subtitle}</p>
             </div>
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              {weatherCode !== null && (
-                <div className="bg-white rounded-xl px-3 py-1.5 shadow-sm text-sm text-gray-600 flex items-center gap-1.5 border border-gray-100">
-                  <span>{weatherIcon(weatherCode)}</span>
-                  {weatherTemp !== null && (
-                    <span className="font-medium">{Math.round(weatherTemp)}°C</span>
-                  )}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {weatherCode !== null && (
+                  <div className="bg-white rounded-xl px-3 py-1.5 shadow-sm text-sm text-gray-600 flex items-center gap-1.5 border border-gray-100">
+                    <span aria-hidden="true">{weatherIcon(weatherCode)}</span>
+                    {weatherTemp !== null && (
+                      <span className="font-medium">{Math.round(weatherTemp)}°C</span>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={toggleTheme}
+                  aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
+                  className="bg-white rounded-xl w-9 h-9 flex items-center justify-center shadow-sm border border-gray-100 hover:border-gray-200 transition text-base leading-none"
+                >
+                  {isDark ? "☀️" : "🌙"}
+                </button>
+              </div>
               <button
                 onClick={handleChangeAge}
+                aria-label="Altersgruppe ändern"
                 className="text-xs text-gray-400 hover:text-orange-500 transition"
               >
                 Alter ändern
@@ -1689,11 +1772,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* Loading state */}
+        {/* Loading state — skeleton cards */}
         {loading && (
-          <div className="flex flex-col items-center py-16 gap-4">
-            <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-400 rounded-full animate-spin" />
-            <p className="text-gray-400 text-sm">Suche passende Events...</p>
+          <div className="space-y-4" role="status" aria-label="Events werden geladen">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </div>
         )}
 
@@ -1816,6 +1900,7 @@ export default function Home() {
           <div className="mt-6 flex gap-3 justify-center flex-wrap">
             <button
               onClick={handleSurprise}
+              aria-label="Zufälliges Event entdecken"
               className="bg-white border-2 border-orange-200 text-orange-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-orange-50 hover:border-orange-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
               {showSurprise ? "🎲 Nochmal!" : "🎲 Überrasch mich!"}
@@ -1823,6 +1908,7 @@ export default function Home() {
 
             <button
               onClick={handleGenerateDayPlan}
+              aria-label="Tagesplan für Kinder generieren"
               className="bg-white border-2 border-indigo-200 text-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-50 hover:border-indigo-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
               📋 Plan meinen Tag
@@ -1909,7 +1995,7 @@ export default function Home() {
 
         {/* Surprise card */}
         {showSurprise && surpriseEvent && (
-          <div key={surpriseAnimKey} id="surprise-card" className="mt-5 card-enter">
+          <div key={surpriseAnimKey} id="surprise-card" className="mt-5 flip-in">
             <p className="text-center text-sm font-semibold text-orange-500 mb-3">
               🎲 Zufällige Entdeckung
             </p>
@@ -2038,10 +2124,30 @@ export default function Home() {
           </div>
         )}
 
-        <footer className="mt-6 text-center text-xs text-gray-300 pb-4">
-          <a href="/admin" className="hover:text-gray-400 transition">Admin</a>
+        <footer className="mt-10 border-t border-gray-100 pt-6 pb-8 text-center">
+          <p className="text-xs text-gray-400 mb-2">© 2026 kidgo · Zürich</p>
+          <nav aria-label="Footer-Navigation" className="flex items-center justify-center gap-4 text-xs text-gray-400">
+            <Link href="/impressum" className="hover:text-gray-600 transition">Impressum</Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/datenschutz" className="hover:text-gray-600 transition">Datenschutz</Link>
+            <span aria-hidden="true">·</span>
+            <a href="/admin" className="hover:text-gray-500 transition">Admin</a>
+          </nav>
         </footer>
       </div>
+
+      {/* Scroll to top */}
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Nach oben scrollen"
+          className="fixed bottom-6 right-4 z-50 bg-white border border-gray-200 shadow-md rounded-full w-11 h-11 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:shadow-lg transition-all card-enter"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
     </main>
   );
 }

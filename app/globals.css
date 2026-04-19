@@ -2,37 +2,209 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; }
+
+/* ── Design Tokens ── */
+:root {
+  --bg-page: #fafaf9;
+  --bg-card: #ffffff;
+  --bg-subtle: #f5f4f2;
+  --bg-input: #f5f4f2;
+  --text-primary: #1c1917;
+  --text-secondary: #78716c;
+  --text-muted: #a8a29e;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --accent: #ea580c;
+  --accent-light: #fff7ed;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
 }
 
-html, body {
-  width: 100%;
-  height: 100%;
+.dark {
+  --bg-page: #0a0a0a;
+  --bg-card: #171717;
+  --bg-subtle: #262626;
+  --bg-input: #1c1c1c;
+  --text-primary: #fafaf9;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+  --border: #404040;
+  --border-strong: #525252;
+  --accent: #f97316;
+  --accent-light: #1c0f00;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
 }
 
+/* ── Smooth theme transition ── */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+body,
+.bg-white,
+.bg-gray-50,
+.text-gray-800,
+.text-gray-900 {
+  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease;
+}
+
+/* ── Dark mode overrides ── */
+.dark body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+/* Main page backgrounds */
+.dark main {
+  background: var(--bg-page) !important;
+}
+
+/* Gradient backgrounds → flat dark */
+.dark .bg-gradient-to-br,
+.dark .bg-gradient-to-r {
+  background: var(--bg-subtle) !important;
+}
+
+/* Card surfaces */
+.dark .bg-white { background-color: var(--bg-card) !important; }
+.dark .bg-gray-50 { background-color: var(--bg-subtle) !important; }
+.dark .bg-amber-50,
+.dark .bg-orange-50,
+.dark .bg-rose-50 { background-color: var(--bg-subtle) !important; }
+.dark .bg-indigo-50 { background-color: #12122a !important; }
+.dark .bg-orange-100 { background-color: #2d1500 !important; }
+.dark .bg-amber-100 { background-color: #2d1900 !important; }
+.dark .bg-green-50 { background-color: #0f1f0f !important; }
+.dark .bg-sky-50 { background-color: #0a1a2a !important; }
+.dark .bg-purple-50 { background-color: #1a0a2a !important; }
+
+/* Text */
+.dark .text-gray-900,
+.dark .text-gray-800 { color: var(--text-primary) !important; }
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500 { color: var(--text-secondary) !important; }
+.dark .text-gray-400,
+.dark .text-gray-300 { color: var(--text-muted) !important; }
+
+/* Borders */
+.dark .border-gray-100,
+.dark .border-gray-200 { border-color: var(--border) !important; }
+.dark .border-gray-300 { border-color: var(--border-strong) !important; }
+
+/* Inputs */
+.dark input[type="text"],
+.dark textarea {
+  background-color: var(--bg-input) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+.dark input[type="text"]::placeholder,
+.dark textarea::placeholder { color: var(--text-muted) !important; }
+
+/* ── Skip to content ── */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 0 0 0.5rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: top 200ms ease;
+}
+.skip-to-content:focus { top: 0; }
+
+/* ── Focus styles ── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Animations ── */
 @keyframes cardEnter {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 .card-enter {
-  animation: cardEnter 0.35s ease-out both;
+  animation: cardEnter 0.3s ease-out both;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 .fade-in {
-  animation: fadeIn 0.6s ease-out both;
+  animation: fadeIn 0.5s ease-out both;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0efee 25%, #e8e6e3 50%, #f0efee 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #262626 25%, #333 50%, #262626 75%);
+  background-size: 800px 100%;
+}
+
+/* 3D flip for surprise card */
+@keyframes flipIn {
+  from {
+    transform: perspective(600px) rotateY(90deg);
+    opacity: 0;
+  }
+  to {
+    transform: perspective(600px) rotateY(0deg);
+    opacity: 1;
+  }
+}
+.flip-in {
+  animation: flipIn 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Bounce on hover for age buttons */
+@keyframes bounceIn {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.bounce-hover:hover {
+  animation: bounceIn 0.3s ease;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .card-enter,
+  .fade-in,
+  .flip-in,
+  .bounce-hover:hover {
+    animation: none;
+    transition: none;
+  }
+  .skeleton {
+    animation: none;
+    background: #f0efee;
+  }
+  .dark .skeleton {
+    background: #262626;
+  }
 }

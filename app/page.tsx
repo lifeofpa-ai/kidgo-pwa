@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
-// --- Types ---
+// ============================================================
+// TYPES
+// ============================================================
+
 interface KidgoEvent {
   id: string;
   titel: string;
@@ -34,7 +37,25 @@ interface ScoredEvent extends KidgoEvent {
   reasons: string[];
 }
 
-// --- Age Buckets ---
+interface ParsedQuery {
+  ageBuckets: string[];
+  indoor: boolean | null;
+  dateFrom: Date | null;
+  dateTo: Date | null;
+  keywords: string[];
+  freeOnly: boolean;
+  childNames: Array<{ name: string; bucket: string }>;
+}
+
+interface DayPlanResult {
+  morning: KidgoEvent | null;
+  afternoon: KidgoEvent | null;
+}
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+
 const AGE_BUCKETS = [
   { key: "0-3",   label: "0–3 Jahre",   emoji: "👶", desc: "Baby & Kleinkind" },
   { key: "4-6",   label: "4–6 Jahre",   emoji: "🧒", desc: "Vorschule" },
@@ -42,7 +63,23 @@ const AGE_BUCKETS = [
   { key: "10-12", label: "10–12 Jahre", emoji: "🔭", desc: "Entdecker" },
 ];
 
-// --- Zürich school holidays ---
+const CHAT_CHIPS = [
+  "Was machen wir heute?",
+  "Indoor mit 2 Kindern",
+  "Gratis am Wochenende",
+  "Basteln für 5-Jährige",
+];
+
+const categoryEmojis: Record<string, string> = {
+  Kreativ: "🎨", Natur: "🌿", Tiere: "🐾", Sport: "⚽",
+  Tanz: "💃", Theater: "🎭", Musik: "🎵", "Mode & Design": "👗",
+  Wissenschaft: "🔬", Bildung: "📚", Ausflug: "🗺️", Feriencamp: "🏕️",
+};
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
 function isSchoolHoliday(date: Date): boolean {
   const m = date.getMonth() + 1;
   const d = date.getDate();
@@ -56,36 +93,18 @@ function isSchoolHoliday(date: Date): boolean {
   );
 }
 
-// --- Dynamic headline based on time/day ---
 function getHeadline(now: Date): { title: string; subtitle: string } {
-  const dow = now.getDay(); // 0=Sun, 6=Sat
+  const dow = now.getDay();
   const h = now.getHours();
-
-  if (isSchoolHoliday(now)) {
-    return {
-      title: "Ferientipp für euch",
-      subtitle: "Schulferien — Zeit für Abenteuer!",
-    };
-  }
-  if (dow === 6 || dow === 0 || (dow === 5 && h >= 15)) {
-    return {
-      title: "Dieses Wochenende für euch",
-      subtitle: "Passend ausgewählt für dein Kind",
-    };
-  }
-  if (dow === 3 && h >= 11 && h <= 18) {
-    return {
-      title: "Mittwochnachmittag-Tipps 🎒",
-      subtitle: "Heute Nachmittag was Tolles unternehmen",
-    };
-  }
-  return {
-    title: "Heute für euch",
-    subtitle: "Passend ausgewählt für dein Kind",
-  };
+  if (isSchoolHoliday(now))
+    return { title: "Ferientipp für euch", subtitle: "Schulferien — Zeit für Abenteuer!" };
+  if (dow === 6 || dow === 0 || (dow === 5 && h >= 15))
+    return { title: "Dieses Wochenende für euch", subtitle: "Passend ausgewählt für dein Kind" };
+  if (dow === 3 && h >= 11 && h <= 18)
+    return { title: "Mittwochnachmittag-Tipps 🎒", subtitle: "Heute Nachmittag was Tolles unternehmen" };
+  return { title: "Heute für euch", subtitle: "Passend ausgewählt für dein Kind" };
 }
 
-// --- Weather icon ---
 function weatherIcon(code: number): string {
   if (code >= 80) return "⛈️";
   if (code >= 61) return "🌧️";
@@ -94,7 +113,18 @@ function weatherIcon(code: number): string {
   return "☀️";
 }
 
-// --- Score a single event ---
+function ageToBucket(age: number): string | null {
+  if (age <= 3) return "0-3";
+  if (age <= 6) return "4-6";
+  if (age <= 9) return "7-9";
+  if (age <= 12) return "10-12";
+  return null;
+}
+
+// ============================================================
+// SCORING
+// ============================================================
+
 function scoreEvent(
   event: KidgoEvent,
   selectedBuckets: string[],
@@ -104,12 +134,19 @@ function scoreEvent(
   let score = 0;
   const reasons: string[] = [];
 
-  // +10: age bucket matches
-  if (
-    event.alters_buckets &&
-    selectedBuckets.some((b) => event.alters_buckets!.includes(b))
-  ) {
+  // +10: any age bucket match
+  if (event.alters_buckets && selectedBuckets.some((b) => event.alters_buckets!.includes(b))) {
     score += 10;
+  }
+
+  // +5 multi-child bonus: event fits ALL selected buckets
+  if (
+    selectedBuckets.length > 1 &&
+    event.alters_buckets &&
+    selectedBuckets.every((b) => event.alters_buckets!.includes(b))
+  ) {
+    score += 5;
+    reasons.push("👨‍👩‍👧‍👦 Passt für alle Kinder");
   }
 
   // Weather scoring
@@ -130,8 +167,7 @@ function scoreEvent(
     const eventDate = new Date(event.datum + "T00:00:00");
     const today = new Date(now);
     today.setHours(0, 0, 0, 0);
-    const diffMs = eventDate.getTime() - today.getTime();
-    const diff = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diff = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (diff >= 0 && diff <= 3) {
       score += 5;
       if (diff === 0) reasons.push("🔥 Heute!");
@@ -148,16 +184,12 @@ function scoreEvent(
     ["gratis", "kostenlos", "freier eintritt"].some(
       (kw) => descLow.includes(kw) || titleLow.includes(kw)
     );
-  if (isFree) {
-    score += 3;
-    reasons.push("🎉 Gratis!");
-  }
+  if (isFree) { score += 3; reasons.push("🎉 Gratis!"); }
 
-  // +3: newly added (< 7 days)
+  // +3: newly added (<7 days)
   if (
     event.created_at &&
-    new Date(event.created_at) >
-      new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    new Date(event.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   ) {
     score += 3;
     reasons.push("✨ Neu entdeckt");
@@ -166,28 +198,15 @@ function scoreEvent(
   // +3: seasonal fit
   const m = now.getMonth() + 1;
   const cats = event.kategorien || (event.kategorie ? [event.kategorie] : []);
-  if (
-    m >= 3 && m <= 5 &&
-    (event.indoor_outdoor === "outdoor" || cats.includes("Natur") || descLow.includes("natur"))
-  ) score += 3;
-  if (
-    m >= 6 && m <= 8 &&
-    (cats.some((k) => ["Sport", "Ausflug"].includes(k)) || descLow.includes("schwimm") || descLow.includes("camp") || descLow.includes("freibad"))
-  ) score += 3;
-  if (
-    m >= 9 && m <= 11 &&
-    (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor" || descLow.includes("bastel") || titleLow.includes("bastel"))
-  ) score += 3;
-  if (
-    (m === 12 || m <= 2) &&
-    (descLow.includes("weihnacht") || descLow.includes("eis") || descLow.includes("advent") || cats.includes("Kreativ"))
-  ) score += 3;
+  if (m >= 3 && m <= 5 && (event.indoor_outdoor === "outdoor" || cats.includes("Natur") || descLow.includes("natur"))) score += 3;
+  if (m >= 6 && m <= 8 && (cats.some((k) => ["Sport", "Ausflug"].includes(k)) || descLow.includes("schwimm") || descLow.includes("camp") || descLow.includes("freibad"))) score += 3;
+  if (m >= 9 && m <= 11 && (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor" || descLow.includes("bastel") || titleLow.includes("bastel"))) score += 3;
+  if ((m === 12 || m <= 2) && (descLow.includes("weihnacht") || descLow.includes("eis") || descLow.includes("advent") || cats.includes("Kreativ"))) score += 3;
 
-  // -5: old (> 30 days, freshness decay)
+  // -5: old (>30 days)
   if (
     event.created_at &&
-    new Date(event.created_at) <
-      new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    new Date(event.created_at) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   ) {
     score -= 5;
   }
@@ -195,7 +214,201 @@ function scoreEvent(
   return { score, reasons };
 }
 
-// --- ZH city lookup table ---
+// ============================================================
+// CHAT NLP
+// ============================================================
+
+function parseNaturalQuery(query: string): ParsedQuery {
+  const q = query.toLowerCase();
+  const ageBuckets: string[] = [];
+  const childNames: Array<{ name: string; bucket: string }> = [];
+
+  // Named children: "Anna (5) und Liam (8)"
+  const namedRegex = /([A-ZÄÖÜ][a-zäöüß]+)\s*\((\d+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = namedRegex.exec(query)) !== null) {
+    const bucket = ageToBucket(parseInt(m[2]));
+    if (bucket) {
+      childNames.push({ name: m[1], bucket });
+      if (!ageBuckets.includes(bucket)) ageBuckets.push(bucket);
+    }
+  }
+
+  // Age numbers: "5-jährig", "mit meinem 8-Jährigen"
+  if (ageBuckets.length === 0) {
+    const ageNumRegex = /(\d+)\s*[-–]?\s*j[äa]hr/gi;
+    while ((m = ageNumRegex.exec(query)) !== null) {
+      const bucket = ageToBucket(parseInt(m[1]));
+      if (bucket && !ageBuckets.includes(bucket)) ageBuckets.push(bucket);
+    }
+  }
+
+  // Age keywords
+  if (ageBuckets.length === 0) {
+    if (/kleinkind|baby|säugling/i.test(q)) ageBuckets.push("0-3");
+    if (/vorschul|kindergarten/i.test(q)) ageBuckets.push("4-6");
+    if (/schulkind|grundschul/i.test(q)) ageBuckets.push("7-9");
+  }
+
+  // Indoor/outdoor
+  let indoor: boolean | null = null;
+  if (/regen|regnet|indoor|drinnen/i.test(q)) indoor = true;
+  if (/sonne|sonnig|schönes?\s*wetter|outdoor|draußen|aussen/i.test(q)) indoor = false;
+
+  // Date ranges
+  const now = new Date();
+  let dateFrom: Date | null = null;
+  let dateTo: Date | null = null;
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  if (/\bheute\b/i.test(q)) {
+    dateFrom = todayStart;
+    dateTo = new Date(todayStart);
+    dateTo.setHours(23, 59, 59, 999);
+  } else if (/\bmorgen\b/i.test(q)) {
+    dateFrom = new Date(todayStart);
+    dateFrom.setDate(dateFrom.getDate() + 1);
+    dateTo = new Date(dateFrom);
+    dateTo.setHours(23, 59, 59, 999);
+  } else if (/wochenende/i.test(q)) {
+    const dow = now.getDay();
+    const toSat = dow === 0 ? 6 : (6 - dow) || 7;
+    dateFrom = new Date(todayStart);
+    dateFrom.setDate(dateFrom.getDate() + toSat);
+    dateTo = new Date(dateFrom);
+    dateTo.setDate(dateTo.getDate() + 1);
+    dateTo.setHours(23, 59, 59, 999);
+  } else if (/nächste\s*woche/i.test(q)) {
+    const dow = now.getDay();
+    const toMon = (8 - dow) % 7 || 7;
+    dateFrom = new Date(todayStart);
+    dateFrom.setDate(dateFrom.getDate() + toMon);
+    dateTo = new Date(dateFrom);
+    dateTo.setDate(dateTo.getDate() + 6);
+    dateTo.setHours(23, 59, 59, 999);
+  }
+
+  // Category keywords
+  const kwMap: Record<string, string[]> = {
+    Kreativ:     ["bastel", "malen", "kreativ", "kunst", "zeichn", "töpfer"],
+    Sport:       ["sport", "turnen", "klettern", "schwimm", "fussball", "fußball"],
+    Natur:       ["natur", "wald", "tiere", "zoo", "bauernhof"],
+    Ausflug:     ["museum", "ausflug", "ausstellung"],
+    Theater:     ["theater", "zirkus", "puppentheater"],
+    Musik:       ["musik", "konzert", "singen"],
+    Tanz:        ["tanz", "tanzen"],
+    Feriencamp:  ["camp", "ferienlager"],
+  };
+  const keywords: string[] = [];
+  for (const [cat, kws] of Object.entries(kwMap)) {
+    if (kws.some((kw) => q.includes(kw))) keywords.push(cat);
+  }
+
+  const freeOnly = /gratis|kostenlos|umsonst|günstig/i.test(q);
+
+  return { ageBuckets, indoor, dateFrom, dateTo, keywords, freeOnly, childNames };
+}
+
+function filterByQuery(events: KidgoEvent[], parsed: ParsedQuery): KidgoEvent[] {
+  return events.filter((event) => {
+    if (parsed.ageBuckets.length > 0) {
+      const ok =
+        !event.alters_buckets ||
+        event.alters_buckets.length === 0 ||
+        parsed.ageBuckets.some((b) => event.alters_buckets!.includes(b));
+      if (!ok) return false;
+    }
+    if (parsed.indoor === true && event.indoor_outdoor === "outdoor") return false;
+    if (parsed.indoor === false && event.indoor_outdoor === "indoor") return false;
+    if (event.datum) {
+      const ed = new Date(event.datum + "T00:00:00");
+      if (parsed.dateFrom && ed < parsed.dateFrom) return false;
+      if (parsed.dateTo && ed > parsed.dateTo) return false;
+    }
+    if (parsed.keywords.length > 0) {
+      const cats = event.kategorien || (event.kategorie ? [event.kategorie] : []);
+      const dl = (event.beschreibung || "").toLowerCase();
+      const tl = event.titel.toLowerCase();
+      const match = parsed.keywords.some(
+        (kw) => cats.includes(kw) || dl.includes(kw.toLowerCase()) || tl.includes(kw.toLowerCase())
+      );
+      if (!match) return false;
+    }
+    if (parsed.freeOnly) {
+      const dl = (event.beschreibung || "").toLowerCase();
+      const tl = event.titel.toLowerCase();
+      const free =
+        event.preis_chf === 0 ||
+        ["gratis", "kostenlos", "freier eintritt"].some((kw) => dl.includes(kw) || tl.includes(kw));
+      if (!free) return false;
+    }
+    return true;
+  });
+}
+
+function buildChatResponse(parsed: ParsedQuery, total: number): string {
+  if (total === 0) {
+    return "Hmm, da habe ich gerade nichts Passendes. Versuch's mit anderen Worten oder schau in alle Events.";
+  }
+  const parts: string[] = [];
+  if (parsed.childNames.length >= 2) {
+    const names = parsed.childNames.map((c) => `${c.name} (${c.bucket})`).join(" und ");
+    parts.push(`Für ${names}`);
+  } else if (parsed.ageBuckets.length > 0) {
+    const labels = parsed.ageBuckets
+      .map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b)
+      .join(" und ");
+    parts.push(`Für ${labels}`);
+  }
+  if (parsed.indoor === true) parts.push("bei Regen");
+  if (parsed.indoor === false) parts.push("bei schönem Wetter");
+  if (parsed.freeOnly) parts.push("gratis");
+  if (parsed.keywords.length > 0) parts.push(parsed.keywords.join(" & "));
+  const ctx = parts.length ? parts.join(", ") + " — " : "";
+  const n = Math.min(3, total);
+  return `${ctx}${n} ${n === 1 ? "Tipp" : "Tipps"} gefunden:`;
+}
+
+// ============================================================
+// DAY PLAN
+// ============================================================
+
+function buildDayPlan(
+  events: KidgoEvent[],
+  selectedBuckets: string[],
+  weatherCode: number | null
+): DayPlanResult {
+  const now = new Date();
+  const scored = [...events]
+    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherCode, now).score }))
+    .sort(() => Math.random() - 0.5)
+    .sort((a, b) => b.score - a.score);
+
+  const morning = scored[0] ?? null;
+  if (!morning) return { morning: null, afternoon: null };
+
+  const morningCats = new Set([
+    ...(morning.kategorien ?? []),
+    ...(morning.kategorie ? [morning.kategorie] : []),
+  ]);
+
+  const afternoon =
+    scored.find((e) => {
+      if (e.id === morning.id) return false;
+      const cats = [...(e.kategorien ?? []), ...(e.kategorie ? [e.kategorie] : [])];
+      return cats.length === 0 || !cats.some((c) => morningCats.has(c));
+    }) ??
+    scored[1] ??
+    null;
+
+  return { morning, afternoon };
+}
+
+// ============================================================
+// LOCATION
+// ============================================================
+
 const ZH_CITIES: Record<string, [number, number]> = {
   Zürich:      [47.37, 8.54],
   Winterthur:  [47.50, 8.72],
@@ -209,7 +422,6 @@ const ZH_CITIES: Record<string, [number, number]> = {
   Wallisellen: [47.41, 8.60],
 };
 
-// --- Haversine distance in km ---
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -222,12 +434,9 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// --- Category visuals ---
-const categoryEmojis: Record<string, string> = {
-  Kreativ: "🎨", Natur: "🌿", Tiere: "🐾", Sport: "⚽",
-  Tanz: "💃", Theater: "🎭", Musik: "🎵", "Mode & Design": "👗",
-  Wissenschaft: "🔬", Bildung: "📚", Ausflug: "🗺️", Feriencamp: "🏕️",
-};
+// ============================================================
+// COMPONENTS
+// ============================================================
 
 function EventImage({
   url,
@@ -257,15 +466,12 @@ function EventImage({
     );
   }
   return (
-    <div
-      className={`${cls} bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center`}
-    >
+    <div className={`${cls} bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center`}>
       <span className="text-6xl">{emoji}</span>
     </div>
   );
 }
 
-// --- Format date short ---
 function formatDateShort(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("de-CH", {
     weekday: "short",
@@ -274,39 +480,38 @@ function formatDateShort(dateStr: string): string {
   });
 }
 
-// ===== RECOMMENDATION CARD =====
 function RecommendationCard({
   event,
   reasons,
   sources,
   userLocation,
   animIndex,
+  selectedBuckets = [],
 }: {
   event: KidgoEvent;
   reasons: string[];
   sources: { id: string; url: string | null; latitude: number | null; longitude: number | null }[];
   userLocation: { lat: number; lon: number; approximate: boolean } | null;
   animIndex: number;
+  selectedBuckets?: string[];
 }) {
   const source = sources.find((s) => s.id === event.quelle_id);
 
-  // Distance label
   let distanceLabel: string | null = null;
   if (userLocation && source?.latitude && source?.longitude) {
-    const km = haversine(
-      userLocation.lat, userLocation.lon,
-      source.latitude, source.longitude
-    );
-    if (km < 50) {
-      distanceLabel = km < 1 ? "< 1 km entfernt" : `~${Math.round(km)} km entfernt`;
-    }
+    const km = haversine(userLocation.lat, userLocation.lon, source.latitude, source.longitude);
+    if (km < 50) distanceLabel = km < 1 ? "< 1 km entfernt" : `~${Math.round(km)} km entfernt`;
   }
 
   const displayReasons = [...reasons];
-  if (distanceLabel && !displayReasons.some((r) => r.includes("km"))) {
+  if (distanceLabel && !displayReasons.some((r) => r.includes("km")))
     displayReasons.push(`📍 ${distanceLabel}`);
-  }
   const shownReasons = displayReasons.slice(0, 2);
+
+  const matchingBuckets =
+    selectedBuckets.length > 1 && event.alters_buckets
+      ? selectedBuckets.filter((b) => event.alters_buckets!.includes(b))
+      : [];
 
   return (
     <Link
@@ -334,9 +539,21 @@ function RecommendationCard({
             </div>
           )}
 
-          <h3 className="font-bold text-gray-900 text-lg leading-snug mb-2 group-hover:text-orange-600 transition-colors">
+          <h3 className="font-bold text-gray-900 text-lg leading-snug mb-1.5 group-hover:text-orange-600 transition-colors">
             {event.titel}
           </h3>
+
+          {matchingBuckets.length > 1 && (
+            <p className="text-xs text-emerald-600 font-semibold mb-2 flex items-center gap-1">
+              <span>✓</span>
+              <span>
+                Passt für{" "}
+                {matchingBuckets
+                  .map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b)
+                  .join(" und ")}
+              </span>
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
             {event.datum && (
@@ -363,7 +580,10 @@ function RecommendationCard({
   );
 }
 
-// ===== MAIN COMPONENT =====
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"age-select" | "recommendations">("age-select");
@@ -371,6 +591,7 @@ export default function Home() {
   const [multiChild, setMultiChild] = useState(false);
 
   const [allEvents, setAllEvents] = useState<KidgoEvent[]>([]);
+  const [allEventsPool, setAllEventsPool] = useState<KidgoEvent[]>([]);
   const [recommendations, setRecommendations] = useState<ScoredEvent[]>([]);
   const [surpriseEvent, setSurpriseEvent] = useState<KidgoEvent | null>(null);
   const [showSurprise, setShowSurprise] = useState(false);
@@ -389,7 +610,15 @@ export default function Home() {
     approximate: boolean;
   } | null>(null);
 
-  // Restore age from localStorage
+  // Feature A: Chat
+  const [chatInput, setChatInput] = useState("");
+  const [chatResult, setChatResult] = useState<{ message: string; events: KidgoEvent[] } | null>(null);
+  const chatResultRef = useRef<HTMLDivElement>(null);
+
+  // Feature C: Day plan
+  const [dayPlan, setDayPlan] = useState<DayPlanResult | null>(null);
+  const [showDayPlan, setShowDayPlan] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     try {
@@ -398,32 +627,28 @@ export default function Home() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setSelectedBuckets(parsed);
+          if (parsed.length > 1) setMultiChild(true);
           setStep("recommendations");
         }
       }
     } catch {}
   }, []);
 
-  // Fetch weather
   useEffect(() => {
     fetch(
       "https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m"
     )
       .then((r) => r.json())
       .then((d) => {
-        if (typeof d?.current?.weather_code === "number")
-          setWeatherCode(d.current.weather_code);
-        if (typeof d?.current?.temperature_2m === "number")
-          setWeatherTemp(d.current.temperature_2m);
+        if (typeof d?.current?.weather_code === "number") setWeatherCode(d.current.weather_code);
+        if (typeof d?.current?.temperature_2m === "number") setWeatherTemp(d.current.temperature_2m);
       })
       .catch(() => {});
   }, []);
 
-  // Get user location (GPS → IP fallback → ZH lookup snap), cache in localStorage
   useEffect(() => {
     if (!mounted) return;
 
-    // Load cached location immediately
     try {
       const cached = localStorage.getItem("kidgo_location");
       if (cached) {
@@ -486,7 +711,6 @@ export default function Home() {
     );
   }, [mounted]);
 
-  // Fetch and score events when entering recommendations step
   useEffect(() => {
     if (step !== "recommendations" || selectedBuckets.length === 0) return;
     fetchAndScore();
@@ -497,6 +721,9 @@ export default function Home() {
     setLoading(true);
     setSurpriseEvent(null);
     setShowSurprise(false);
+    setChatResult(null);
+    setDayPlan(null);
+    setShowDayPlan(false);
     try {
       const todayStr = new Date().toISOString().split("T")[0];
 
@@ -515,33 +742,28 @@ export default function Home() {
 
       if (!eventsData || eventsData.length === 0) {
         setAllEvents([]);
+        setAllEventsPool([]);
         setRecommendations([]);
         setLoading(false);
         return;
       }
 
-      // Filter to events matching selected age buckets
+      setAllEventsPool(eventsData);
+
       const ageFiltered = eventsData.filter(
         (e) =>
           !e.alters_buckets ||
           e.alters_buckets.length === 0 ||
           selectedBuckets.some((b) => e.alters_buckets.includes(b))
       );
-
       setAllEvents(ageFiltered);
 
       const now = new Date();
       const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(
-          event,
-          selectedBuckets,
-          weatherCode,
-          now
-        );
+        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now);
         return { ...event, score, reasons };
       });
 
-      // Shuffle ties randomly, then sort by score descending
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
       shuffled.sort((a, b) => b.score - a.score);
       setRecommendations(shuffled.slice(0, 3));
@@ -551,12 +773,49 @@ export default function Home() {
     setLoading(false);
   };
 
+  // Feature A: Chat handler
+  const handleChatQuery = (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    setChatInput(q);
+
+    const parsed = parseNaturalQuery(q);
+    const effectiveBuckets = parsed.ageBuckets.length > 0 ? parsed.ageBuckets : selectedBuckets;
+    const parsedWithBuckets = { ...parsed, ageBuckets: effectiveBuckets };
+
+    const pool = parsed.ageBuckets.length > 0 ? allEventsPool : allEvents;
+    const filtered = filterByQuery(pool, parsedWithBuckets);
+
+    const now = new Date();
+    const scored = [...filtered]
+      .map((e) => ({ ...e, score: scoreEvent(e, effectiveBuckets, weatherCode, now).score }))
+      .sort(() => Math.random() - 0.5)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    const message = buildChatResponse(parsedWithBuckets, filtered.length);
+    setChatResult({ message, events: scored });
+
+    setTimeout(() => {
+      chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
+
+  // Feature C: Day plan handler
+  const handleGenerateDayPlan = () => {
+    if (allEvents.length === 0) return;
+    const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode);
+    setDayPlan(plan);
+    setShowDayPlan(true);
+    setTimeout(() => {
+      document.getElementById("day-plan")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
+
   const handleAgeSelect = (bucket: string) => {
     if (multiChild) {
       setSelectedBuckets((prev) =>
-        prev.includes(bucket)
-          ? prev.filter((b) => b !== bucket)
-          : [...prev, bucket]
+        prev.includes(bucket) ? prev.filter((b) => b !== bucket) : [...prev, bucket]
       );
     } else {
       const newBuckets = [bucket];
@@ -578,30 +837,28 @@ export default function Home() {
     setMultiChild(false);
     setRecommendations([]);
     setAllEvents([]);
+    setAllEventsPool([]);
     setSurpriseEvent(null);
     setShowSurprise(false);
+    setChatResult(null);
+    setChatInput("");
+    setDayPlan(null);
+    setShowDayPlan(false);
     localStorage.removeItem("kidgo_age_buckets");
   };
 
   const handleSurprise = () => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
-    const in14Str = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-
-    const pool = allEvents.filter(
-      (e) => e.datum && e.datum >= todayStr && e.datum <= in14Str
-    );
+    const in14Str = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const pool = allEvents.filter((e) => e.datum && e.datum >= todayStr && e.datum <= in14Str);
     const source = pool.length > 0 ? pool : allEvents;
     const picked = source[Math.floor(Math.random() * source.length)];
     setSurpriseEvent(picked || null);
     setShowSurprise(true);
     setSurpriseAnimKey((k) => k + 1);
     setTimeout(() => {
-      document
-        .getElementById("surprise-card")
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("surprise-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
   };
 
@@ -617,12 +874,8 @@ export default function Home() {
         <div className="w-full max-w-md mx-auto">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">🎪</div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Willkommen bei Kidgo
-            </h1>
-            <p className="text-gray-500 text-lg">
-              Wie alt ist dein Kind?
-            </p>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Willkommen bei Kidgo</h1>
+            <p className="text-gray-500 text-lg">Wie alt ist dein Kind?</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -639,22 +892,12 @@ export default function Home() {
                   }`}
                 >
                   <div className="text-4xl mb-2">{bucket.emoji}</div>
-                  <div className="font-bold text-gray-800 text-lg leading-tight">
-                    {bucket.label}
-                  </div>
-                  <div className="text-gray-500 text-sm mt-0.5">
-                    {bucket.desc}
-                  </div>
+                  <div className="font-bold text-gray-800 text-lg leading-tight">{bucket.label}</div>
+                  <div className="text-gray-500 text-sm mt-0.5">{bucket.desc}</div>
                   {selected && multiChild && (
                     <div className="absolute top-3 right-3 w-6 h-6 bg-orange-400 rounded-full flex items-center justify-center">
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path
-                          d="M2 6l3 3 5-5"
-                          stroke="white"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   )}
@@ -701,9 +944,7 @@ export default function Home() {
         <header className="mb-7">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-orange-500 font-semibold text-xs mb-1 uppercase tracking-wider">
-                Kidgo
-              </p>
+              <p className="text-orange-500 font-semibold text-xs mb-1 uppercase tracking-wider">Kidgo</p>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight">
                 {headline.title}
               </h1>
@@ -732,10 +973,7 @@ export default function Home() {
             {selectedBuckets.map((b) => {
               const bucket = AGE_BUCKETS.find((a) => a.key === b)!;
               return (
-                <span
-                  key={b}
-                  className="bg-orange-100 text-orange-700 text-sm font-medium px-3 py-1 rounded-full"
-                >
+                <span key={b} className="bg-orange-100 text-orange-700 text-sm font-medium px-3 py-1 rounded-full">
                   {bucket.emoji} {bucket.label}
                 </span>
               );
@@ -781,12 +1019,8 @@ export default function Home() {
         {!loading && recommendations.length === 0 && (
           <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
             <div className="text-5xl mb-3">🔍</div>
-            <p className="text-gray-700 font-semibold mb-1">
-              Keine aktuellen Events gefunden
-            </p>
-            <p className="text-gray-400 text-sm mb-5">
-              Schau im Katalog nach weiteren Aktivitäten
-            </p>
+            <p className="text-gray-700 font-semibold mb-1">Keine aktuellen Events gefunden</p>
+            <p className="text-gray-400 text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
             <Link
               href="/explore"
               className="bg-orange-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-500 transition"
@@ -807,19 +1041,106 @@ export default function Home() {
                 sources={sources}
                 userLocation={userLocation}
                 animIndex={i}
+                selectedBuckets={selectedBuckets}
               />
             ))}
           </div>
         )}
 
-        {/* Surprise me button */}
+        {/* ===== FEATURE A: FRAG KIDGO CHAT ===== */}
+        {!loading && allEventsPool.length > 0 && (
+          <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">💬</span>
+                <h2 className="font-bold text-gray-800 text-lg">Frag Kidgo</h2>
+              </div>
+              <p className="text-gray-400 text-sm mb-4">
+                Beschreib was du suchst — ich filtere passende Events für dich
+              </p>
+
+              {/* Example chips */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {CHAT_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => handleChatQuery(chip)}
+                    className="text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-full hover:bg-orange-100 hover:border-orange-300 transition active:scale-95"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              {/* Input row */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
+                  placeholder="Frag Kidgo..."
+                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition"
+                />
+                <button
+                  onClick={() => handleChatQuery(chatInput)}
+                  disabled={!chatInput.trim()}
+                  className="bg-orange-400 text-white rounded-xl px-4 py-2.5 font-bold text-sm hover:bg-orange-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+
+            {/* Chat results */}
+            {chatResult && (
+              <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-amber-50/40">
+                <p className="text-sm font-semibold text-gray-700 mb-4 flex items-start gap-2">
+                  <span className="text-base mt-0.5">🤖</span>
+                  <span>{chatResult.message}</span>
+                </p>
+                {chatResult.events.length > 0 ? (
+                  <div className="space-y-3">
+                    {chatResult.events.map((event, i) => (
+                      <RecommendationCard
+                        key={event.id}
+                        event={event}
+                        reasons={[]}
+                        sources={sources}
+                        userLocation={userLocation}
+                        animIndex={i}
+                        selectedBuckets={selectedBuckets}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Link
+                    href="/explore"
+                    className="inline-block text-sm text-orange-500 underline underline-offset-2 hover:text-orange-600 transition"
+                  >
+                    Alle Events durchsuchen →
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== ACTION BUTTONS: SURPRISE + DAY PLAN ===== */}
         {!loading && allEvents.length > 0 && (
-          <div className="mt-6 text-center">
+          <div className="mt-6 flex gap-3 justify-center flex-wrap">
             <button
               onClick={handleSurprise}
-              className="bg-white border-2 border-orange-200 text-orange-600 px-8 py-3.5 rounded-2xl font-bold text-base hover:bg-orange-50 hover:border-orange-400 transition shadow-sm hover:shadow-md active:scale-95"
+              className="bg-white border-2 border-orange-200 text-orange-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-orange-50 hover:border-orange-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
               {showSurprise ? "🎲 Nochmal!" : "🎲 Überrasch mich!"}
+            </button>
+
+            <button
+              onClick={handleGenerateDayPlan}
+              className="bg-white border-2 border-indigo-200 text-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-50 hover:border-indigo-400 transition shadow-sm hover:shadow-md active:scale-95"
+            >
+              📋 Plan meinen Tag
             </button>
           </div>
         )}
@@ -836,7 +1157,102 @@ export default function Home() {
               sources={sources}
               userLocation={userLocation}
               animIndex={0}
+              selectedBuckets={selectedBuckets}
             />
+          </div>
+        )}
+
+        {/* ===== FEATURE C: DAY PLAN ===== */}
+        {showDayPlan && dayPlan && (dayPlan.morning || dayPlan.afternoon) && (
+          <div id="day-plan" className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden card-enter">
+            <div className="p-5 border-b border-gray-100">
+              <h2 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                <span>📋</span> Dein Tagesplan
+              </h2>
+              <p className="text-gray-400 text-xs mt-0.5">Zwei abwechslungsreiche Events für euren Tag</p>
+            </div>
+
+            <div className="p-5">
+              <div className="relative pl-7">
+                {/* Timeline line */}
+                <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-orange-300 via-amber-200 to-indigo-300 rounded-full" />
+
+                {/* Morning slot */}
+                {dayPlan.morning && (
+                  <div className="relative mb-6">
+                    <div className="absolute -left-4 top-1 w-4 h-4 bg-orange-400 rounded-full border-2 border-white shadow-sm" />
+                    <div className="text-xs font-bold text-orange-500 mb-1.5 tracking-wide">
+                      10:00 – 12:00 Uhr · Vormittag
+                    </div>
+                    <Link
+                      href={`/events/${dayPlan.morning.id}`}
+                      className="block bg-orange-50 border border-orange-100 rounded-xl p-3.5 hover:bg-orange-100 hover:border-orange-200 transition group"
+                    >
+                      <div className="font-bold text-gray-800 text-sm group-hover:text-orange-700 transition leading-snug">
+                        {dayPlan.morning.titel}
+                      </div>
+                      {dayPlan.morning.ort && (
+                        <div className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                          <span>📍</span>{dayPlan.morning.ort}
+                        </div>
+                      )}
+                      {dayPlan.morning.datum && (
+                        <div className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+                          <span>📅</span>{formatDateShort(dayPlan.morning.datum)}
+                        </div>
+                      )}
+                    </Link>
+                  </div>
+                )}
+
+                {/* Midday break */}
+                <div className="relative mb-6">
+                  <div className="absolute -left-4 top-1 w-4 h-4 bg-amber-200 rounded-full border-2 border-white" />
+                  <div className="text-xs font-bold text-amber-500 mb-1.5 tracking-wide">
+                    12:00 – 14:00 Uhr · Mittagspause
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3.5">
+                    <div className="text-gray-500 text-sm">🍕 Mittagessen & Erholung</div>
+                    <div className="text-gray-400 text-xs mt-0.5">Zeit zum Entspannen und Auftanken</div>
+                  </div>
+                </div>
+
+                {/* Afternoon slot */}
+                {dayPlan.afternoon && (
+                  <div className="relative">
+                    <div className="absolute -left-4 top-1 w-4 h-4 bg-indigo-400 rounded-full border-2 border-white shadow-sm" />
+                    <div className="text-xs font-bold text-indigo-500 mb-1.5 tracking-wide">
+                      14:00 – 16:00 Uhr · Nachmittag
+                    </div>
+                    <Link
+                      href={`/events/${dayPlan.afternoon.id}`}
+                      className="block bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 hover:bg-indigo-100 hover:border-indigo-200 transition group"
+                    >
+                      <div className="font-bold text-gray-800 text-sm group-hover:text-indigo-700 transition leading-snug">
+                        {dayPlan.afternoon.titel}
+                      </div>
+                      {dayPlan.afternoon.ort && (
+                        <div className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                          <span>📍</span>{dayPlan.afternoon.ort}
+                        </div>
+                      )}
+                      {dayPlan.afternoon.datum && (
+                        <div className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+                          <span>📅</span>{formatDateShort(dayPlan.afternoon.datum)}
+                        </div>
+                      )}
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleGenerateDayPlan}
+                className="mt-5 w-full py-2.5 text-sm text-indigo-500 font-semibold border border-indigo-200 rounded-xl hover:bg-indigo-50 transition"
+              >
+                🔄 Anderen Plan generieren
+              </button>
+            </div>
           </div>
         )}
 
@@ -851,9 +1267,7 @@ export default function Home() {
         </div>
 
         <footer className="mt-6 text-center text-xs text-gray-300 pb-4">
-          <a href="/admin" className="hover:text-gray-400 transition">
-            Admin
-          </a>
+          <a href="/admin" className="hover:text-gray-400 transition">Admin</a>
         </footer>
       </div>
     </main>

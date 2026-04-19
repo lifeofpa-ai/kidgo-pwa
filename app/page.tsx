@@ -73,9 +73,9 @@ function getHeadline(now: Date): { title: string; subtitle: string } {
       subtitle: "Passend ausgewählt für dein Kind",
     };
   }
-  if (dow === 3 && h >= 12) {
+  if (dow === 3 && h >= 11 && h <= 18) {
     return {
-      title: "Mittwochnachmittag-Tipp",
+      title: "Mittwochnachmittag-Tipps 🎒",
       subtitle: "Heute Nachmittag was Tolles unternehmen",
     };
   }
@@ -163,25 +163,25 @@ function scoreEvent(
     reasons.push("✨ Neu entdeckt");
   }
 
-  // +2: seasonal fit
+  // +3: seasonal fit
   const m = now.getMonth() + 1;
   const cats = event.kategorien || (event.kategorie ? [event.kategorie] : []);
   if (
     m >= 3 && m <= 5 &&
     (event.indoor_outdoor === "outdoor" || cats.includes("Natur") || descLow.includes("natur"))
-  ) score += 2;
+  ) score += 3;
   if (
     m >= 6 && m <= 8 &&
-    (cats.some((k) => ["Sport", "Ausflug"].includes(k)) || descLow.includes("schwimm") || descLow.includes("camp"))
-  ) score += 2;
+    (cats.some((k) => ["Sport", "Ausflug"].includes(k)) || descLow.includes("schwimm") || descLow.includes("camp") || descLow.includes("freibad"))
+  ) score += 3;
   if (
     m >= 9 && m <= 11 &&
-    (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor")
-  ) score += 2;
+    (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor" || descLow.includes("bastel") || titleLow.includes("bastel"))
+  ) score += 3;
   if (
-    (m === 12 || m === 1) &&
-    (descLow.includes("weihnacht") || descLow.includes("eis") || cats.includes("Kreativ"))
-  ) score += 2;
+    (m === 12 || m <= 2) &&
+    (descLow.includes("weihnacht") || descLow.includes("eis") || descLow.includes("advent") || cats.includes("Kreativ"))
+  ) score += 3;
 
   // -5: old (> 30 days, freshness decay)
   if (
@@ -194,6 +194,20 @@ function scoreEvent(
 
   return { score, reasons };
 }
+
+// --- ZH city lookup table ---
+const ZH_CITIES: Record<string, [number, number]> = {
+  Zürich:      [47.37, 8.54],
+  Winterthur:  [47.50, 8.72],
+  Uster:       [47.35, 8.72],
+  Wädenswil:   [47.23, 8.67],
+  Horgen:      [47.26, 8.60],
+  Schlieren:   [47.40, 8.45],
+  Volketswil:  [47.39, 8.69],
+  Opfikon:     [47.43, 8.57],
+  Rümlang:     [47.45, 8.53],
+  Wallisellen: [47.41, 8.60],
+};
 
 // --- Haversine distance in km ---
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -360,6 +374,7 @@ export default function Home() {
   const [recommendations, setRecommendations] = useState<ScoredEvent[]>([]);
   const [surpriseEvent, setSurpriseEvent] = useState<KidgoEvent | null>(null);
   const [showSurprise, setShowSurprise] = useState(false);
+  const [surpriseAnimKey, setSurpriseAnimKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<
     { id: string; url: string | null; latitude: number | null; longitude: number | null }[]
@@ -404,30 +419,65 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  // Get user location
+  // Get user location (GPS → IP fallback → ZH lookup snap), cache in localStorage
   useEffect(() => {
     if (!mounted) return;
-    if (!navigator.geolocation) return;
+
+    // Load cached location immediately
+    try {
+      const cached = localStorage.getItem("kidgo_location");
+      if (cached) {
+        const loc = JSON.parse(cached);
+        if (loc.lat && loc.lon) setUserLocation(loc);
+      }
+    } catch {}
+
+    const snapToZH = (lat: number, lon: number): { label: string; lat: number; lon: number } => {
+      let nearest = "Zürich";
+      let minDist = Infinity;
+      for (const [city, [clat, clon]] of Object.entries(ZH_CITIES)) {
+        const d = haversine(lat, lon, clat, clon);
+        if (d < minDist) { minDist = d; nearest = city; }
+      }
+      const [slat, slon] = ZH_CITIES[nearest];
+      return { label: nearest, lat: slat, lon: slon };
+    };
+
+    if (!navigator.geolocation) {
+      fetch("https://ipapi.co/json/")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.latitude && d.longitude) {
+            const snapped = snapToZH(parseFloat(d.latitude), parseFloat(d.longitude));
+            const loc = { ...snapped, approximate: true };
+            setUserLocation(loc);
+            localStorage.setItem("kidgo_location", JSON.stringify(loc));
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserLocation({
+        const loc = {
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
           label: "Dein Standort",
           approximate: false,
-        });
+        };
+        setUserLocation(loc);
+        localStorage.setItem("kidgo_location", JSON.stringify(loc));
       },
       () => {
         fetch("https://ipapi.co/json/")
           .then((r) => r.json())
           .then((d) => {
             if (d.latitude && d.longitude) {
-              setUserLocation({
-                lat: parseFloat(d.latitude),
-                lon: parseFloat(d.longitude),
-                label: d.city || "Zürich",
-                approximate: true,
-              });
+              const snapped = snapToZH(parseFloat(d.latitude), parseFloat(d.longitude));
+              const loc = { ...snapped, approximate: true };
+              setUserLocation(loc);
+              localStorage.setItem("kidgo_location", JSON.stringify(loc));
             }
           })
           .catch(() => {});
@@ -547,6 +597,7 @@ export default function Home() {
     const picked = source[Math.floor(Math.random() * source.length)];
     setSurpriseEvent(picked || null);
     setShowSurprise(true);
+    setSurpriseAnimKey((k) => k + 1);
     setTimeout(() => {
       document
         .getElementById("surprise-card")
@@ -768,14 +819,14 @@ export default function Home() {
               onClick={handleSurprise}
               className="bg-white border-2 border-orange-200 text-orange-600 px-8 py-3.5 rounded-2xl font-bold text-base hover:bg-orange-50 hover:border-orange-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
-              🎲 Überrasch mich!
+              {showSurprise ? "🎲 Nochmal!" : "🎲 Überrasch mich!"}
             </button>
           </div>
         )}
 
         {/* Surprise card */}
         {showSurprise && surpriseEvent && (
-          <div id="surprise-card" className="mt-5 card-enter">
+          <div key={surpriseAnimKey} id="surprise-card" className="mt-5 card-enter">
             <p className="text-center text-sm font-semibold text-orange-500 mb-3">
               🎲 Zufällige Entdeckung
             </p>

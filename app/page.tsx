@@ -148,6 +148,81 @@ const SMART_COLLECTIONS: SmartCollection[] = [
   },
 ];
 
+// Sprint 3: Weekly challenges — rotate by ISO week number
+const WEEKLY_CHALLENGES = [
+  {
+    id: "museum",
+    emoji: "🏛️",
+    title: "Besuche diese Woche ein Museum!",
+    filter: (e: KidgoEvent) => {
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      const desc = (e.beschreibung || "").toLowerCase();
+      const t = e.titel.toLowerCase();
+      return (
+        cats.some((c) => ["Ausflug", "Bildung", "Wissenschaft"].includes(c)) ||
+        ["museum", "ausstellung", "galerie"].some((kw) => desc.includes(kw) || t.includes(kw))
+      );
+    },
+  },
+  {
+    id: "outdoor",
+    emoji: "🌳",
+    title: "Outdoor-Abenteuer erleben!",
+    filter: (e: KidgoEvent) => {
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      return e.indoor_outdoor === "outdoor" || e.indoor_outdoor === "beides" || cats.includes("Natur");
+    },
+  },
+  {
+    id: "kreativ",
+    emoji: "🎨",
+    title: "Kreativ-Workshop besuchen!",
+    filter: (e: KidgoEvent) => {
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      const desc = (e.beschreibung || "").toLowerCase();
+      return (
+        cats.some((c) => ["Kreativ", "Theater", "Musik"].includes(c)) ||
+        ["bastel", "malen", "kreativ", "töpfer", "zeichn"].some((kw) => desc.includes(kw))
+      );
+    },
+  },
+  {
+    id: "sport",
+    emoji: "⚽",
+    title: "Sport-Event für die Kinder!",
+    filter: (e: KidgoEvent) => {
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      const desc = (e.beschreibung || "").toLowerCase();
+      return (
+        cats.includes("Sport") ||
+        ["sport", "turnen", "klettern", "schwimm", "fussball", "fußball"].some((kw) => desc.includes(kw))
+      );
+    },
+  },
+  {
+    id: "gratis",
+    emoji: "🎁",
+    title: "Gratis-Event entdecken!",
+    filter: (e: KidgoEvent) => {
+      const desc = (e.beschreibung || "").toLowerCase();
+      const t = e.titel.toLowerCase();
+      return (
+        e.preis_chf === 0 ||
+        ["gratis", "kostenlos", "freier eintritt"].some((kw) => desc.includes(kw) || t.includes(kw))
+      );
+    },
+  },
+  {
+    id: "quartier",
+    emoji: "🗺️",
+    title: "Neues Quartier entdecken!",
+    filter: (e: KidgoEvent) => {
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      return cats.includes("Ausflug") || !!e.ort;
+    },
+  },
+];
+
 const categoryEmojis: Record<string, string> = {
   Kreativ: "🎨", Natur: "🌿", Tiere: "🐾", Sport: "⚽",
   Tanz: "💃", Theater: "🎭", Musik: "🎵", "Mode & Design": "👗",
@@ -191,6 +266,14 @@ function getWeekStart(date: Date): string {
   return localDateStr(d);
 }
 
+function getWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
 function computeEntdeckerScore(count: number): number {
   if (count <= 1) return 10;
   if (count <= 3) return 9;
@@ -201,6 +284,46 @@ function computeEntdeckerScore(count: number): number {
   if (count <= 25) return 4;
   if (count <= 40) return 3;
   return 2;
+}
+
+// Sprint 3: ISO week number for challenge rotation
+function getISOWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+// Sprint 3: Upcoming holiday within 14 days
+function getUpcomingHoliday(now: Date): { name: string; daysUntil: number } | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ds = localDateStr(today);
+  for (const h of ZH_HOLIDAYS_2026) {
+    if (h.from > ds) {
+      const daysUntil = Math.round(
+        (new Date(h.from + "T00:00:00").getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysUntil <= 14) return { name: h.name, daysUntil };
+      break;
+    }
+  }
+  return null;
+}
+
+// Sprint 3: Remaining days of active holiday
+function getRemainingHolidayDays(now: Date): { name: string; daysLeft: number } | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ds = localDateStr(today);
+  for (const h of ZH_HOLIDAYS_2026) {
+    if (ds >= h.from && ds <= h.to) {
+      const daysLeft = Math.round(
+        (new Date(h.to + "T00:00:00").getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return { name: h.name, daysLeft };
+    }
+  }
+  return null;
 }
 
 function getHeadline(now: Date): { title: string; subtitle: string } {
@@ -251,12 +374,10 @@ function scoreEvent(
   let score = 0;
   const reasons: string[] = [];
 
-  // +10: any age bucket match
   if (event.alters_buckets && selectedBuckets.some((b) => event.alters_buckets!.includes(b))) {
     score += 10;
   }
 
-  // +5 multi-child bonus: event fits ALL selected buckets
   if (
     selectedBuckets.length > 1 &&
     event.alters_buckets &&
@@ -266,7 +387,6 @@ function scoreEvent(
     reasons.push("👨‍👩‍👧‍👦 Passt für alle Kinder");
   }
 
-  // Weather scoring
   const isRain = weatherCode !== null && weatherCode >= 51;
   const isSun  = weatherCode !== null && weatherCode <= 2;
   if (isRain && event.indoor_outdoor === "indoor") {
@@ -279,7 +399,6 @@ function scoreEvent(
     score += 4;
   }
 
-  // +5: event in next 3 days
   if (event.datum) {
     const eventDate = new Date(event.datum + "T00:00:00");
     const today = new Date(now);
@@ -293,7 +412,6 @@ function scoreEvent(
     }
   }
 
-  // +3: free entry
   const descLow = (event.beschreibung || "").toLowerCase();
   const titleLow = event.titel.toLowerCase();
   const isFree =
@@ -303,7 +421,6 @@ function scoreEvent(
     );
   if (isFree) { score += 3; reasons.push("🎉 Gratis!"); }
 
-  // +3: newly added (<7 days)
   if (
     event.created_at &&
     new Date(event.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -312,7 +429,6 @@ function scoreEvent(
     reasons.push("✨ Neu entdeckt");
   }
 
-  // +3: seasonal fit
   const m = now.getMonth() + 1;
   const cats = event.kategorien || (event.kategorie ? [event.kategorie] : []);
   if (m >= 3 && m <= 5 && (event.indoor_outdoor === "outdoor" || cats.includes("Natur") || descLow.includes("natur"))) score += 3;
@@ -320,7 +436,6 @@ function scoreEvent(
   if (m >= 9 && m <= 11 && (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor" || descLow.includes("bastel") || titleLow.includes("bastel"))) score += 3;
   if ((m === 12 || m <= 2) && (descLow.includes("weihnacht") || descLow.includes("eis") || descLow.includes("advent") || cats.includes("Kreativ"))) score += 3;
 
-  // +5: holiday camp boost
   if (isSchoolHoliday(now)) {
     const isCamp =
       event.event_typ === "camp" ||
@@ -330,12 +445,10 @@ function scoreEvent(
     if (isCamp) { score += 5; reasons.push("🏖️ Ferientipp!"); }
   }
 
-  // Time-of-day bonus
   const hour = now.getHours();
   if (hour >= 6 && hour < 12 && !event.datum) score += 3;
   else if (hour >= 12 && hour < 17 && event.datum && !event.datum_ende) score += 2;
 
-  // -5: old (>30 days)
   if (
     event.created_at &&
     new Date(event.created_at) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -355,7 +468,6 @@ function parseNaturalQuery(query: string): ParsedQuery {
   const ageBuckets: string[] = [];
   const childNames: Array<{ name: string; bucket: string }> = [];
 
-  // Named children: "Anna (5) und Liam (8)"
   const namedRegex = /([A-ZÄÖÜ][a-zäöüß]+)\s*\((\d+)\)/g;
   let m: RegExpExecArray | null;
   while ((m = namedRegex.exec(query)) !== null) {
@@ -366,7 +478,6 @@ function parseNaturalQuery(query: string): ParsedQuery {
     }
   }
 
-  // Age numbers: "5-jährig", "mit meinem 8-Jährigen"
   if (ageBuckets.length === 0) {
     const ageNumRegex = /(\d+)\s*[-–]?\s*j[äa]hr/gi;
     while ((m = ageNumRegex.exec(query)) !== null) {
@@ -375,19 +486,16 @@ function parseNaturalQuery(query: string): ParsedQuery {
     }
   }
 
-  // Age keywords
   if (ageBuckets.length === 0) {
     if (/kleinkind|baby|säugling/i.test(q)) ageBuckets.push("0-3");
     if (/vorschul|kindergarten/i.test(q)) ageBuckets.push("4-6");
     if (/schulkind|grundschul/i.test(q)) ageBuckets.push("7-9");
   }
 
-  // Indoor/outdoor
   let indoor: boolean | null = null;
   if (/regen|regnet|indoor|drinnen/i.test(q)) indoor = true;
   if (/sonne|sonnig|schönes?\s*wetter|outdoor|draußen|aussen/i.test(q)) indoor = false;
 
-  // Date ranges
   const now = new Date();
   let dateFrom: Date | null = null;
   let dateTo: Date | null = null;
@@ -421,7 +529,6 @@ function parseNaturalQuery(query: string): ParsedQuery {
     dateTo.setHours(23, 59, 59, 999);
   }
 
-  // Category keywords
   const kwMap: Record<string, string[]> = {
     Kreativ:     ["bastel", "malen", "kreativ", "kunst", "zeichn", "töpfer"],
     Sport:       ["sport", "turnen", "klettern", "schwimm", "fussball", "fußball"],
@@ -781,7 +888,8 @@ function RecommendationCard({
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState<"age-select" | "recommendations">("age-select");
+  const [step, setStep] = useState<"welcome" | "age-select" | "location-ask" | "recommendations">("age-select");
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [selectedBuckets, setSelectedBuckets] = useState<string[]>([]);
   const [multiChild, setMultiChild] = useState(false);
 
@@ -825,25 +933,43 @@ export default function Home() {
   // Feature 4: Streak
   const [visitCount, setVisitCount] = useState(0);
 
+  // Sprint 3: Challenge
+  const [challengeAccepted, setChallengeAccepted] = useState(false);
+  const [showChallengeEvents, setShowChallengeEvents] = useState(false);
+
+  // Sprint 3: Offline + PWA install
+  const [isOffline, setIsOffline] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
   useEffect(() => {
     setMounted(true);
-    try {
-      const saved = localStorage.getItem("kidgo_age_buckets");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setSelectedBuckets(parsed);
-          if (parsed.length > 1) setMultiChild(true);
-          setStep("recommendations");
+    const onboarded = localStorage.getItem("kidgo_onboarded");
+    if (!onboarded) {
+      setIsFirstVisit(true);
+      setStep("welcome");
+    } else {
+      try {
+        const saved = localStorage.getItem("kidgo_age_buckets");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSelectedBuckets(parsed);
+            if (parsed.length > 1) setMultiChild(true);
+            setStep("recommendations");
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
     try {
       const raw = localStorage.getItem("kidgo_visit_streak");
       if (raw) {
         const streak = JSON.parse(raw);
         if (streak.weekStart === getWeekStart(new Date())) setVisitCount(streak.count);
       }
+    } catch {}
+    try {
+      if (localStorage.getItem("kidgo_challenge_accepted") === "true") setChallengeAccepted(true);
     } catch {}
   }, []);
 
@@ -857,6 +983,30 @@ export default function Home() {
         if (typeof d?.current?.temperature_2m === "number") setWeatherTemp(d.current.temperature_2m);
       })
       .catch(() => {});
+  }, []);
+
+  // Sprint 3: Offline detection
+  useEffect(() => {
+    if (!mounted) return;
+    setIsOffline(!navigator.onLine);
+    const on = () => setIsOffline(false);
+    const off = () => setIsOffline(true);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, [mounted]);
+
+  // Sprint 3: PWA install banner
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      try {
+        if (!localStorage.getItem("kidgo_install_dismissed")) setShowInstallBanner(true);
+      } catch {}
+    };
+    window.addEventListener("beforeinstallprompt", handler as EventListener);
+    return () => window.removeEventListener("beforeinstallprompt", handler as EventListener);
   }, []);
 
   useEffect(() => {
@@ -937,6 +1087,31 @@ export default function Home() {
     setChatResult(null);
     setDayPlan(null);
     setShowDayPlan(false);
+
+    // Sprint 3: Offline — serve cached events
+    if (isOffline) {
+      try {
+        const cached = localStorage.getItem("kidgo_cached_events");
+        if (cached) {
+          const eventsData = JSON.parse(cached) as KidgoEvent[];
+          setAllEventsPool(eventsData);
+          const ageFiltered = eventsData.filter(
+            (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
+          );
+          setAllEvents(ageFiltered);
+          const now = new Date();
+          const scored: ScoredEvent[] = ageFiltered.map((event) => {
+            const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now);
+            return { ...event, score, reasons };
+          });
+          scored.sort((a, b) => b.score - a.score);
+          setRecommendations(scored.slice(0, 3));
+        }
+      } catch {}
+      setLoading(false);
+      return;
+    }
+
     try {
       const todayStr = new Date().toISOString().split("T")[0];
 
@@ -970,7 +1145,11 @@ export default function Home() {
 
       setAllEventsPool(eventsData);
 
-      // Compute source event counts for Entdecker-Score
+      // Sprint 3: Cache for offline use
+      try {
+        localStorage.setItem("kidgo_cached_events", JSON.stringify(eventsData.slice(0, 30)));
+      } catch {}
+
       const countMap = new Map<string, number>();
       for (const e of eventsData) {
         if (e.quelle_id) countMap.set(e.quelle_id, (countMap.get(e.quelle_id) || 0) + 1);
@@ -999,7 +1178,6 @@ export default function Home() {
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
       shuffled.sort((a, b) => b.score - a.score);
 
-      // Ensure 1 of top 3 is a Geheimtipp if available
       const geheimtipps = shuffled.filter((e) => e.quelle_id && smallIds.has(e.quelle_id));
       const regular = shuffled.filter((e) => !e.quelle_id || !smallIds.has(e.quelle_id));
       let recs: ScoredEvent[];
@@ -1015,7 +1193,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Feature A: Chat handler
   const handleChatQuery = (query: string) => {
     const q = query.trim();
     if (!q) return;
@@ -1043,7 +1220,6 @@ export default function Home() {
     }, 100);
   };
 
-  // Feature C: Day plan handler
   const handleGenerateDayPlan = () => {
     if (allEvents.length === 0) return;
     const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode);
@@ -1063,14 +1239,14 @@ export default function Home() {
       const newBuckets = [bucket];
       setSelectedBuckets(newBuckets);
       localStorage.setItem("kidgo_age_buckets", JSON.stringify(newBuckets));
-      setStep("recommendations");
+      setStep(isFirstVisit ? "location-ask" : "recommendations");
     }
   };
 
   const handleMultiChildConfirm = () => {
     if (selectedBuckets.length === 0) return;
     localStorage.setItem("kidgo_age_buckets", JSON.stringify(selectedBuckets));
-    setStep("recommendations");
+    setStep(isFirstVisit ? "location-ask" : "recommendations");
   };
 
   const handleChangeAge = () => {
@@ -1105,10 +1281,95 @@ export default function Home() {
     }, 100);
   };
 
+  // Sprint 3: Complete onboarding
+  const finishOnboarding = () => {
+    try { localStorage.setItem("kidgo_onboarded", "true"); } catch {}
+    setIsFirstVisit(false);
+    setStep("recommendations");
+  };
+
   const now = new Date();
   const headline = getHeadline(now);
 
   if (!mounted) return null;
+
+  // ===== STEP: WELCOME (first-time only) =====
+  if (step === "welcome") {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md mx-auto text-center card-enter">
+          <div className="text-7xl mb-6 inline-block animate-bounce">🎪</div>
+          <h1 className="text-4xl font-extrabold text-gray-800 mb-3 leading-tight">
+            Willkommen bei Kidgo!
+          </h1>
+          <p className="text-gray-500 text-lg mb-2 leading-relaxed">
+            Dein persönlicher Begleiter für die besten Kinder-Events in Zürich
+          </p>
+          <p className="text-gray-400 text-sm mb-10">
+            Passend fürs Alter, Wetter und deine Ferien ✨
+          </p>
+          <button
+            onClick={() => setStep("age-select")}
+            className="w-full bg-orange-400 text-white py-4 rounded-2xl font-bold text-xl hover:bg-orange-500 transition shadow-lg active:scale-95"
+          >
+            Los geht&apos;s! 👋
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // ===== STEP: LOCATION ASK (first-time only) =====
+  if (step === "location-ask") {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md mx-auto card-enter">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">📍</div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Standort für dich</h1>
+            <p className="text-gray-500 leading-relaxed">
+              Mit deinem Standort zeigen wir Events in deiner Nähe und berechnen die Entfernung.
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 flex items-start gap-2">
+              <span className="mt-0.5">🔒</span>
+              <span>Dein Standort wird nur lokal auf deinem Gerät gespeichert — niemals weitergegeben.</span>
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const loc = {
+                      lat: pos.coords.latitude,
+                      lon: pos.coords.longitude,
+                      label: "Dein Standort",
+                      approximate: false,
+                    };
+                    setUserLocation(loc);
+                    try { localStorage.setItem("kidgo_location", JSON.stringify(loc)); } catch {}
+                  },
+                  () => {}
+                );
+              }
+              finishOnboarding();
+            }}
+            className="w-full bg-orange-400 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-500 transition shadow-lg active:scale-95 mb-3"
+          >
+            📍 Standort erlauben
+          </button>
+          <button
+            onClick={finishOnboarding}
+            className="w-full py-3 text-gray-400 text-sm hover:text-gray-600 transition"
+          >
+            Überspringen
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   // ===== STEP 1: AGE SELECTION =====
   if (step === "age-select") {
@@ -1179,9 +1440,70 @@ export default function Home() {
   }
 
   // ===== STEP 2: RECOMMENDATIONS =====
+
+  // Sprint 3: Compute current challenge
+  const weekNum = Math.floor(Date.now() / 604800000) % 6;
+  const currentChallenge = WEEKLY_CHALLENGES[weekNum];
+  const challengeEvents = allEventsPool.filter(currentChallenge.filter);
+
+  // Sprint 3: Season countdown
+  const holidayRemaining = getRemainingHolidayDays(now);
+  const holidayUpcoming = !holidayRemaining ? getUpcomingHoliday(now) : null;
+  const campCount = allEventsPool.filter((e) => {
+    const desc = (e.beschreibung || "").toLowerCase();
+    const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+    return e.event_typ === "camp" || cats.includes("Feriencamp") || desc.includes("camp") || desc.includes("ferienlager");
+  }).length;
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50">
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+
+        {/* Sprint 3: PWA Install Banner */}
+        {showInstallBanner && (
+          <div className="mb-5 bg-gradient-to-r from-orange-400 to-amber-400 text-white rounded-2xl px-5 py-4 shadow-md card-enter">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">📱</span>
+              <div className="flex-1">
+                <p className="font-bold text-sm">📱 Als App installieren</p>
+                <p className="text-orange-100 text-xs mt-0.5">Schneller Zugriff direkt vom Homescreen</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (installPrompt) {
+                      (installPrompt as any).prompt();
+                      setShowInstallBanner(false);
+                    }
+                  }}
+                  className="bg-white text-orange-600 text-xs font-bold px-3 py-2 rounded-xl hover:bg-orange-50 transition active:scale-95"
+                >
+                  Installieren
+                </button>
+                <button
+                  onClick={() => {
+                    setShowInstallBanner(false);
+                    try { localStorage.setItem("kidgo_install_dismissed", "true"); } catch {}
+                  }}
+                  className="text-orange-200 hover:text-white text-xl leading-none w-7 h-7 flex items-center justify-center"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sprint 3: Offline Banner */}
+        {isOffline && (
+          <div className="mb-5 bg-gray-700 text-white rounded-2xl px-5 py-3.5 shadow-md flex items-center gap-3 card-enter">
+            <span className="text-2xl">📡</span>
+            <div>
+              <p className="font-bold text-sm">Du bist offline</p>
+              <p className="text-gray-300 text-xs mt-0.5">Zuletzt gesehene Events werden angezeigt</p>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <header className="mb-7">
@@ -1211,7 +1533,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Selected age badges */}
           <div className="flex flex-wrap gap-2 mt-3">
             {selectedBuckets.map((b) => {
               const bucket = AGE_BUCKETS.find((a) => a.key === b)!;
@@ -1223,7 +1544,6 @@ export default function Home() {
             })}
           </div>
 
-          {/* Approximate location hint */}
           {userLocation?.approximate && (
             <div className="mt-2.5 text-xs text-gray-400 flex items-start gap-1">
               <span className="mt-0.5">📍</span>
@@ -1250,7 +1570,7 @@ export default function Home() {
           )}
         </header>
 
-        {/* Feature 1: Holiday banner */}
+        {/* Holiday banner */}
         {isSchoolHoliday(now) && (
           <div className="mb-5 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow-md">
             <span className="text-3xl">🏖️</span>
@@ -1258,6 +1578,114 @@ export default function Home() {
               <p className="font-bold text-base">Ferienzeit! Entdecke Camps und Ausflüge</p>
               <p className="text-amber-100 text-sm mt-0.5">{getActiveHoliday(now)} — Zürich</p>
             </div>
+          </div>
+        )}
+
+        {/* Sprint 3: Saison-Countdown */}
+        {!loading && allEventsPool.length > 0 && holidayRemaining && (
+          <div className="mb-5 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-2xl px-5 py-4 shadow-md flex items-center gap-3 card-enter">
+            <span className="text-3xl">🏖️</span>
+            <div>
+              <p className="font-bold text-base">
+                🏖️ Noch {holidayRemaining.daysLeft} {holidayRemaining.daysLeft === 1 ? "Ferientag" : "Ferientage"}!
+              </p>
+              <p className="text-teal-100 text-sm mt-0.5">{holidayRemaining.name}</p>
+            </div>
+          </div>
+        )}
+        {!loading && allEventsPool.length > 0 && holidayUpcoming && (
+          <div className="mb-5 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-2xl px-5 py-4 shadow-md flex items-center gap-3 card-enter">
+            <span className="text-3xl">⏳</span>
+            <div>
+              <p className="font-bold text-base">
+                ⏳ Noch {holidayUpcoming.daysUntil} {holidayUpcoming.daysUntil === 1 ? "Tag" : "Tage"} bis {holidayUpcoming.name}!
+              </p>
+              {campCount > 0 && (
+                <p className="text-sky-100 text-sm mt-0.5">{campCount} Camp-Ideen warten auf euch!</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sprint 3: Challenge der Woche */}
+        {!loading && allEventsPool.length > 0 && (
+          <div className="mb-5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl px-5 py-4 shadow-md card-enter">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">{currentChallenge.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-base leading-snug">🏆 Challenge: {currentChallenge.title}</p>
+                {challengeEvents.length > 0 && (
+                  <p className="text-violet-200 text-xs mt-0.5">{challengeEvents.length} passende Events</p>
+                )}
+              </div>
+              {challengeAccepted ? (
+                <div className="flex-shrink-0 bg-white/20 rounded-full w-9 h-9 flex items-center justify-center text-lg">
+                  ✓
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setChallengeAccepted(true);
+                    setShowChallengeEvents(true);
+                    try {
+                      localStorage.setItem("kidgo_challenge_accepted", "true");
+                    } catch {}
+                    setTimeout(() => document.getElementById("challenge-events")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+                  }}
+                  className="flex-shrink-0 bg-white text-purple-600 text-xs font-bold px-3 py-2 rounded-xl hover:bg-violet-50 transition active:scale-95"
+                >
+                  Annehmen
+                </button>
+              )}
+            </div>
+            {challengeAccepted && (
+              <button
+                onClick={() => setShowChallengeEvents((v) => !v)}
+                className="mt-3 text-xs text-violet-200 hover:text-white transition underline underline-offset-2"
+              >
+                {showChallengeEvents ? "Events ausblenden" : "Passende Events anzeigen →"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Challenge events */}
+        {showChallengeEvents && (
+          <div id="challenge-events" className="mb-5 card-enter">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <span>{currentChallenge.emoji}</span>
+                <span>Challenge-Events</span>
+                <span className="text-sm font-normal text-gray-400">({challengeEvents.length})</span>
+              </h3>
+              <button
+                onClick={() => setShowChallengeEvents(false)}
+                className="text-gray-400 text-sm w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition"
+              >
+                ✕
+              </button>
+            </div>
+            {challengeEvents.length === 0 ? (
+              <div className="text-center py-8 bg-white rounded-2xl border border-gray-100">
+                <p className="text-4xl mb-2">🔍</p>
+                <p className="text-gray-400 text-sm">Aktuell keine passenden Events</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {challengeEvents.slice(0, 5).map((event, i) => (
+                  <RecommendationCard
+                    key={event.id}
+                    event={event}
+                    reasons={[]}
+                    sources={sources}
+                    userLocation={userLocation}
+                    animIndex={i}
+                    selectedBuckets={selectedBuckets}
+                    isSeriesParent={seriesParentIds.has(event.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1270,7 +1698,7 @@ export default function Home() {
         )}
 
         {/* Empty state */}
-        {!loading && recommendations.length === 0 && (
+        {!loading && recommendations.length === 0 && !isOffline && (
           <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
             <div className="text-5xl mb-3">🔍</div>
             <p className="text-gray-700 font-semibold mb-1">Keine aktuellen Events gefunden</p>
@@ -1319,7 +1747,6 @@ export default function Home() {
                 Beschreib was du suchst — ich filtere passende Events für dich
               </p>
 
-              {/* Example chips */}
               <div className="flex flex-wrap gap-2 mb-3">
                 {CHAT_CHIPS.map((chip) => (
                   <button
@@ -1332,7 +1759,6 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Input row */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -1352,7 +1778,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Chat results */}
             {chatResult && (
               <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-amber-50/40">
                 <p className="text-sm font-semibold text-gray-700 mb-4 flex items-start gap-2">
@@ -1438,7 +1863,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Collection detail view */}
         {activeCollection && (() => {
           const col = SMART_COLLECTIONS.find((c) => c.id === activeCollection)!;
           const colNow = new Date();
@@ -1512,10 +1936,8 @@ export default function Home() {
 
             <div className="p-5">
               <div className="relative pl-7">
-                {/* Timeline line */}
                 <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-orange-300 via-amber-200 to-indigo-300 rounded-full" />
 
-                {/* Morning slot */}
                 {dayPlan.morning && (
                   <div className="relative mb-6">
                     <div className="absolute -left-4 top-1 w-4 h-4 bg-orange-400 rounded-full border-2 border-white shadow-sm" />
@@ -1543,7 +1965,6 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Midday break */}
                 <div className="relative mb-6">
                   <div className="absolute -left-4 top-1 w-4 h-4 bg-amber-200 rounded-full border-2 border-white" />
                   <div className="text-xs font-bold text-amber-500 mb-1.5 tracking-wide">
@@ -1555,7 +1976,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Afternoon slot */}
                 {dayPlan.afternoon && (
                   <div className="relative">
                     <div className="absolute -left-4 top-1 w-4 h-4 bg-indigo-400 rounded-full border-2 border-white shadow-sm" />
@@ -1594,7 +2014,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Explore link */}
         <div className="mt-10 text-center">
           <Link
             href="/explore"
@@ -1604,7 +2023,6 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Feature 4: Weekly visit streak */}
         {visitCount > 0 && (
           <div className="mt-4 text-center">
             {visitCount >= 3 ? (

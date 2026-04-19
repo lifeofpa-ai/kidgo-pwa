@@ -26,7 +26,12 @@ export const metadata: Metadata = {
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich.",
   },
   manifest: "/manifest.json",
-  themeColor: "#4f46e5",
+  themeColor: "#F97316",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Kidgo",
+  },
 };
 
 export default function RootLayout({

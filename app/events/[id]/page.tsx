@@ -289,7 +289,23 @@ export default function EventDetailPage() {
 
   const isNew = event.created_at && new Date(event.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const ctaUrl = event.anmelde_link || source?.url;
-  const mapsUrl = event.ort ? `https://maps.google.com/?q=${encodeURIComponent(event.ort)}` : null;
+  const mapsUrl = event.ort
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.ort)}`
+    : null;
+  const sbbUrl = event.ort
+    ? `https://www.sbb.ch/de/kaufen/pages/fahrplan/fahrplan.xhtml?nach=${encodeURIComponent(event.ort)}`
+    : null;
+
+  const eventCountdown = (() => {
+    if (!event.datum) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(event.datum + "T00:00:00");
+    const diff = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return null;
+    if (diff === 0) return { label: "Heute!", cls: "bg-red-500 text-white" };
+    if (diff === 1) return { label: "Morgen!", cls: "bg-orange-400 text-white" };
+    return { label: `In ${diff} Tagen!`, cls: "bg-indigo-100 text-indigo-700" };
+  })();
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
@@ -326,7 +342,13 @@ export default function EventDetailPage() {
               );
             })()}
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-5 leading-tight">{event.titel}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 leading-tight">{event.titel}</h1>
+
+            {eventCountdown && (
+              <div className={`inline-block px-4 py-1.5 rounded-full font-bold text-base mb-4 ${eventCountdown.cls}`}>
+                {eventCountdown.label}
+              </div>
+            )}
 
             <div className="grid gap-3 mb-5">
               {event.datum ? (
@@ -352,11 +374,26 @@ export default function EventDetailPage() {
                   <span className="text-xl">📍</span>
                   <div className="flex-1">
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Ort</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-gray-800">{event.ort}</p>
+                    <p className="font-semibold text-gray-800 mb-2">{event.ort}</p>
+                    <div className="flex gap-2 flex-wrap">
                       {mapsUrl && (
-                        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-500 hover:text-indigo-700 hover:underline transition">
-                          In Maps öffnen →
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 px-3 py-1.5 rounded-full transition"
+                        >
+                          🚗 Route
+                        </a>
+                      )}
+                      {sbbUrl && (
+                        <a
+                          href={sbbUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 hover:border-red-300 hover:bg-red-50 text-gray-700 hover:text-red-700 px-3 py-1.5 rounded-full transition"
+                        >
+                          🚆 ÖV
                         </a>
                       )}
                     </div>

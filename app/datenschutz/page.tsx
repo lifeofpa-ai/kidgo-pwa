@@ -161,10 +161,10 @@ export default function DatenschutzPage() {
             <p>
               Bei Fragen zum Datenschutz wende dich an:{" "}
               <a
-                href="mailto:hallo@kidgo.ch"
+                href="mailto:contact@kidgo.ch"
                 className="text-orange-600 hover:text-orange-700 transition underline underline-offset-2"
               >
-                hallo@kidgo.ch
+                contact@kidgo.ch
               </a>
             </p>
           </section>

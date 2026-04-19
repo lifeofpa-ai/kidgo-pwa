@@ -4,25 +4,34 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-const categoryEmojis: Record<string, string> = {
-  "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
-  "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
-  "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
+const categoryColors: Record<string, string> = {
+  "Kreativ": "bg-pink-50 text-pink-600 border-pink-100",
+  "Natur": "bg-green-50 text-green-600 border-green-100",
+  "Tiere": "bg-yellow-50 text-yellow-600 border-yellow-100",
+  "Sport": "bg-blue-50 text-blue-600 border-blue-100",
+  "Tanz": "bg-purple-50 text-purple-600 border-purple-100",
+  "Theater": "bg-red-50 text-red-600 border-red-100",
+  "Musik": "bg-indigo-50 text-indigo-600 border-indigo-100",
+  "Mode & Design": "bg-rose-50 text-rose-600 border-rose-100",
+  "Wissenschaft": "bg-cyan-50 text-cyan-600 border-cyan-100",
+  "Bildung": "bg-orange-50 text-orange-600 border-orange-100",
+  "Ausflug": "bg-teal-50 text-teal-600 border-teal-100",
+  "Feriencamp": "bg-amber-50 text-amber-600 border-amber-100",
 };
 
-const categoryColors: Record<string, string> = {
-  "Kreativ": "bg-pink-100 text-pink-600",
-  "Natur": "bg-green-100 text-green-600",
-  "Tiere": "bg-yellow-100 text-yellow-600",
-  "Sport": "bg-blue-100 text-blue-600",
-  "Tanz": "bg-purple-100 text-purple-600",
-  "Theater": "bg-red-100 text-red-600",
-  "Musik": "bg-indigo-100 text-indigo-600",
-  "Mode & Design": "bg-rose-100 text-rose-600",
-  "Wissenschaft": "bg-cyan-100 text-cyan-600",
-  "Bildung": "bg-orange-100 text-orange-600",
-  "Ausflug": "bg-teal-100 text-teal-600",
-  "Feriencamp": "bg-amber-100 text-amber-600",
+const categoryFallbackColors: Record<string, string> = {
+  "Kreativ": "from-pink-100 to-rose-50",
+  "Natur": "from-green-100 to-emerald-50",
+  "Tiere": "from-yellow-100 to-amber-50",
+  "Sport": "from-blue-100 to-sky-50",
+  "Tanz": "from-purple-100 to-violet-50",
+  "Theater": "from-red-100 to-rose-50",
+  "Musik": "from-indigo-100 to-violet-50",
+  "Mode & Design": "from-rose-100 to-pink-50",
+  "Wissenschaft": "from-cyan-100 to-sky-50",
+  "Bildung": "from-orange-100 to-amber-50",
+  "Ausflug": "from-teal-100 to-green-50",
+  "Feriencamp": "from-amber-100 to-orange-50",
 };
 
 function extractPrice(beschreibung: string | null): number | null {
@@ -59,33 +68,33 @@ function detectWeeklyPattern(termine: { datum: string }[]): string | null {
     const d2 = new Date(t.datum + "T00:00:00");
     return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
   });
-  const isWeekly = diffs.every((d) => d === 7);
-  if (!isWeekly) return null;
+  if (!diffs.every((d) => d === 7)) return null;
   return WEEKDAYS_DE[new Date(sorted[0].datum + "T00:00:00").getDay()];
 }
 
-function CategoryImage({ url, kategorien }: { url?: string | null; kategorien?: string[] }) {
+function HeroImage({ url, kategorien, title }: { url?: string | null; kategorien?: string[]; title: string }) {
   const [imgError, setImgError] = useState(false);
   const cat = kategorien?.[0] || "";
-  const emoji = categoryEmojis[cat] || "🎪";
-  const colors = categoryColors[cat] || "bg-indigo-100 text-indigo-600";
+  const fallback = categoryFallbackColors[cat] || "from-orange-100 to-amber-50";
 
   if (url && !imgError) {
     return (
-      <div className="w-full h-52 sm:h-64 overflow-hidden rounded-xl mb-6">
+      <div className="relative w-full h-64 sm:h-80 overflow-hidden">
         <img
           src={url}
-          alt={cat || "Event"}
+          alt={title}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
       </div>
     );
   }
-
   return (
-    <div className={`w-full h-52 sm:h-64 rounded-xl mb-6 flex items-center justify-center ${colors}`}>
-      <span className="text-8xl">{emoji}</span>
+    <div className={`w-full h-64 sm:h-80 bg-gradient-to-br ${fallback} flex items-center justify-center`}>
+      <div className="text-center">
+        <p className="text-5xl font-bold text-white/20 tracking-tight">{cat || "kidgo"}</p>
+      </div>
     </div>
   );
 }
@@ -103,6 +112,50 @@ const formatDate = (dateStr: string, dateEndStr?: string | null) => {
   });
 };
 
+function IconCalendar() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-gray-400" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="14" height="12" rx="2"/>
+      <path d="M1 7h14M5 1v4M11 1v4"/>
+    </svg>
+  );
+}
+
+function IconPin() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-gray-400" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1a4 4 0 0 1 4 4c0 3-4 9-4 9S4 8 4 5a4 4 0 0 1 4-4z"/>
+      <circle cx="8" cy="5" r="1.5"/>
+    </svg>
+  );
+}
+
+function IconPrice() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-gray-400" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="7"/>
+      <path d="M8 4v8M6 5.5h3a1.5 1.5 0 0 1 0 3H7a1.5 1.5 0 0 0 0 3h3"/>
+    </svg>
+  );
+}
+
+function IconRepeat() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 4h9M2 4l2-2M2 4l2 2M12 10H3M12 10l-2-2M12 10l-2 2"/>
+    </svg>
+  );
+}
+
+function IconGlobe() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="9" r="8"/>
+      <path d="M1 9h16M9 1c-2 2-3 5-3 8s1 6 3 8M9 1c2 2 3 5 3 8s-1 6-3 8"/>
+    </svg>
+  );
+}
+
 export default function EventDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -110,11 +163,9 @@ export default function EventDetailPage() {
   const [source, setSource] = useState<any>(null);
   const [serieTermine, setSerieTermine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shared, setShared] = useState(false);
   const [copied, setCopied] = useState(false);
   const [similarEvents, setSimilarEvents] = useState<any[]>([]);
 
-  // Feature 4: Record weekly visit
   useEffect(() => {
     try {
       const now = new Date();
@@ -146,7 +197,6 @@ export default function EventDetailPage() {
             .single();
           setSource(sourceData);
         }
-        // Load series child dates if this event is a series parent
         const { data: termineData } = await supabase
           .from("events")
           .select("id, datum, datum_ende, ort")
@@ -154,7 +204,6 @@ export default function EventDetailPage() {
           .order("datum", { ascending: true });
         setSerieTermine(termineData || []);
 
-        // Fetch similar events by category then by location
         const cats = eventData.kategorien || (eventData.kategorie ? [eventData.kategorie] : []);
         let simResults: any[] = [];
         if (cats.length > 0) {
@@ -181,7 +230,7 @@ export default function EventDetailPage() {
             if (!existing.has(e.id)) simResults.push(e);
           }
         }
-        setSimilarEvents(simResults.slice(0, 3));
+        setSimilarEvents(simResults.slice(0, 6));
       }
       setLoading(false);
     };
@@ -264,10 +313,10 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center">
+      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Lädt...</p>
+          <div className="w-10 h-10 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--text-muted)] text-sm">Lädt...</p>
         </div>
       </main>
     );
@@ -275,12 +324,11 @@ export default function EventDetailPage() {
 
   if (!event) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center">
+      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center p-8">
-          <p className="text-5xl mb-4">😢</p>
-          <p className="text-gray-600 text-lg mb-6">Event nicht gefunden</p>
-          <Link href="/" className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
-            ← Zurück zur Übersicht
+          <p className="text-[var(--text-secondary)] text-lg mb-6">Event nicht gefunden</p>
+          <Link href="/" className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-600 transition">
+            Zurück zur Übersicht
           </Link>
         </div>
       </main>
@@ -295,289 +343,309 @@ export default function EventDetailPage() {
   const sbbUrl = event.ort
     ? `https://www.sbb.ch/de/kaufen/pages/fahrplan/fahrplan.xhtml?nach=${encodeURIComponent(event.ort)}`
     : null;
-
-  const eventCountdown = (() => {
-    if (!event.datum) return null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const eventDate = new Date(event.datum + "T00:00:00");
-    const diff = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return null;
-    if (diff === 0) return { label: "Heute!", cls: "bg-red-500 text-white" };
-    if (diff === 1) return { label: "Morgen!", cls: "bg-orange-400 text-white" };
-    return { label: `In ${diff} Tagen!`, cls: "bg-indigo-100 text-indigo-700" };
-  })();
+  const isFree = isFreeText(event.beschreibung, event.preis_chf, event.titel);
+  const priceNum = event.preis_chf != null && event.preis_chf > 0 ? event.preis_chf : extractPrice(event.beschreibung);
+  const hasImage = !!event.kategorie_bild_url;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium mb-6 transition"
-        >
-          ← Zurück zu meinen Empfehlungen
-        </Link>
+    <main className="min-h-screen bg-[var(--bg-page)]">
+      <div className="max-w-2xl mx-auto">
 
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className={`h-2 ${event.datum ? "bg-indigo-500" : "bg-green-500"}`} />
-          <div className="p-6 sm:p-8">
-            <CategoryImage url={event.kategorie_bild_url} kategorien={event.kategorien} />
-            {(() => {
-              const badges: { label: string; cls: string }[] = [];
-              if (isNew) badges.push({ label: "✨ Neu", cls: "bg-green-500 text-white" });
-              if (serieTermine.length > 0) badges.push({ label: "🔄 Regelmässig", cls: "bg-indigo-100 text-indigo-700" });
-              if (isFreeText(event.beschreibung, event.preis_chf, event.titel)) {
-                badges.push({ label: "🎁 Gratis", cls: "bg-green-100 text-green-700" });
-              } else if (event.preis_chf != null && event.preis_chf > 0) {
-                badges.push({ label: `💰 CHF ${event.preis_chf}`, cls: "bg-sky-100 text-sky-700" });
-              } else {
-                const p = extractPrice(event.beschreibung);
-                if (p !== null) badges.push({ label: `💰 ab CHF ${p % 1 === 0 ? p : p.toFixed(2)}`, cls: "bg-sky-100 text-sky-700" });
-              }
-              return (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {badges.map((b, i) => (
-                    <span key={i} className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${b.cls}`}>{b.label}</span>
-                  ))}
-                </div>
-              );
-            })()}
+        {/* Hero */}
+        <div className="relative">
+          <HeroImage url={event.kategorie_bild_url} kategorien={event.kategorien} title={event.titel} />
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 leading-tight">{event.titel}</h1>
+          {/* Back button */}
+          <div className="absolute top-4 left-4">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-gray-700 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded-full shadow-sm transition"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11L5 7l4-4"/>
+              </svg>
+              Zurück
+            </Link>
+          </div>
 
-            {eventCountdown && (
-              <div className={`inline-block px-4 py-1.5 rounded-full font-bold text-base mb-4 ${eventCountdown.cls}`}>
-                {eventCountdown.label}
+          {/* Title overlay — only when there's a real image */}
+          {hasImage && (
+            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {isNew && (
+                  <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-white/30">
+                    Neu
+                  </span>
+                )}
+                {serieTermine.length > 0 && (
+                  <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-white/30 flex items-center gap-1">
+                    <IconRepeat /> Regelmässig
+                  </span>
+                )}
+                {isFree && (
+                  <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-white/30">
+                    Gratis
+                  </span>
+                )}
               </div>
-            )}
-
-            <div className="grid gap-3 mb-5">
-              {event.datum ? (
-                <div className="flex items-start gap-3 bg-indigo-50 rounded-lg p-3">
-                  <span className="text-xl">📅</span>
-                  <div>
-                    <p className="text-xs text-indigo-500 font-medium uppercase tracking-wide mb-0.5">Datum</p>
-                    <p className="font-semibold text-indigo-700">{formatDate(event.datum, event.datum_ende)}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3 bg-green-50 rounded-lg p-3">
-                  <span className="text-xl">🎢</span>
-                  <div>
-                    <p className="text-xs text-green-500 font-medium uppercase tracking-wide mb-0.5">Verfügbarkeit</p>
-                    <p className="font-semibold text-green-700">Ganzjährig geöffnet</p>
-                  </div>
-                </div>
-              )}
-
-              {event.ort && (
-                <div className="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                  <span className="text-xl">📍</span>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Ort</p>
-                    <p className="font-semibold text-gray-800 mb-2">{event.ort}</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {mapsUrl && (
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 px-3 py-1.5 rounded-full transition"
-                        >
-                          🚗 Route
-                        </a>
-                      )}
-                      {sbbUrl && (
-                        <a
-                          href={sbbUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 hover:border-red-300 hover:bg-red-50 text-gray-700 hover:text-red-700 px-3 py-1.5 rounded-full transition"
-                        >
-                          🚆 ÖV
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(() => {
-                const p = event.preis_chf != null && event.preis_chf > 0
-                  ? event.preis_chf
-                  : isFreeText(event.beschreibung, event.preis_chf, event.titel)
-                    ? null
-                    : extractPrice(event.beschreibung);
-                const isFree = isFreeText(event.beschreibung, event.preis_chf, event.titel);
-                if (!isFree && p == null) return null;
-                return (
-                  <div className="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <span className="text-xl">{isFree ? "🎁" : "💰"}</span>
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Preis</p>
-                      <p className="font-semibold text-gray-800">{isFree ? "Kostenlos" : `CHF ${p}`}</p>
-                    </div>
-                  </div>
-                );
-              })()}
+              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug drop-shadow-sm">
+                {event.titel}
+              </h1>
             </div>
+          )}
+        </div>
 
-            {event.kategorien?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {event.kategorien.map((cat: string) => (
-                  <span key={cat} className="inline-block bg-indigo-100 text-indigo-800 text-sm font-semibold px-3 py-1 rounded-full">
-                    {categoryEmojis[cat] ? `${categoryEmojis[cat]} ` : ""}{cat}
+        {/* Content */}
+        <div className="px-5 sm:px-7 pb-12">
+
+          {/* Title — only when no image */}
+          {!hasImage && (
+            <div className="pt-6 mb-5">
+              <div className="flex flex-wrap gap-2 mb-3">
+                {isNew && (
+                  <span className="bg-orange-50 text-orange-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-orange-100">
+                    Neu
                   </span>
-                ))}
-              </div>
-            )}
-
-            {event.altersgruppen?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-5">
-                {event.altersgruppen.map((ag: string) => (
-                  <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full">
-                    👶 {ag}
+                )}
+                {serieTermine.length > 0 && (
+                  <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
+                    <IconRepeat /> Regelmässig
                   </span>
-                ))}
+                )}
+                {isFree && (
+                  <span className="bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-green-100">
+                    Gratis
+                  </span>
+                )}
               </div>
-            )}
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] leading-snug">
+                {event.titel}
+              </h1>
+            </div>
+          )}
 
-            {event.beschreibung && (
-              <>
-                <hr className="my-5 border-gray-100" />
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-3">Beschreibung</h2>
-                  <p className="text-gray-600 leading-relaxed whitespace-pre-line">{event.beschreibung}</p>
+          {/* Info rows */}
+          <div className={`divide-y divide-[var(--border)] ${hasImage ? "mt-6" : "mt-0"}`}>
+            {event.datum ? (
+              <div className="flex items-start gap-3 py-4">
+                <IconCalendar />
+                <div>
+                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Datum</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm">{formatDate(event.datum, event.datum_ende)}</p>
                 </div>
-              </>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 py-4">
+                <IconCalendar />
+                <div>
+                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Verfügbarkeit</p>
+                  <p className="font-semibold text-green-600 text-sm">Ganzjährig geöffnet</p>
+                </div>
+              </div>
             )}
 
-            {serieTermine.length > 0 && (
-              <>
-                <hr className="my-5 border-gray-100" />
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h2 className="text-lg font-semibold text-gray-800">🔄 Weitere Termine dieser Serie</h2>
+            {event.ort && (
+              <div className="flex items-start gap-3 py-4">
+                <IconPin />
+                <div className="flex-1">
+                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Ort</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm mb-2">{event.ort}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {mapsUrl && (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-orange-300 hover:text-orange-600 px-3 py-1.5 rounded-full transition"
+                      >
+                        Route
+                      </a>
+                    )}
+                    {sbbUrl && (
+                      <a
+                        href={sbbUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-red-300 hover:text-red-600 px-3 py-1.5 rounded-full transition"
+                      >
+                        ÖV
+                      </a>
+                    )}
                   </div>
-                  {(() => {
-                    const weekly = detectWeeklyPattern(serieTermine);
-                    return weekly ? (
-                      <p className="text-sm text-indigo-600 font-semibold mb-3 flex items-center gap-1.5">
-                        <span>📆</span> Jeden {weekly}
-                      </p>
-                    ) : null;
-                  })()}
-                  <ul className="space-y-2">
-                    {serieTermine.map((termin) => (
-                      <li key={termin.id}>
-                        <Link
-                          href={`/events/${termin.id}`}
-                          className="flex items-start gap-2 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-2 text-sm transition group"
-                        >
-                          <span className="text-indigo-400 mt-0.5">📅</span>
-                          <div className="flex-1">
-                            <span className="font-medium text-indigo-700 group-hover:text-indigo-900 transition">{formatDate(termin.datum, termin.datum_ende)}</span>
-                            {termin.ort && <span className="text-gray-500 ml-2">· {termin.ort}</span>}
-                          </div>
-                          <span className="text-indigo-300 group-hover:text-indigo-500 transition text-xs mt-0.5">→</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-              </>
+              </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              {ctaUrl && (
-                <a
-                  href={ctaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 text-center bg-indigo-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:bg-indigo-700 transition shadow-md hover:shadow-lg"
+            {(isFree || priceNum != null) && (
+              <div className="flex items-start gap-3 py-4">
+                <IconPrice />
+                <div>
+                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Preis</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm">
+                    {isFree ? "Kostenlos" : `CHF ${priceNum}`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Category tags */}
+          {event.kategorien?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-5">
+              {event.kategorien.map((cat: string) => (
+                <span
+                  key={cat}
+                  className={`text-xs font-medium px-3 py-1 rounded-full border ${categoryColors[cat] || "bg-gray-50 text-gray-600 border-gray-100"}`}
                 >
-                  🌐 Zur Webseite / Anmeldung
-                </a>
-              )}
+                  {cat}
+                </span>
+              ))}
+              {event.altersgruppen?.map((ag: string) => (
+                <span key={ag} className="text-xs font-medium px-3 py-1 rounded-full bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border)]">
+                  {ag}{!ag.includes("Jahr") ? " Jahre" : ""}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Description */}
+          {event.beschreibung && (
+            <div className="mt-7">
+              <h2 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Beschreibung</h2>
+              <p className="text-[var(--text-secondary)] leading-relaxed text-sm whitespace-pre-line">{event.beschreibung}</p>
+            </div>
+          )}
+
+          {/* Series dates */}
+          {serieTermine.length > 0 && (
+            <div className="mt-7">
+              <h2 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
+                Weitere Termine
+              </h2>
+              {(() => {
+                const weekly = detectWeeklyPattern(serieTermine);
+                return weekly ? (
+                  <p className="text-xs text-orange-500 font-semibold mb-3">Jeden {weekly}</p>
+                ) : null;
+              })()}
+              <ul className="space-y-1.5">
+                {serieTermine.map((termin) => (
+                  <li key={termin.id}>
+                    <Link
+                      href={`/events/${termin.id}`}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--bg-subtle)] hover:bg-orange-50 hover:text-orange-700 text-sm text-[var(--text-secondary)] transition group"
+                    >
+                      <IconCalendar />
+                      <span className="flex-1 font-medium">{formatDate(termin.datum, termin.datum_ende)}</span>
+                      {termin.ort && <span className="text-[var(--text-muted)] text-xs">{termin.ort}</span>}
+                      <span className="text-[var(--text-muted)] group-hover:text-orange-500 transition text-xs">→</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* CTA buttons */}
+          <div className="mt-8 space-y-3">
+            {ctaUrl && (
+              <a
+                href={ctaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-orange-500 text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-orange-600 transition shadow-sm"
+              >
+                <IconGlobe />
+                Zur Webseite
+              </a>
+            )}
+            <div className="flex gap-3">
               {event.datum && (
                 <button
                   onClick={handleICSDownload}
-                  className="flex items-center justify-center gap-2 px-5 py-4 rounded-xl font-semibold transition bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                  title="In Kalender speichern"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-orange-300 hover:text-orange-600 transition"
                 >
-                  📅 Kalender
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="2" width="13" height="12" rx="1.5"/>
+                    <path d="M1 6h13M5 1v3M10 1v3"/>
+                  </svg>
+                  Kalender
                 </button>
               )}
               <button
                 onClick={handleShare}
-                className="flex items-center justify-center gap-2 px-5 py-4 rounded-xl font-semibold transition bg-gray-100 text-gray-700 hover:bg-gray-200"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-gray-300 hover:text-gray-700 transition"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                   <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                 </svg>
                 Teilen
               </button>
             </div>
-
-            {/* Feature 5: Share options */}
-            <div className="flex gap-3 mt-3">
+            <div className="flex gap-3">
               <button
                 onClick={handleCopyLink}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition ${copied ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition border ${copied ? "bg-green-50 text-green-700 border-green-200" : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-gray-300"}`}
               >
-                {copied ? "✓ Kopiert!" : "🔗 Link kopieren"}
+                {copied ? "Kopiert!" : "Link kopieren"}
               </button>
               <a
                 href={getWhatsAppUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-green-50 text-green-700 border border-green-100 hover:bg-green-100 transition"
               >
-                💬 WhatsApp
+                WhatsApp
               </a>
             </div>
-
-            {/* ===== FEATURE 2: ÄHNLICHE EVENTS ===== */}
-            {similarEvents.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Das könnte dir auch gefallen</h2>
-                <div className="space-y-3">
-                  {similarEvents.map((sim) => (
-                    <Link
-                      key={sim.id}
-                      href={`/events/${sim.id}`}
-                      className="flex gap-3 bg-gray-50 hover:bg-indigo-50 rounded-xl p-3 transition group border border-transparent hover:border-indigo-100"
-                    >
-                      <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-indigo-100 flex items-center justify-center">
-                        {sim.kategorie_bild_url ? (
-                          <img src={sim.kategorie_bild_url} alt={sim.titel} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-2xl">{categoryEmojis[(sim.kategorien?.[0] || sim.kategorie || "")] || "🎪"}</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 group-hover:text-indigo-700 transition text-sm leading-snug line-clamp-2">{sim.titel}</p>
-                        {sim.datum && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            📅 {new Date(sim.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" })}
-                          </p>
-                        )}
-                        {sim.ort && <p className="text-xs text-gray-400 truncate">📍 {sim.ort}</p>}
-                      </div>
-                      <span className="text-indigo-300 group-hover:text-indigo-500 transition self-center text-sm">→</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-        </div>
 
-        <footer className="mt-8 text-center text-gray-400 text-sm">
-          <Link href="/" className="hover:text-indigo-500 transition">← Zurück zu meinen Empfehlungen</Link>
-          {" · "}
-          <Link href="/explore" className="hover:text-indigo-500 transition">Alle Events</Link>
-        </footer>
+          {/* Similar events — horizontal carousel */}
+          {similarEvents.length > 0 && (
+            <div className="mt-10">
+              <h2 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                Das könnte dir gefallen
+              </h2>
+              <div
+                className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+              >
+                {similarEvents.map((sim) => (
+                  <Link
+                    key={sim.id}
+                    href={`/events/${sim.id}`}
+                    className="flex-shrink-0 w-40 sm:w-48 group"
+                  >
+                    <div className="w-full h-28 rounded-xl overflow-hidden bg-[var(--bg-subtle)] mb-2">
+                      {sim.kategorie_bild_url ? (
+                        <img src={sim.kategorie_bild_url} alt={sim.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className={`w-full h-full bg-gradient-to-br ${categoryFallbackColors[sim.kategorien?.[0] || ""] || "from-orange-100 to-amber-50"}`} />
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">
+                      {sim.titel}
+                    </p>
+                    {sim.datum && (
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                        {new Date(sim.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <footer className="mt-12 pt-6 border-t border-[var(--border)] text-center">
+            <nav className="flex items-center justify-center gap-4 text-xs text-[var(--text-muted)]">
+              <Link href="/" className="hover:text-[var(--text-secondary)] transition">Empfehlungen</Link>
+              <span>·</span>
+              <Link href="/explore" className="hover:text-[var(--text-secondary)] transition">Alle Events</Link>
+            </nav>
+          </footer>
+        </div>
       </div>
     </main>
   );

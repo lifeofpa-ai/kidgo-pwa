@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { KidgoLogo } from "@/components/KidgoLogo";
 
 // ============================================================
 // TYPES
@@ -797,7 +798,7 @@ function RecommendationCard({
 
   const displayReasons = [...reasons];
   if (distanceLabel && !displayReasons.some((r) => r.includes("km")))
-    displayReasons.push(`📍 ${distanceLabel}`);
+    displayReasons.push(distanceLabel);
   const shownReasons = displayReasons.slice(0, 2);
 
   const matchingBuckets =
@@ -821,8 +822,8 @@ function RecommendationCard({
         <div className="p-4">
           <div className="flex flex-wrap gap-1.5 mb-2.5">
             {isGeheimtipp && (
-              <span className="bg-purple-50 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full border border-purple-200">
-                💎 Geheimtipp
+              <span className="bg-purple-50 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-100">
+                Geheimtipp
               </span>
             )}
             {shownReasons.map((r, i) => (
@@ -841,12 +842,12 @@ function RecommendationCard({
 
           {(() => {
             const badges: { label: string; cls: string }[] = [];
-            if (isSeriesParent) badges.push({ label: "🔄 Regelmässig", cls: "bg-indigo-50 text-indigo-600 border border-indigo-100" });
+            if (isSeriesParent) badges.push({ label: "Regelmässig", cls: "bg-indigo-50 text-indigo-600 border border-indigo-100" });
             if (isFreeEvent(event)) {
-              badges.push({ label: "🎁 Gratis", cls: "bg-green-50 text-green-700 border border-green-100" });
+              badges.push({ label: "Gratis", cls: "bg-green-50 text-green-700 border border-green-100" });
             } else {
               const p = extractPrice(event.beschreibung);
-              if (p !== null) badges.push({ label: `💰 ab CHF ${p % 1 === 0 ? p : p.toFixed(2)}`, cls: "bg-sky-50 text-sky-600 border border-sky-100" });
+              if (p !== null) badges.push({ label: `ab CHF ${p % 1 === 0 ? p : p.toFixed(2)}`, cls: "bg-sky-50 text-sky-600 border border-sky-100" });
             }
             if (badges.length === 0) return null;
             return (
@@ -873,19 +874,21 @@ function RecommendationCard({
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
               {event.datum && (
-                <span className="flex items-center gap-1">
-                  <span className="text-orange-400">📅</span>
+                <span className="flex items-center gap-1.5">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400 flex-shrink-0">
+                    <rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/>
+                  </svg>
                   {formatDateShort(event.datum)}
                 </span>
               )}
               {!event.datum && (
-                <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                  <span>🎢</span> Ganzjährig geöffnet
-                </span>
+                <span className="text-emerald-600 font-medium">Ganzjährig</span>
               )}
               {event.ort && (
-                <span className="flex items-center gap-1 truncate max-w-[200px]">
-                  <span className="text-orange-400">📍</span>
+                <span className="flex items-center gap-1.5 truncate max-w-[200px]">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400 flex-shrink-0">
+                    <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/>
+                  </svg>
                   {event.ort}
                 </span>
               )}
@@ -1582,7 +1585,7 @@ export default function Home() {
         <header className="mb-7">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-orange-500 font-semibold text-xs mb-1 uppercase tracking-wider">Kidgo</p>
+              <KidgoLogo className="h-5 w-auto mb-1.5" />
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight">
                 {headline.title}
               </h1>
@@ -1601,9 +1604,18 @@ export default function Home() {
                 <button
                   onClick={toggleTheme}
                   aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
-                  className="bg-white rounded-xl w-9 h-9 flex items-center justify-center shadow-sm border border-gray-100 hover:border-gray-200 transition text-base leading-none"
+                  className="bg-white rounded-xl w-9 h-9 flex items-center justify-center shadow-sm border border-gray-100 hover:border-gray-200 transition text-gray-500"
                 >
-                  {isDark ? "☀️" : "🌙"}
+                  {isDark ? (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="8" cy="8" r="3.5"/>
+                      <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1 1M11.8 11.8l1 1M12.8 3.2l-1 1M4.2 11.8l-1 1"/>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 9A6 6 0 1 1 7 3a4.5 4.5 0 0 0 6 6z"/>
+                    </svg>
+                  )}
                 </button>
               </div>
               <button
@@ -1621,15 +1633,17 @@ export default function Home() {
               const bucket = AGE_BUCKETS.find((a) => a.key === b)!;
               return (
                 <span key={b} className="bg-orange-100 text-orange-700 text-sm font-medium px-3 py-1 rounded-full">
-                  {bucket.emoji} {bucket.label}
+                  {bucket.label}
                 </span>
               );
             })}
           </div>
 
           {userLocation?.approximate && (
-            <div className="mt-2.5 text-xs text-gray-400 flex items-start gap-1">
-              <span className="mt-0.5">📍</span>
+            <div className="mt-2.5 text-xs text-gray-400 flex items-start gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 text-gray-400 flex-shrink-0">
+                <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/>
+              </svg>
               <span>
                 Ungefähr in {userLocation.label} —{" "}
                 <button
@@ -1655,36 +1669,49 @@ export default function Home() {
 
         {/* Holiday banner */}
         {isSchoolHoliday(now) && (
-          <div className="mb-5 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow-md">
-            <span className="text-3xl">🏖️</span>
+          <div className="mb-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-100 text-orange-900 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
+                <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM8 5v3l2 2"/>
+              </svg>
+            </div>
             <div>
-              <p className="font-bold text-base">Ferienzeit! Entdecke Camps und Ausflüge</p>
-              <p className="text-amber-100 text-sm mt-0.5">{getActiveHoliday(now)} — Zürich</p>
+              <p className="font-semibold text-sm">Ferienzeit — Entdecke Camps und Ausflüge</p>
+              <p className="text-orange-600 text-xs mt-0.5">{getActiveHoliday(now)} · Zürich</p>
             </div>
           </div>
         )}
 
         {/* Sprint 3: Saison-Countdown */}
         {!loading && allEventsPool.length > 0 && holidayRemaining && (
-          <div className="mb-5 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-2xl px-5 py-4 shadow-md flex items-center gap-3 card-enter">
-            <span className="text-3xl">🏖️</span>
+          <div className="mb-5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-2xl px-5 py-4 flex items-center gap-3 card-enter">
+            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-500">
+                <path d="M7 1v6l3 3M7 13A6 6 0 1 0 7 1a6 6 0 0 0 0 12z"/>
+              </svg>
+            </div>
             <div>
-              <p className="font-bold text-base">
-                🏖️ Noch {holidayRemaining.daysLeft} {holidayRemaining.daysLeft === 1 ? "Ferientag" : "Ferientage"}!
+              <p className="font-semibold text-sm text-[var(--text-primary)]">
+                Noch {holidayRemaining.daysLeft} {holidayRemaining.daysLeft === 1 ? "Ferientag" : "Ferientage"}!
               </p>
-              <p className="text-teal-100 text-sm mt-0.5">{holidayRemaining.name}</p>
+              <p className="text-[var(--text-muted)] text-xs mt-0.5">{holidayRemaining.name}</p>
             </div>
           </div>
         )}
         {!loading && allEventsPool.length > 0 && holidayUpcoming && (
-          <div className="mb-5 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-2xl px-5 py-4 shadow-md flex items-center gap-3 card-enter">
-            <span className="text-3xl">⏳</span>
+          <div className="mb-5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-2xl px-5 py-4 flex items-center gap-3 card-enter">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+                <rect x="1" y="2" width="12" height="11" rx="1.5"/>
+                <path d="M1 6h12M5 1v3M9 1v3"/>
+              </svg>
+            </div>
             <div>
-              <p className="font-bold text-base">
-                ⏳ Noch {holidayUpcoming.daysUntil} {holidayUpcoming.daysUntil === 1 ? "Tag" : "Tage"} bis {holidayUpcoming.name}!
+              <p className="font-semibold text-sm text-[var(--text-primary)]">
+                Noch {holidayUpcoming.daysUntil} {holidayUpcoming.daysUntil === 1 ? "Tag" : "Tage"} bis {holidayUpcoming.name}
               </p>
               {campCount > 0 && (
-                <p className="text-sky-100 text-sm mt-0.5">{campCount} Camp-Ideen warten auf euch!</p>
+                <p className="text-[var(--text-muted)] text-xs mt-0.5">{campCount} Camp-Ideen</p>
               )}
             </div>
           </div>
@@ -1692,18 +1719,20 @@ export default function Home() {
 
         {/* Sprint 3: Challenge der Woche */}
         {!loading && allEventsPool.length > 0 && (
-          <div className="mb-5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl px-5 py-4 shadow-md card-enter">
+          <div className="mb-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-5 py-4 card-enter" style={{ borderLeft: "3px solid #7c3aed" }}>
             <div className="flex items-start gap-3">
-              <span className="text-3xl">{currentChallenge.emoji}</span>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-base leading-snug">🏆 Challenge: {currentChallenge.title}</p>
+                <p className="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-1">Challenge der Woche</p>
+                <p className="font-semibold text-[var(--text-primary)] text-sm leading-snug">{currentChallenge.title}</p>
                 {challengeEvents.length > 0 && (
-                  <p className="text-violet-200 text-xs mt-0.5">{challengeEvents.length} passende Events</p>
+                  <p className="text-[var(--text-muted)] text-xs mt-0.5">{challengeEvents.length} passende Events</p>
                 )}
               </div>
               {challengeAccepted ? (
-                <div className="flex-shrink-0 bg-white/20 rounded-full w-9 h-9 flex items-center justify-center text-lg">
-                  ✓
+                <div className="flex-shrink-0 bg-purple-100 rounded-full w-8 h-8 flex items-center justify-center">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600">
+                    <path d="M2 7l4 4 6-7"/>
+                  </svg>
                 </div>
               ) : (
                 <button
@@ -1715,7 +1744,7 @@ export default function Home() {
                     } catch {}
                     setTimeout(() => document.getElementById("challenge-events")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
                   }}
-                  className="flex-shrink-0 bg-white text-purple-600 text-xs font-bold px-3 py-2 rounded-xl hover:bg-violet-50 transition active:scale-95"
+                  className="flex-shrink-0 bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-purple-600 transition active:scale-95"
                 >
                   Annehmen
                 </button>
@@ -1724,7 +1753,7 @@ export default function Home() {
             {challengeAccepted && (
               <button
                 onClick={() => setShowChallengeEvents((v) => !v)}
-                className="mt-3 text-xs text-violet-200 hover:text-white transition underline underline-offset-2"
+                className="mt-3 text-xs text-purple-500 hover:text-purple-700 transition underline underline-offset-2"
               >
                 {showChallengeEvents ? "Events ausblenden" : "Passende Events anzeigen →"}
               </button>
@@ -1737,7 +1766,6 @@ export default function Home() {
           <div id="challenge-events" className="mb-5 card-enter">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <span>{currentChallenge.emoji}</span>
                 <span>Challenge-Events</span>
                 <span className="text-sm font-normal text-gray-400">({challengeEvents.length})</span>
               </h3>
@@ -1824,7 +1852,6 @@ export default function Home() {
           <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-5">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">💬</span>
                 <h2 className="font-bold text-gray-800 text-lg">Frag Kidgo</h2>
               </div>
               <p className="text-gray-400 text-sm mb-4">
@@ -1864,10 +1891,7 @@ export default function Home() {
 
             {chatResult && (
               <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-amber-50/40">
-                <p className="text-sm font-semibold text-gray-700 mb-4 flex items-start gap-2">
-                  <span className="text-base mt-0.5">🤖</span>
-                  <span>{chatResult.message}</span>
-                </p>
+                <p className="text-sm font-semibold text-gray-700 mb-4">{chatResult.message}</p>
                 {chatResult.events.length > 0 ? (
                   <div className="space-y-3">
                     {chatResult.events.map((event, i) => (
@@ -1903,7 +1927,7 @@ export default function Home() {
               aria-label="Zufälliges Event entdecken"
               className="bg-white border-2 border-orange-200 text-orange-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-orange-50 hover:border-orange-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
-              {showSurprise ? "🎲 Nochmal!" : "🎲 Überrasch mich!"}
+              {showSurprise ? "Nochmal" : "Zufällige Empfehlung"}
             </button>
 
             <button
@@ -1911,7 +1935,7 @@ export default function Home() {
               aria-label="Tagesplan für Kinder generieren"
               className="bg-white border-2 border-indigo-200 text-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-50 hover:border-indigo-400 transition shadow-sm hover:shadow-md active:scale-95"
             >
-              📋 Plan meinen Tag
+              Plan meinen Tag
             </button>
           </div>
         )}
@@ -1935,7 +1959,6 @@ export default function Home() {
                         : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50"
                     }`}
                   >
-                    <span>{col.emoji}</span>
                     <span>{col.label}</span>
                     {count > 0 && (
                       <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center ${active ? "bg-white/25 text-white" : "bg-orange-100 text-orange-600"}`}>
@@ -1957,7 +1980,6 @@ export default function Home() {
             <div className="mt-4 card-enter">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                  <span>{col.emoji}</span>
                   <span>{col.label}</span>
                   <span className="text-sm font-normal text-gray-400">({filtered.length})</span>
                 </h3>
@@ -1997,7 +2019,7 @@ export default function Home() {
         {showSurprise && surpriseEvent && (
           <div key={surpriseAnimKey} id="surprise-card" className="mt-5 flip-in">
             <p className="text-center text-sm font-semibold text-orange-500 mb-3">
-              🎲 Zufällige Entdeckung
+              Zufällige Entdeckung
             </p>
             <RecommendationCard
               event={surpriseEvent}
@@ -2014,9 +2036,7 @@ export default function Home() {
         {showDayPlan && dayPlan && (dayPlan.morning || dayPlan.afternoon) && (
           <div id="day-plan" className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden card-enter">
             <div className="p-5 border-b border-gray-100">
-              <h2 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                <span>📋</span> Dein Tagesplan
-              </h2>
+              <h2 className="font-bold text-gray-800 text-lg">Dein Tagesplan</h2>
               <p className="text-gray-400 text-xs mt-0.5">Zwei abwechslungsreiche Events für euren Tag</p>
             </div>
 
@@ -2038,14 +2058,10 @@ export default function Home() {
                         {dayPlan.morning.titel}
                       </div>
                       {dayPlan.morning.ort && (
-                        <div className="text-gray-500 text-xs mt-1 flex items-center gap-1">
-                          <span>📍</span>{dayPlan.morning.ort}
-                        </div>
+                        <div className="text-gray-500 text-xs mt-1">{dayPlan.morning.ort}</div>
                       )}
                       {dayPlan.morning.datum && (
-                        <div className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
-                          <span>📅</span>{formatDateShort(dayPlan.morning.datum)}
-                        </div>
+                        <div className="text-gray-400 text-xs mt-0.5">{formatDateShort(dayPlan.morning.datum)}</div>
                       )}
                     </Link>
                   </div>
@@ -2057,7 +2073,7 @@ export default function Home() {
                     12:00 – 14:00 Uhr · Mittagspause
                   </div>
                   <div className="bg-amber-50 border border-amber-100 rounded-xl p-3.5">
-                    <div className="text-gray-500 text-sm">🍕 Mittagessen & Erholung</div>
+                    <div className="text-gray-500 text-sm">Mittagessen & Erholung</div>
                     <div className="text-gray-400 text-xs mt-0.5">Zeit zum Entspannen und Auftanken</div>
                   </div>
                 </div>
@@ -2076,14 +2092,10 @@ export default function Home() {
                         {dayPlan.afternoon.titel}
                       </div>
                       {dayPlan.afternoon.ort && (
-                        <div className="text-gray-500 text-xs mt-1 flex items-center gap-1">
-                          <span>📍</span>{dayPlan.afternoon.ort}
-                        </div>
+                        <div className="text-gray-500 text-xs mt-1">{dayPlan.afternoon.ort}</div>
                       )}
                       {dayPlan.afternoon.datum && (
-                        <div className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
-                          <span>📅</span>{formatDateShort(dayPlan.afternoon.datum)}
-                        </div>
+                        <div className="text-gray-400 text-xs mt-0.5">{formatDateShort(dayPlan.afternoon.datum)}</div>
                       )}
                     </Link>
                   </div>
@@ -2094,7 +2106,7 @@ export default function Home() {
                 onClick={handleGenerateDayPlan}
                 className="mt-5 w-full py-2.5 text-sm text-indigo-500 font-semibold border border-indigo-200 rounded-xl hover:bg-indigo-50 transition"
               >
-                🔄 Anderen Plan generieren
+                Anderen Plan generieren
               </button>
             </div>
           </div>
@@ -2113,7 +2125,7 @@ export default function Home() {
           <div className="mt-4 text-center">
             {visitCount >= 3 ? (
               <span className="text-sm text-orange-500 font-semibold">
-                🔥 Du bist ein Kidgo-Entdecker! {visitCount} Events diese Woche angeschaut
+                Kidgo-Entdecker — {visitCount} Events diese Woche angeschaut
               </span>
             ) : (
               <span className="text-xs text-gray-400">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { KidgoLogo } from "@/components/KidgoLogo";
 
 const PAGE_SIZE = 15;
 
@@ -29,59 +30,131 @@ function applyWeatherSort(evts: any[], badWeather: boolean): any[] {
   });
 }
 
-const categoryEmojis: Record<string, string> = {
-  "Kreativ": "🎨", "Natur": "🌿", "Tiere": "🐾", "Sport": "⚽",
-  "Tanz": "💃", "Theater": "🎭", "Musik": "🎵", "Mode & Design": "👗",
-  "Wissenschaft": "🔬", "Bildung": "📚", "Ausflug": "🗺️", "Feriencamp": "🏕️",
-};
-
 const categoryColors: Record<string, string> = {
-  "Kreativ": "bg-pink-100 text-pink-600",
-  "Natur": "bg-green-100 text-green-600",
-  "Tiere": "bg-yellow-100 text-yellow-600",
-  "Sport": "bg-blue-100 text-blue-600",
-  "Tanz": "bg-purple-100 text-purple-600",
-  "Theater": "bg-red-100 text-red-600",
-  "Musik": "bg-indigo-100 text-indigo-600",
-  "Mode & Design": "bg-rose-100 text-rose-600",
-  "Wissenschaft": "bg-cyan-100 text-cyan-600",
-  "Bildung": "bg-orange-100 text-orange-600",
-  "Ausflug": "bg-teal-100 text-teal-600",
-  "Feriencamp": "bg-amber-100 text-amber-600",
+  "Kreativ": "bg-pink-50 text-pink-600 border-pink-100",
+  "Natur": "bg-green-50 text-green-600 border-green-100",
+  "Tiere": "bg-yellow-50 text-yellow-600 border-yellow-100",
+  "Sport": "bg-blue-50 text-blue-600 border-blue-100",
+  "Tanz": "bg-purple-50 text-purple-600 border-purple-100",
+  "Theater": "bg-red-50 text-red-600 border-red-100",
+  "Musik": "bg-indigo-50 text-indigo-600 border-indigo-100",
+  "Mode & Design": "bg-rose-50 text-rose-600 border-rose-100",
+  "Wissenschaft": "bg-cyan-50 text-cyan-600 border-cyan-100",
+  "Bildung": "bg-orange-50 text-orange-600 border-orange-100",
+  "Ausflug": "bg-teal-50 text-teal-600 border-teal-100",
+  "Feriencamp": "bg-amber-50 text-amber-600 border-amber-100",
 };
 
-function CategoryImage({
-  url,
-  kategorien,
-  containerClassName,
-}: {
-  url?: string | null;
-  kategorien?: string[];
-  containerClassName?: string;
-}) {
-  const [imgError, setImgError] = useState(false);
-  const cat = kategorien?.[0] || "";
-  const emoji = categoryEmojis[cat] || "🎪";
-  const colors = categoryColors[cat] || "bg-indigo-100 text-indigo-600";
-  const containerClass =
-    containerClassName ?? "h-36 -mx-4 -mt-4 mb-3 rounded-t-lg overflow-hidden";
+const categoryFallback: Record<string, string> = {
+  "Kreativ": "from-pink-100 to-rose-50",
+  "Natur": "from-green-100 to-emerald-50",
+  "Tiere": "from-yellow-100 to-amber-50",
+  "Sport": "from-blue-100 to-sky-50",
+  "Tanz": "from-purple-100 to-violet-50",
+  "Theater": "from-red-100 to-rose-50",
+  "Musik": "from-indigo-100 to-violet-50",
+  "Mode & Design": "from-rose-100 to-pink-50",
+  "Wissenschaft": "from-cyan-100 to-sky-50",
+  "Bildung": "from-orange-100 to-amber-50",
+  "Ausflug": "from-teal-100 to-green-50",
+  "Feriencamp": "from-amber-100 to-orange-50",
+};
 
-  if (url && !imgError) {
-    return (
-      <div className={containerClass}>
-        <img
-          src={url}
-          alt={cat || "Event"}
-          className="w-full h-full object-cover"
-          loading="lazy"
-          onError={() => setImgError(true)}
-        />
-      </div>
-    );
-  }
+function EventCard({ event, source, serienCount, formatDate }: {
+  event: any;
+  source: any;
+  serienCount: number;
+  formatDate: (d: string, e?: string | null) => string;
+}) {
+  const [imgErr, setImgErr] = useState(false);
+  const cat = event.kategorien?.[0] || event.kategorie || "";
+  const isNew = event.created_at && new Date(event.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const isFree = event.preis_chf === 0;
+  const isCamp = event.event_typ === "camp" || event.kategorien?.includes("Feriencamp");
+  const ctaUrl = event.anmelde_link || source?.url;
+
   return (
-    <div className={`${containerClass} flex items-center justify-center ${colors}`}>
-      <span className="text-6xl">{emoji}</span>
+    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-orange-200 hover:shadow-md transition-all duration-200 overflow-hidden group">
+      {/* Image */}
+      <div className="h-40 overflow-hidden bg-[var(--bg-subtle)]">
+        {event.kategorie_bild_url && !imgErr ? (
+          <img
+            src={event.kategorie_bild_url}
+            alt={event.titel}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            onError={() => setImgErr(true)}
+          />
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${categoryFallback[cat] || "from-orange-100 to-amber-50"}`} />
+        )}
+      </div>
+
+      <div className="p-4">
+        {/* Badges row */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {isNew && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-100">Neu</span>
+          )}
+          {isFree && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">Gratis</span>
+          )}
+          {isCamp && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Camp</span>
+          )}
+        </div>
+
+        {/* Title */}
+        <Link href={`/events/${event.id}`} className="block">
+          <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
+            {event.titel}
+          </h3>
+        </Link>
+
+        {/* Date + location */}
+        <div className="space-y-1 text-xs text-[var(--text-secondary)] mb-3">
+          {event.datum && (
+            <p className="font-medium text-orange-500">{formatDate(event.datum, event.datum_ende)}</p>
+          )}
+          {!event.datum && (
+            <p className="font-medium text-green-600">Ganzjährig geöffnet</p>
+          )}
+          {serienCount > 0 && (
+            <p className="text-[var(--text-muted)]">+{serienCount} weitere Termine</p>
+          )}
+          {event.ort && <p className="text-[var(--text-muted)] truncate">{event.ort}</p>}
+        </div>
+
+        {/* Category tags */}
+        {event.kategorien?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {event.kategorien.slice(0, 2).map((c: string) => (
+              <span key={c} className={`text-xs px-2 py-0.5 rounded-full border ${categoryColors[c] || "bg-gray-50 text-gray-500 border-gray-100"}`}>{c}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Price */}
+        {event.preis_chf != null && event.preis_chf > 0 && (
+          <p className="text-xs text-[var(--text-muted)] mb-3">CHF {event.preis_chf}</p>
+        )}
+
+        {/* Description snippet */}
+        {event.beschreibung && (
+          <p className="text-xs text-[var(--text-muted)] line-clamp-2 mb-3">{event.beschreibung}</p>
+        )}
+
+        {ctaUrl && (
+          <a
+            href={ctaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs font-semibold text-orange-600 hover:text-orange-700 border border-orange-200 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full transition"
+          >
+            Zur Webseite →
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -110,9 +183,7 @@ export default function ExplorePage() {
   }, []);
 
   useEffect(() => {
-    fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m"
-    )
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m")
       .then((res) => res.json())
       .then((data) => {
         const code = data?.current?.weather_code;
@@ -135,32 +206,25 @@ export default function ExplorePage() {
     setVisibleCountAllYear(PAGE_SIZE);
 
     try {
-      const { data: sourcesData, error: sourcesError } = await supabase
-        .from("quellen")
-        .select("*");
+      const { data: sourcesData, error: sourcesError } = await supabase.from("quellen").select("*");
       if (sourcesError) throw sourcesError;
       setSources(sourcesData || []);
 
-      let eventsQuery = supabase.from("events").select("*");
+      let eventsQuery = supabase.from("events").select("*").eq("status", "approved");
 
       if (selectedCategories.length > 0) {
         eventsQuery = eventsQuery.overlaps("kategorien", selectedCategories);
       }
       if (search.trim()) {
-        eventsQuery = eventsQuery.or(
-          `titel.ilike.%${search}%,ort.ilike.%${search}%`
-        );
+        eventsQuery = eventsQuery.or(`titel.ilike.%${search}%,ort.ilike.%${search}%`);
       }
       if (selectedAgeBuckets.length > 0) {
         eventsQuery = eventsQuery.overlaps("alters_buckets", selectedAgeBuckets);
       }
 
       eventsQuery = eventsQuery.is("serie_id", null);
-
       const todayStr = new Date().toISOString().split("T")[0];
-      eventsQuery = eventsQuery.or(
-        `datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`
-      );
+      eventsQuery = eventsQuery.or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`);
 
       const { data: serienData } = await supabase
         .from("events")
@@ -172,15 +236,12 @@ export default function ExplorePage() {
       });
       setSerienCounts(counts);
 
-      const { data: allEvents, error: eventsError } = await eventsQuery.order(
-        "datum",
-        { ascending: true, nullsFirst: true }
-      );
+      const { data: allEvents, error: eventsError } = await eventsQuery.order("datum", { ascending: true, nullsFirst: true });
       if (eventsError) throw eventsError;
       if (allEvents) setEvents(allEvents);
     } catch (err) {
       console.error("Fehler bei Suche:", err);
-      setError("Unerwarteter Fehler bei der Suche");
+      setError("Fehler beim Laden der Events");
       setEvents([]);
     }
 
@@ -200,428 +261,280 @@ export default function ExplorePage() {
     const date = new Date(dateStr + "T00:00:00");
     if (dateEndStr) {
       const dateEnd = new Date(dateEndStr + "T00:00:00");
-      const startFormatted = date.toLocaleDateString("de-CH", { day: "numeric", month: "short" });
-      const endFormatted = dateEnd.toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" });
-      return `${startFormatted} – ${endFormatted}`;
+      return `${date.toLocaleDateString("de-CH", { day: "numeric", month: "short" })} – ${dateEnd.toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" })}`;
     }
-    return date.toLocaleDateString("de-CH", {
-      weekday: "short", day: "numeric", month: "long", year: "numeric",
-    });
+    return date.toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
   };
 
+  const getSource = (sourceId: string) => sources.find((s) => s.id === sourceId);
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <main className="min-h-screen bg-[var(--bg-page)]">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
 
-        {/* Back link */}
-        <div className="mb-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-medium transition text-sm"
-          >
-            ← Zurück zu meinen Empfehlungen
-          </Link>
-        </div>
+        {/* Header */}
+        <header className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Link href="/" className="flex-shrink-0">
+              <KidgoLogo className="h-6 w-auto" />
+            </Link>
+            <div className="h-4 w-px bg-[var(--border)]" />
+            <Link
+              href="/"
+              className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition flex items-center gap-1"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 10L4 6l4-4"/>
+              </svg>
+              Empfehlungen
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Events entdecken</h1>
+          <p className="text-[var(--text-muted)] text-sm mt-1">Alle Kinderaktivitäten in der Region Zürich</p>
+        </header>
 
-        {/* Search Section */}
-        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-3">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">🗺️ Alle Events entdecken</h2>
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              🔍 Event-Name oder Ort:
-            </label>
+        {/* Search & Filters */}
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-5 mb-6 space-y-4">
+          {/* Search input */}
+          <div className="relative">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>
+            </svg>
             <input
               type="text"
-              placeholder="z.B. 'Sport', 'Zürich', 'Schwimmen'..."
+              placeholder="Event, Ort oder Aktivität suchen..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition"
             />
           </div>
 
-          <div className="mb-3">
-            <div className="flex flex-wrap gap-2 items-center">
-              {categories.map((cat) => (
+          {/* Category chips */}
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() =>
+                  setSelectedCategories((prev) =>
+                    prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+                  )
+                }
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
+                  selectedCategories.includes(cat)
+                    ? "bg-orange-500 text-white border-orange-500 shadow-sm"
+                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-orange-300 hover:text-orange-600"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+            {selectedCategories.length > 0 && (
+              <button
+                onClick={() => setSelectedCategories([])}
+                className="px-3 py-1.5 rounded-full text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
+              >
+                Alle
+              </button>
+            )}
+          </div>
+
+          {/* Date + Age filters */}
+          <div className="flex flex-wrap gap-4">
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { key: "all", label: "Alle Daten" },
+                { key: "today", label: "Heute" },
+                { key: "weekend", label: "Wochenende" },
+                { key: "week", label: "Diese Woche" },
+                { key: "month", label: "Diesen Monat" },
+              ].map(({ key, label }) => (
                 <button
-                  key={cat}
-                  onClick={() =>
-                    setSelectedCategories((prev) =>
-                      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-                    )
-                  }
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex-shrink-0 ${
-                    selectedCategories.includes(cat)
-                      ? "bg-indigo-600 text-white shadow-md"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  key={key}
+                  onClick={() => setDateFilter(key as typeof dateFilter)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
+                    dateFilter === key
+                      ? "bg-[var(--text-primary)] text-[var(--bg-card)] border-[var(--text-primary)]"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-gray-400"
                   }`}
                 >
-                  {categoryEmojis[cat] ? `${categoryEmojis[cat]} ` : ""}{cat}
+                  {label}
                 </button>
               ))}
-              {selectedCategories.length > 0 && (
+            </div>
+
+            <div className="flex gap-1.5 flex-wrap items-center">
+              <span className="text-xs text-[var(--text-muted)] font-medium">Alter:</span>
+              {[
+                { key: "0-3", label: "0–3 J." },
+                { key: "4-6", label: "4–6 J." },
+                { key: "7-9", label: "7–9 J." },
+                { key: "10-12", label: "10–12 J." },
+              ].map(({ key, label }) => (
                 <button
-                  onClick={() => setSelectedCategories([])}
-                  className="px-2 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-600 transition"
+                  key={key}
+                  onClick={() =>
+                    setSelectedAgeBuckets((prev) =>
+                      prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key]
+                    )
+                  }
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
+                    selectedAgeBuckets.includes(key)
+                      ? "bg-[var(--text-primary)] text-[var(--bg-card)] border-[var(--text-primary)]"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-gray-400"
+                  }`}
                 >
-                  ✕ Alle Kategorien
+                  {label}
+                </button>
+              ))}
+              {selectedAgeBuckets.length > 0 && (
+                <button
+                  onClick={() => setSelectedAgeBuckets([])}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
+                >
+                  Alle
                 </button>
               )}
             </div>
           </div>
-
-          <button
-            onClick={handleSearch}
-            disabled={loading}
-            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "⏳ Lädt..." : "✅ Suchen"}
-          </button>
-        </section>
-
-        {/* Date Quick Filters */}
-        <div className="flex gap-2 mb-3 flex-wrap">
-          {[
-            { key: "all",     label: "📅 Alle Daten" },
-            { key: "today",   label: "☀️ Heute" },
-            { key: "weekend", label: "🏖️ Wochenende" },
-            { key: "week",    label: "🗓️ Diese Woche" },
-            { key: "month",   label: "📆 Diesen Monat" },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setDateFilter(key as typeof dateFilter)}
-              className={`px-2 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex-shrink-0 ${
-                dateFilter === key
-                  ? "bg-indigo-600 text-white shadow"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
         </div>
 
-        {/* Age Bucket Filter */}
-        <div className="flex gap-2 mb-4 flex-wrap items-center">
-          <span className="text-xs font-medium text-gray-500 flex-shrink-0">👶 Alter:</span>
-          {[
-            { key: "0-3",   label: "0–3 J.",   title: "Babys & Kleinkinder" },
-            { key: "4-6",   label: "4–6 J.",   title: "Vorschule" },
-            { key: "7-9",   label: "7–9 J.",   title: "Unterstufe" },
-            { key: "10-12", label: "10–12 J.", title: "Mittelstufe" },
-          ].map(({ key, label, title }) => (
-            <button
-              key={key}
-              title={title}
-              onClick={() =>
-                setSelectedAgeBuckets((prev) =>
-                  prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key]
-                )
-              }
-              className={`px-2 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex-shrink-0 ${
-                selectedAgeBuckets.includes(key)
-                  ? "bg-purple-600 text-white shadow"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          {selectedAgeBuckets.length > 0 && (
-            <button
-              onClick={() => setSelectedAgeBuckets([])}
-              className="px-2 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-600 transition"
-            >
-              ✕ Alle Altersgruppen
-            </button>
-          )}
-        </div>
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-6">
+            {error}
+          </div>
+        )}
 
         {/* Results */}
-        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <div className="mb-4">
-            <h3 className="text-2xl font-bold">
-              🗓️ Events {events.length > 0 && `(${events.length})`}
-            </h3>
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden">
+                <div className="h-40 skeleton" />
+                <div className="p-4 space-y-2">
+                  <div className="h-3 skeleton w-1/3" />
+                  <div className="h-4 skeleton w-full" />
+                  <div className="h-3 skeleton w-2/3" />
+                </div>
+              </div>
+            ))}
           </div>
+        ) : events.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-[var(--text-secondary)] text-base mb-1">
+              {search || selectedCategories.length > 0 ? "Keine Events gefunden" : "Suchbegriff eingeben oder Kategorie wählen"}
+            </p>
+            <p className="text-[var(--text-muted)] text-sm">Passe die Filter oben an</p>
+          </div>
+        ) : (() => {
+          const now2 = new Date();
+          now2.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(now2); endOfWeek.setDate(now2.getDate() + 7);
+          const endOfMonth = new Date(now2); endOfMonth.setDate(now2.getDate() + 30);
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              ⚠️ {error}
-            </div>
-          )}
+          const dateFiltered = events.filter((e) => {
+            if (!e.datum || dateFilter === "all") return true;
+            const d = new Date(e.datum + "T00:00:00");
+            if (dateFilter === "today") return d.toDateString() === now2.toDateString();
+            if (dateFilter === "weekend") {
+              const dow = now2.getDay();
+              const nextSat = new Date(now2); nextSat.setDate(now2.getDate() + (dow === 6 ? 7 : 6 - dow));
+              const nextSun = new Date(now2); nextSun.setDate(now2.getDate() + (dow === 0 ? 7 : 7 - dow));
+              return d >= nextSat && d <= nextSun;
+            }
+            if (dateFilter === "week") return d <= endOfWeek;
+            if (dateFilter === "month") return d <= endOfMonth;
+            return true;
+          });
 
-          {loading ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 text-lg">⏳ Events werden geladen...</p>
-            </div>
-          ) : events.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 text-lg mb-4">
-                {search || selectedCategories.length > 0
-                  ? "😢 Keine Events gefunden"
-                  : "🎯 Nutze die Suchfunktion oben, um Events zu finden!"}
-              </p>
-            </div>
-          ) : (
-            (() => {
-              const now2 = new Date();
-              now2.setHours(0, 0, 0, 0);
-              const endOfWeek = new Date(now2); endOfWeek.setDate(now2.getDate() + 7);
-              const endOfMonth = new Date(now2); endOfMonth.setDate(now2.getDate() + 30);
+          const isBadWeather = weatherCode !== null && weatherCode >= 51;
+          const futureEvents = applyWeatherSort(dateFiltered.filter((e) => e.datum), isBadWeather);
+          const allYearActivities = applyWeatherSort(dateFiltered.filter((e) => !e.datum), isBadWeather);
 
-              const dateFiltered = events.filter((e) => {
-                if (!e.datum || dateFilter === "all") return true;
-                const d = new Date(e.datum + "T00:00:00");
-                if (dateFilter === "today") return d >= now2 && d <= now2;
-                if (dateFilter === "weekend") {
-                  const dayOfWeek = now2.getDay();
-                  const daysUntilSat = dayOfWeek === 6 ? 7 : 6 - dayOfWeek;
-                  const daysUntilSun = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
-                  const nextSat = new Date(now2); nextSat.setDate(now2.getDate() + daysUntilSat);
-                  const nextSun = new Date(now2); nextSun.setDate(now2.getDate() + daysUntilSun);
-                  return d >= nextSat && d <= nextSun;
-                }
-                if (dateFilter === "week") return d <= endOfWeek;
-                if (dateFilter === "month") return d <= endOfMonth;
-                return true;
-              });
-
-              const isBadWeather = weatherCode !== null && weatherCode >= 51;
-              const futureEvents = applyWeatherSort(
-                dateFiltered.filter((e) => e.datum),
-                isBadWeather
-              );
-              const allYearActivities = applyWeatherSort(
-                dateFiltered.filter((e) => !e.datum),
-                isBadWeather
-              );
-
-              const getSource = (sourceId: string) =>
-                sources.find((s) => s.id === sourceId);
-
-              return (
-                <>
-                  {futureEvents.length > 0 && (
-                    <div className="mb-8">
-                      <h4 className="text-xl font-bold text-indigo-600 mb-4">
-                        🗓️ Anstehende Events ({futureEvents.length})
-                      </h4>
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {futureEvents.slice(0, visibleCountFuture).map((event: any) => {
-                          const source = getSource(event.quelle_id);
-                          return (
-                            <div
-                              key={event.id}
-                              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer hover:border-indigo-400 relative group bg-gradient-to-br from-blue-50 to-white"
-                            >
-                              <CategoryImage url={event.kategorie_bild_url} kategorien={event.kategorien} />
-                              {event.created_at &&
-                                new Date(event.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) && (
-                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">
-                                    ✨ Neu
-                                  </span>
-                                )}
-                              <Link
-                                href={`/events/${event.id}`}
-                                className="block hover:text-indigo-600 transition"
-                              >
-                                <h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
-                                  {event.titel}
-                                </h5>
-                              </Link>
-                              <p className="text-sm font-semibold text-indigo-600 mb-1">
-                                📅 {formatDate(event.datum, event.datum_ende)}
-                              </p>
-                              {serienCounts[event.id] ? (
-                                <p className="text-xs text-indigo-400 mb-1">
-                                  🔄 +{serienCounts[event.id]} weitere Termine
-                                </p>
-                              ) : null}
-                              {event.ort && (
-                                <p className="text-sm text-gray-700 mb-2">📍 {event.ort}</p>
-                              )}
-                              {event.event_typ === "camp" && (
-                                <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
-                                  🏕️ Camp
-                                </span>
-                              )}
-                              {event.kategorien?.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-3">
-                                  {event.kategorien.slice(0, 2).map((cat: string) => (
-                                    <span key={cat} className="inline-block bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-1 rounded">
-                                      {cat}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {event.altersgruppen?.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  {event.altersgruppen.map((ag: string) => (
-                                    <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
-                                      👶 {ag}{!ag.includes("Jahr") && " Jahre"}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {event.preis_chf != null && (
-                                <p className="text-xs text-gray-600 mb-2">
-                                  {event.preis_chf === 0 ? (
-                                    <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
-                                      🎉 Kostenlos
-                                    </span>
-                                  ) : (
-                                    <>💰 CHF {event.preis_chf}</>
-                                  )}
-                                </p>
-                              )}
-                              {event.beschreibung && (
-                                <p className="text-xs text-gray-500 mb-2 line-clamp-2">{event.beschreibung}</p>
-                              )}
-                              {(event.anmelde_link || source?.url) && (
-                                <div className="flex gap-2 flex-wrap mt-2">
-                                  <a
-                                    href={event.anmelde_link || source?.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
-                                  >
-                                    🌐 Zur Webseite
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {visibleCountFuture < futureEvents.length && (
-                        <div className="text-center mt-6">
-                          <button
-                            onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
-                            className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
-                          >
-                            ⬇️ Mehr laden ({futureEvents.length - visibleCountFuture} weitere)
-                          </button>
-                        </div>
-                      )}
+          return (
+            <div className="space-y-10">
+              {futureEvents.length > 0 && (
+                <section>
+                  <div className="flex items-baseline gap-2 mb-5">
+                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Anstehende Events</h2>
+                    <span className="text-sm text-[var(--text-muted)]">{futureEvents.length}</span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {futureEvents.slice(0, visibleCountFuture).map((event: any) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        source={getSource(event.quelle_id)}
+                        serienCount={serienCounts[event.id] || 0}
+                        formatDate={formatDate}
+                      />
+                    ))}
+                  </div>
+                  {visibleCountFuture < futureEvents.length && (
+                    <div className="text-center mt-6">
+                      <button
+                        onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
+                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-orange-300 hover:text-orange-600 transition"
+                      >
+                        {futureEvents.length - visibleCountFuture} weitere laden
+                      </button>
                     </div>
                   )}
+                </section>
+              )}
 
-                  {allYearActivities.length > 0 && (
-                    <div className="mb-8">
-                      <h4 className="text-xl font-bold text-green-600 mb-4">
-                        🎢 Ganzjährig geöffnet ({allYearActivities.length})
-                      </h4>
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {allYearActivities.slice(0, visibleCountAllYear).map((activity: any) => {
-                          const source = getSource(activity.quelle_id);
-                          return (
-                            <div
-                              key={activity.id}
-                              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer hover:border-green-400 relative group bg-gradient-to-br from-green-50 to-white"
-                            >
-                              <CategoryImage url={activity.kategorie_bild_url} kategorien={activity.kategorien} />
-                              {activity.created_at &&
-                                new Date(activity.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) && (
-                                  <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1">
-                                    ✨ Neu
-                                  </span>
-                                )}
-                              <Link
-                                href={`/events/${activity.id}`}
-                                className="block hover:text-green-700 transition"
-                              >
-                                <h5 className="font-bold text-lg mb-2 text-gray-900 pr-8">
-                                  {activity.titel}
-                                </h5>
-                              </Link>
-                              {activity.ort && (
-                                <p className="text-sm text-gray-700 mb-2">📍 {activity.ort}</p>
-                              )}
-                              {activity.kategorien?.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-3">
-                                  {activity.kategorien.slice(0, 2).map((cat: string) => (
-                                    <span key={cat} className="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
-                                      {cat}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {activity.altersgruppen?.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  {activity.altersgruppen.map((ag: string) => (
-                                    <span key={ag} className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
-                                      👶 {ag}{!ag.includes("Jahr") && " Jahre"}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {activity.preis_chf != null && (
-                                <p className="text-xs text-gray-600 mb-2">
-                                  {activity.preis_chf === 0 ? (
-                                    <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
-                                      🎉 Kostenlos
-                                    </span>
-                                  ) : (
-                                    <>💰 CHF {activity.preis_chf}</>
-                                  )}
-                                </p>
-                              )}
-                              {activity.beschreibung && (
-                                <p className="text-xs text-gray-500 mb-2 line-clamp-2">{activity.beschreibung}</p>
-                              )}
-                              {(activity.anmelde_link || source?.url) && (
-                                <div className="flex gap-2 flex-wrap mt-2">
-                                  <a
-                                    href={activity.anmelde_link || source?.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"
-                                  >
-                                    🌐 Zur Webseite
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {visibleCountAllYear < allYearActivities.length && (
-                        <div className="text-center mt-6">
-                          <button
-                            onClick={() => setVisibleCountAllYear((v) => v + PAGE_SIZE)}
-                            className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
-                          >
-                            ⬇️ Mehr laden ({allYearActivities.length - visibleCountAllYear} weitere)
-                          </button>
-                        </div>
-                      )}
+              {allYearActivities.length > 0 && (
+                <section>
+                  <div className="flex items-baseline gap-2 mb-5">
+                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Ganzjährig geöffnet</h2>
+                    <span className="text-sm text-[var(--text-muted)]">{allYearActivities.length}</span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {allYearActivities.slice(0, visibleCountAllYear).map((activity: any) => (
+                      <EventCard
+                        key={activity.id}
+                        event={activity}
+                        source={getSource(activity.quelle_id)}
+                        serienCount={serienCounts[activity.id] || 0}
+                        formatDate={formatDate}
+                      />
+                    ))}
+                  </div>
+                  {visibleCountAllYear < allYearActivities.length && (
+                    <div className="text-center mt-6">
+                      <button
+                        onClick={() => setVisibleCountAllYear((v) => v + PAGE_SIZE)}
+                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-orange-300 hover:text-orange-600 transition"
+                      >
+                        {allYearActivities.length - visibleCountAllYear} weitere laden
+                      </button>
                     </div>
                   )}
-                </>
-              );
-            })()
-          )}
-        </section>
+                </section>
+              )}
+            </div>
+          );
+        })()}
 
-        <footer className="mt-12 text-center text-gray-600 text-sm">
-          <p>🚀 Kidgo PWA – Alpha Version | Powered by Next.js + Supabase</p>
-          <div className="mt-2 flex justify-center gap-4 text-xs">
-            <a href="/admin" className="text-gray-400 hover:underline">🛠️ Admin</a>
-            <Link href="/" className="text-gray-400 hover:underline">← Zurück zu meinen Empfehlungen</Link>
-          </div>
+        <footer className="mt-14 pt-6 border-t border-[var(--border)] text-center text-xs text-[var(--text-muted)]">
+          <p className="mb-2">© 2026 kidgo · Zürich</p>
+          <nav className="flex justify-center gap-4">
+            <Link href="/" className="hover:text-[var(--text-secondary)] transition">Empfehlungen</Link>
+            <Link href="/impressum" className="hover:text-[var(--text-secondary)] transition">Impressum</Link>
+            <Link href="/datenschutz" className="hover:text-[var(--text-secondary)] transition">Datenschutz</Link>
+            <a href="/admin" className="hover:text-[var(--text-secondary)] transition">Admin</a>
+          </nav>
         </footer>
       </div>
 
       {showScrollTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 right-4 z-50 bg-indigo-600 text-white rounded-full w-11 h-11 flex items-center justify-center shadow-lg hover:bg-indigo-700 transition"
+          className="fixed bottom-6 right-4 z-50 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:shadow-lg hover:border-orange-300 hover:text-orange-500 transition-all"
           title="Nach oben"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="18 15 12 9 6 15" />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 12V4M4 8l4-4 4 4"/>
           </svg>
         </button>
       )}

@@ -25,6 +25,45 @@ const categoryColors: Record<string, string> = {
   "Feriencamp": "bg-amber-100 text-amber-600",
 };
 
+function extractPrice(beschreibung: string | null): number | null {
+  if (!beschreibung) return null;
+  const patterns = [
+    /CHF\s*(\d+(?:[.,]\d+)?)/i,
+    /Fr\.\s*(\d+(?:[.,]\d+)?)/i,
+    /(\d+(?:[.,]\d+)?)\.[-–—]+/,
+    /(\d+(?:[.,]\d+)?)\s*Franken/i,
+  ];
+  for (const pat of patterns) {
+    const m = beschreibung.match(pat);
+    if (m) return parseFloat(m[1].replace(",", "."));
+  }
+  return null;
+}
+
+function isFreeText(beschreibung: string | null, preis_chf: number | null, titel: string): boolean {
+  const desc = (beschreibung || "").toLowerCase();
+  const t = titel.toLowerCase();
+  return (
+    preis_chf === 0 ||
+    ["gratis", "kostenlos", "freier eintritt", "free"].some((kw) => desc.includes(kw) || t.includes(kw))
+  );
+}
+
+const WEEKDAYS_DE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+
+function detectWeeklyPattern(termine: { datum: string }[]): string | null {
+  if (termine.length < 2) return null;
+  const sorted = [...termine].sort((a, b) => a.datum.localeCompare(b.datum));
+  const diffs = sorted.slice(1).map((t, i) => {
+    const d1 = new Date(sorted[i].datum + "T00:00:00");
+    const d2 = new Date(t.datum + "T00:00:00");
+    return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  });
+  const isWeekly = diffs.every((d) => d === 7);
+  if (!isWeekly) return null;
+  return WEEKDAYS_DE[new Date(sorted[0].datum + "T00:00:00").getDay()];
+}
+
 function CategoryImage({ url, kategorien }: { url?: string | null; kategorien?: string[] }) {
   const [imgError, setImgError] = useState(false);
   const cat = kategorien?.[0] || "";
@@ -72,6 +111,7 @@ export default function EventDetailPage() {
   const [serieTermine, setSerieTermine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [shared, setShared] = useState(false);
+  const [similarEvents, setSimilarEvents] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -97,6 +137,35 @@ export default function EventDetailPage() {
           .eq("serie_id", eventData.id)
           .order("datum", { ascending: true });
         setSerieTermine(termineData || []);
+
+        // Fetch similar events by category then by location
+        const cats = eventData.kategorien || (eventData.kategorie ? [eventData.kategorie] : []);
+        let simResults: any[] = [];
+        if (cats.length > 0) {
+          const { data: catData } = await supabase
+            .from("events")
+            .select("id, titel, datum, ort, kategorie_bild_url, kategorien, kategorie")
+            .eq("status", "approved")
+            .neq("id", eventData.id)
+            .contains("kategorien", [cats[0]])
+            .limit(6);
+          simResults = catData || [];
+        }
+        if (simResults.length < 3 && eventData.ort) {
+          const existing = new Set(simResults.map((e: any) => e.id));
+          const city = eventData.ort.split(",")[0].trim().split(" ")[0];
+          const { data: ortData } = await supabase
+            .from("events")
+            .select("id, titel, datum, ort, kategorie_bild_url, kategorien, kategorie")
+            .eq("status", "approved")
+            .neq("id", eventData.id)
+            .ilike("ort", `%${city}%`)
+            .limit(4);
+          for (const e of ortData || []) {
+            if (!existing.has(e.id)) simResults.push(e);
+          }
+        }
+        setSimilarEvents(simResults.slice(0, 3));
       }
       setLoading(false);
     };
@@ -113,6 +182,43 @@ export default function EventDetailPage() {
         setTimeout(() => setShared(false), 2000);
       });
     }
+  };
+
+  const handleICSDownload = () => {
+    if (!event) return;
+    const esc = (s: string) => s.replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+    const toICSDate = (d: string) => d.replace(/-/g, "");
+    const startDate = event.datum ? toICSDate(event.datum) : toICSDate(new Date().toISOString().split("T")[0]);
+    const endDate = event.datum_ende
+      ? toICSDate(event.datum_ende)
+      : event.datum
+        ? toICSDate(new Date(new Date(event.datum + "T12:00:00").getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+        : startDate;
+    const ctaUrlVal = event.anmelde_link || source?.url || "";
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Kidgo//Kidgo Events//DE",
+      "BEGIN:VEVENT",
+      `UID:${event.id}@kidgo.ch`,
+      `SUMMARY:${esc(event.titel)}`,
+      `DTSTART;VALUE=DATE:${startDate}`,
+      `DTEND;VALUE=DATE:${endDate}`,
+      event.ort ? `LOCATION:${esc(event.ort)}` : "",
+      event.beschreibung ? `DESCRIPTION:${esc(event.beschreibung.slice(0, 500))}` : "",
+      ctaUrlVal ? `URL:${ctaUrlVal}` : "",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].filter(Boolean).join("\r\n");
+    const blob = new Blob([lines], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${event.titel.replace(/[^a-z0-9äöü]/gi, "_").toLowerCase()}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -158,10 +264,26 @@ export default function EventDetailPage() {
           <div className={`h-2 ${event.datum ? "bg-indigo-500" : "bg-green-500"}`} />
           <div className="p-6 sm:p-8">
             <CategoryImage url={event.kategorie_bild_url} kategorien={event.kategorien} />
-            <div className="flex flex-wrap gap-2 mb-4">
-              {isNew && <span className="inline-block bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">✨ Neu</span>}
-              {event.preis_chf === 0 && <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">🎉 Kostenlos</span>}
-            </div>
+            {(() => {
+              const badges: { label: string; cls: string }[] = [];
+              if (isNew) badges.push({ label: "✨ Neu", cls: "bg-green-500 text-white" });
+              if (serieTermine.length > 0) badges.push({ label: "🔄 Regelmässig", cls: "bg-indigo-100 text-indigo-700" });
+              if (isFreeText(event.beschreibung, event.preis_chf, event.titel)) {
+                badges.push({ label: "🎁 Gratis", cls: "bg-green-100 text-green-700" });
+              } else if (event.preis_chf != null && event.preis_chf > 0) {
+                badges.push({ label: `💰 CHF ${event.preis_chf}`, cls: "bg-sky-100 text-sky-700" });
+              } else {
+                const p = extractPrice(event.beschreibung);
+                if (p !== null) badges.push({ label: `💰 ab CHF ${p % 1 === 0 ? p : p.toFixed(2)}`, cls: "bg-sky-100 text-sky-700" });
+              }
+              return (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {badges.map((b, i) => (
+                    <span key={i} className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${b.cls}`}>{b.label}</span>
+                  ))}
+                </div>
+              );
+            })()}
 
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-5 leading-tight">{event.titel}</h1>
 
@@ -201,15 +323,24 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {event.preis_chf != null && event.preis_chf > 0 && (
-                <div className="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                  <span className="text-xl">💰</span>
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Preis</p>
-                    <p className="font-semibold text-gray-800">CHF {event.preis_chf}</p>
+              {(() => {
+                const p = event.preis_chf != null && event.preis_chf > 0
+                  ? event.preis_chf
+                  : isFreeText(event.beschreibung, event.preis_chf, event.titel)
+                    ? null
+                    : extractPrice(event.beschreibung);
+                const isFree = isFreeText(event.beschreibung, event.preis_chf, event.titel);
+                if (!isFree && p == null) return null;
+                return (
+                  <div className="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
+                    <span className="text-xl">{isFree ? "🎁" : "💰"}</span>
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Preis</p>
+                      <p className="font-semibold text-gray-800">{isFree ? "Kostenlos" : `CHF ${p}`}</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {event.kategorien?.length > 0 && (
@@ -246,15 +377,31 @@ export default function EventDetailPage() {
               <>
                 <hr className="my-5 border-gray-100" />
                 <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-3">🔄 Weitere Termine</h2>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h2 className="text-lg font-semibold text-gray-800">🔄 Weitere Termine dieser Serie</h2>
+                  </div>
+                  {(() => {
+                    const weekly = detectWeeklyPattern(serieTermine);
+                    return weekly ? (
+                      <p className="text-sm text-indigo-600 font-semibold mb-3 flex items-center gap-1.5">
+                        <span>📆</span> Jeden {weekly}
+                      </p>
+                    ) : null;
+                  })()}
                   <ul className="space-y-2">
                     {serieTermine.map((termin) => (
-                      <li key={termin.id} className="flex items-start gap-2 bg-indigo-50 rounded-lg px-3 py-2 text-sm">
-                        <span className="text-indigo-400 mt-0.5">📅</span>
-                        <div>
-                          <span className="font-medium text-indigo-700">{formatDate(termin.datum, termin.datum_ende)}</span>
-                          {termin.ort && <span className="text-gray-500 ml-2">· {termin.ort}</span>}
-                        </div>
+                      <li key={termin.id}>
+                        <Link
+                          href={`/events/${termin.id}`}
+                          className="flex items-start gap-2 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-2 text-sm transition group"
+                        >
+                          <span className="text-indigo-400 mt-0.5">📅</span>
+                          <div className="flex-1">
+                            <span className="font-medium text-indigo-700 group-hover:text-indigo-900 transition">{formatDate(termin.datum, termin.datum_ende)}</span>
+                            {termin.ort && <span className="text-gray-500 ml-2">· {termin.ort}</span>}
+                          </div>
+                          <span className="text-indigo-300 group-hover:text-indigo-500 transition text-xs mt-0.5">→</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -273,6 +420,15 @@ export default function EventDetailPage() {
                   🌐 Zur Webseite / Anmeldung
                 </a>
               )}
+              {event.datum && (
+                <button
+                  onClick={handleICSDownload}
+                  className="flex items-center justify-center gap-2 px-5 py-4 rounded-xl font-semibold transition bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+                  title="In Kalender speichern"
+                >
+                  📅 Kalender
+                </button>
+              )}
               <button
                 onClick={handleShare}
                 className={`flex items-center justify-center gap-2 px-5 py-4 rounded-xl font-semibold transition ${shared ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
@@ -290,6 +446,40 @@ export default function EventDetailPage() {
                 )}
               </button>
             </div>
+
+            {/* ===== FEATURE 2: ÄHNLICHE EVENTS ===== */}
+            {similarEvents.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Das könnte dir auch gefallen</h2>
+                <div className="space-y-3">
+                  {similarEvents.map((sim) => (
+                    <Link
+                      key={sim.id}
+                      href={`/events/${sim.id}`}
+                      className="flex gap-3 bg-gray-50 hover:bg-indigo-50 rounded-xl p-3 transition group border border-transparent hover:border-indigo-100"
+                    >
+                      <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-indigo-100 flex items-center justify-center">
+                        {sim.kategorie_bild_url ? (
+                          <img src={sim.kategorie_bild_url} alt={sim.titel} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl">{categoryEmojis[(sim.kategorien?.[0] || sim.kategorie || "")] || "🎪"}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 group-hover:text-indigo-700 transition text-sm leading-snug line-clamp-2">{sim.titel}</p>
+                        {sim.datum && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            📅 {new Date(sim.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                        {sim.ort && <p className="text-xs text-gray-400 truncate">📍 {sim.ort}</p>}
+                      </div>
+                      <span className="text-indigo-300 group-hover:text-indigo-500 transition self-center text-sm">→</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

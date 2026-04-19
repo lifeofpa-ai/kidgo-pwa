@@ -52,6 +52,13 @@ interface DayPlanResult {
   afternoon: KidgoEvent | null;
 }
 
+interface SmartCollection {
+  id: string;
+  emoji: string;
+  label: string;
+  filter: (e: KidgoEvent, now: Date) => boolean;
+}
+
 // ============================================================
 // CONSTANTS
 // ============================================================
@@ -68,6 +75,77 @@ const CHAT_CHIPS = [
   "Indoor mit 2 Kindern",
   "Gratis am Wochenende",
   "Basteln für 5-Jährige",
+];
+
+const SMART_COLLECTIONS: SmartCollection[] = [
+  {
+    id: "gratis",
+    emoji: "🎁",
+    label: "Gratis diese Woche",
+    filter: (e, now) => {
+      const desc = (e.beschreibung || "").toLowerCase();
+      const title = e.titel.toLowerCase();
+      const free =
+        e.preis_chf === 0 ||
+        ["gratis", "kostenlos", "freier eintritt"].some((kw) => desc.includes(kw) || title.includes(kw));
+      if (!free) return false;
+      if (!e.datum) return true;
+      const today = new Date(now); today.setHours(0, 0, 0, 0);
+      const in7 = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const ed = new Date(e.datum + "T00:00:00");
+      return ed >= today && ed <= in7;
+    },
+  },
+  {
+    id: "kreativ-wochenende",
+    emoji: "🎨",
+    label: "Kreativ-Wochenende",
+    filter: (e, now) => {
+      const desc = (e.beschreibung || "").toLowerCase();
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      const isCreative =
+        cats.some((c) => ["Kreativ", "Theater", "Musik", "Tanz"].includes(c)) ||
+        ["bastel", "malen", "kreativ", "kunst", "zeichn", "töpfer"].some((kw) => desc.includes(kw));
+      if (!isCreative || !e.datum) return false;
+      const dow = now.getDay();
+      const toSat = dow === 0 ? 6 : (6 - dow) || 7;
+      const sat = new Date(now); sat.setHours(0, 0, 0, 0); sat.setDate(sat.getDate() + toSat);
+      const sun = new Date(sat); sun.setDate(sun.getDate() + 1); sun.setHours(23, 59, 59, 999);
+      const ed = new Date(e.datum + "T00:00:00");
+      return ed >= sat && ed <= sun;
+    },
+  },
+  {
+    id: "camps",
+    emoji: "⛺",
+    label: "Camps im Sommer",
+    filter: (e) => {
+      const desc = (e.beschreibung || "").toLowerCase();
+      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
+      const isCamp =
+        e.event_typ === "camp" ||
+        cats.includes("Feriencamp") ||
+        desc.includes("camp") ||
+        desc.includes("ferienlager");
+      if (!isCamp || !e.datum) return false;
+      const m = new Date(e.datum + "T00:00:00").getMonth() + 1;
+      return m >= 6 && m <= 8;
+    },
+  },
+  {
+    id: "outdoor",
+    emoji: "🌳",
+    label: "Outdoor-Abenteuer",
+    filter: (e) => e.indoor_outdoor === "outdoor" || e.indoor_outdoor === "beides",
+  },
+  {
+    id: "neu",
+    emoji: "✨",
+    label: "Neu entdeckt",
+    filter: (e, now) =>
+      !!e.created_at &&
+      new Date(e.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+  },
 ];
 
 const categoryEmojis: Record<string, string> = {
@@ -371,6 +449,36 @@ function buildChatResponse(parsed: ParsedQuery, total: number): string {
 }
 
 // ============================================================
+// PRICE HELPERS
+// ============================================================
+
+function extractPrice(beschreibung: string | null): number | null {
+  if (!beschreibung) return null;
+  const patterns = [
+    /CHF\s*(\d+(?:[.,]\d+)?)/i,
+    /Fr\.\s*(\d+(?:[.,]\d+)?)/i,
+    /(\d+(?:[.,]\d+)?)\.[-–—]+/,
+    /(\d+(?:[.,]\d+)?)\s*Franken/i,
+  ];
+  for (const pat of patterns) {
+    const m = beschreibung.match(pat);
+    if (m) return parseFloat(m[1].replace(",", "."));
+  }
+  return null;
+}
+
+function isFreeEvent(event: KidgoEvent): boolean {
+  const desc = (event.beschreibung || "").toLowerCase();
+  const title = event.titel.toLowerCase();
+  return (
+    event.preis_chf === 0 ||
+    ["gratis", "kostenlos", "freier eintritt", "free"].some(
+      (kw) => desc.includes(kw) || title.includes(kw)
+    )
+  );
+}
+
+// ============================================================
 // DAY PLAN
 // ============================================================
 
@@ -487,6 +595,7 @@ function RecommendationCard({
   userLocation,
   animIndex,
   selectedBuckets = [],
+  isSeriesParent = false,
 }: {
   event: KidgoEvent;
   reasons: string[];
@@ -494,6 +603,7 @@ function RecommendationCard({
   userLocation: { lat: number; lon: number; approximate: boolean } | null;
   animIndex: number;
   selectedBuckets?: string[];
+  isSeriesParent?: boolean;
 }) {
   const source = sources.find((s) => s.id === event.quelle_id);
 
@@ -542,6 +652,25 @@ function RecommendationCard({
           <h3 className="font-bold text-gray-900 text-lg leading-snug mb-1.5 group-hover:text-orange-600 transition-colors">
             {event.titel}
           </h3>
+
+          {(() => {
+            const badges: { label: string; cls: string }[] = [];
+            if (isSeriesParent) badges.push({ label: "🔄 Regelmässig", cls: "bg-indigo-50 text-indigo-600 border border-indigo-100" });
+            if (isFreeEvent(event)) {
+              badges.push({ label: "🎁 Gratis", cls: "bg-green-50 text-green-700 border border-green-100" });
+            } else {
+              const p = extractPrice(event.beschreibung);
+              if (p !== null) badges.push({ label: `💰 ab CHF ${p % 1 === 0 ? p : p.toFixed(2)}`, cls: "bg-sky-50 text-sky-600 border border-sky-100" });
+            }
+            if (badges.length === 0) return null;
+            return (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {badges.map((b, i) => (
+                  <span key={i} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${b.cls}`}>{b.label}</span>
+                ))}
+              </div>
+            );
+          })()}
 
           {matchingBuckets.length > 1 && (
             <p className="text-xs text-emerald-600 font-semibold mb-2 flex items-center gap-1">
@@ -618,6 +747,10 @@ export default function Home() {
   // Feature C: Day plan
   const [dayPlan, setDayPlan] = useState<DayPlanResult | null>(null);
   const [showDayPlan, setShowDayPlan] = useState(false);
+
+  // Feature 1: Smart Collections
+  const [activeCollection, setActiveCollection] = useState<string | null>(null);
+  const [seriesParentIds, setSeriesParentIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setMounted(true);
@@ -732,6 +865,13 @@ export default function Home() {
         .select("id, url, latitude, longitude");
       setSources(sourcesData || []);
 
+      const { data: serieData } = await supabase
+        .from("events")
+        .select("serie_id")
+        .not("serie_id", "is", null)
+        .eq("status", "approved");
+      setSeriesParentIds(new Set((serieData || []).map((e: { serie_id: string }) => e.serie_id)));
+
       const { data: eventsData } = await supabase
         .from("events")
         .select("*")
@@ -844,6 +984,7 @@ export default function Home() {
     setChatInput("");
     setDayPlan(null);
     setShowDayPlan(false);
+    setActiveCollection(null);
     localStorage.removeItem("kidgo_age_buckets");
   };
 
@@ -1042,6 +1183,7 @@ export default function Home() {
                 userLocation={userLocation}
                 animIndex={i}
                 selectedBuckets={selectedBuckets}
+                isSeriesParent={seriesParentIds.has(event.id)}
               />
             ))}
           </div>
@@ -1144,6 +1286,84 @@ export default function Home() {
             </button>
           </div>
         )}
+
+        {/* ===== FEATURE 1: SMART COLLECTIONS ===== */}
+        {!loading && allEventsPool.length > 0 && (
+          <div className="mt-6">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Sammlungen</p>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
+              {SMART_COLLECTIONS.map((col) => {
+                const colNow = new Date();
+                const count = allEventsPool.filter((e) => col.filter(e, colNow)).length;
+                const active = activeCollection === col.id;
+                return (
+                  <button
+                    key={col.id}
+                    onClick={() => setActiveCollection(active ? null : col.id)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border-2 font-semibold text-sm transition-all whitespace-nowrap active:scale-95 ${
+                      active
+                        ? "bg-orange-400 text-white border-orange-400 shadow-md"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50"
+                    }`}
+                  >
+                    <span>{col.emoji}</span>
+                    <span>{col.label}</span>
+                    {count > 0 && (
+                      <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center ${active ? "bg-white/25 text-white" : "bg-orange-100 text-orange-600"}`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Collection detail view */}
+        {activeCollection && (() => {
+          const col = SMART_COLLECTIONS.find((c) => c.id === activeCollection)!;
+          const colNow = new Date();
+          const filtered = allEventsPool.filter((e) => col.filter(e, colNow));
+          return (
+            <div className="mt-4 card-enter">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                  <span>{col.emoji}</span>
+                  <span>{col.label}</span>
+                  <span className="text-sm font-normal text-gray-400">({filtered.length})</span>
+                </h3>
+                <button
+                  onClick={() => setActiveCollection(null)}
+                  className="text-sm text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full w-7 h-7 flex items-center justify-center transition"
+                >
+                  ✕
+                </button>
+              </div>
+              {filtered.length === 0 ? (
+                <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
+                  <p className="text-4xl mb-3">🔍</p>
+                  <p className="text-gray-500">Gerade keine Events in dieser Sammlung</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filtered.map((event, i) => (
+                    <RecommendationCard
+                      key={event.id}
+                      event={event}
+                      reasons={[]}
+                      sources={sources}
+                      userLocation={userLocation}
+                      animIndex={i}
+                      selectedBuckets={selectedBuckets}
+                      isSeriesParent={seriesParentIds.has(event.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Surprise card */}
         {showSurprise && surpriseEvent && (

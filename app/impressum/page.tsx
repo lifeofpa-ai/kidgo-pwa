@@ -27,8 +27,8 @@ export default function ImpressumPage() {
           <section aria-labelledby="betreiber-heading">
             <h2 id="betreiber-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Betreiber</h2>
             <div className="space-y-1">
-              <p className="font-medium text-gray-800">Patrick Franco</p>
-              <p>Zürich, Schweiz</p>
+              <p className="font-medium text-gray-800">Kidgo</p>
+              <p>Zürich</p>
               <p>
                 <a
                   href="mailto:contact@kidgo.ch"

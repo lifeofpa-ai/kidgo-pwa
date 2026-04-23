@@ -2023,7 +2023,9 @@ export default function Home() {
         {/* Header */}
         <header className="mb-8">
           <div className="flex items-center justify-between mb-5">
-            <KidgoLogo size="sm" />
+            <Link href="/" aria-label="Startseite">
+              <KidgoLogo size="sm" />
+            </Link>
             <div className="flex items-center gap-2">
               {weatherCode !== null && (
                 <div className="bg-white rounded-xl px-3 py-1.5 shadow-sm text-sm text-gray-600 flex items-center gap-1.5 border border-gray-100">

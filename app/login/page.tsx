@@ -36,7 +36,9 @@ export default function LoginPage() {
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 w-full max-w-sm">
         <div className="mb-6 flex justify-center">
-          <KidgoLogo size="sm" />
+          <Link href="/" aria-label="Startseite">
+            <KidgoLogo size="sm" />
+          </Link>
         </div>
 
         {sent ? (

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const ZH_CITIES: Record<string, [number, number]> = {
   Zürich:      [47.37, 8.54],
@@ -25,12 +26,28 @@ function getCoords(ort: string | null): [number, number] | null {
   return null;
 }
 
+const CITY_SEARCH = Object.entries(ZH_CITIES).reduce(
+  (acc, [name, coords]) => ({ ...acc, [name.toLowerCase()]: coords }),
+  {} as Record<string, [number, number]>
+);
+
+function findCityCoords(query: string): [number, number] | null {
+  const q = query.toLowerCase().trim();
+  for (const [name, coords] of Object.entries(CITY_SEARCH)) {
+    if (name.includes(q) || q.includes(name)) return coords;
+  }
+  return null;
+}
+
 export default function MapPage() {
-  const mapRef = useRef<HTMLDivElement>(null);
+  const searchParams  = useSearchParams();
+  const mapRef        = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents]       = useState<any[]>([]);
   const [eventCount, setEventCount] = useState(0);
-  const [mapReady, setMapReady] = useState(false);
+  const [mapReady, setMapReady]   = useState(false);
+  const [search, setSearch]       = useState(searchParams.get("city") ?? "");
+  const [searchMsg, setSearchMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -133,6 +150,13 @@ export default function MapPage() {
 
       setEventCount(placed);
       setMapReady(true);
+
+      // Auto-pan if city param provided
+      const cityParam = searchParams.get("city");
+      if (cityParam) {
+        const coords = findCityCoords(cityParam);
+        if (coords) map.flyTo(coords, 13, { duration: 1 });
+      }
     };
 
     if ((window as any).L) {
@@ -168,36 +192,87 @@ export default function MapPage() {
     };
   }, [events]);
 
+  const handleSearch = () => {
+    const q = search.trim();
+    if (!q || !mapInstanceRef.current) return;
+    const coords = findCityCoords(q);
+    if (coords) {
+      mapInstanceRef.current.flyTo(coords, 13, { duration: 0.8 });
+      setSearchMsg(null);
+    } else {
+      setSearchMsg(`"${q}" nicht gefunden. Versuche: ${Object.keys(ZH_CITIES).join(", ")}`);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[var(--bg-page)] flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-card)] z-10">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      <div className="border-b border-[var(--border)] bg-[var(--bg-card)] z-10">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition flex-shrink-0"
           >
-            <path d="M9 11L5 7l4-4" />
-          </svg>
-          Zurück
-        </Link>
-        <h1 className="font-bold text-[var(--text-primary)] text-base">
-          Events auf der Karte
-        </h1>
-        {mapReady && (
-          <span className="ml-auto text-xs text-[var(--text-muted)]">
-            {eventCount} Events
-          </span>
-        )}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11L5 7l4-4" />
+            </svg>
+            Zurück
+          </Link>
+          <h1 className="font-bold text-[var(--text-primary)] text-base flex-shrink-0">
+            Events auf der Karte
+          </h1>
+          {mapReady && (
+            <span className="ml-auto text-xs text-[var(--text-muted)] flex-shrink-0">
+              {eventCount} Events
+            </span>
+          )}
+        </div>
+
+        {/* Search bar */}
+        <div className="px-4 pb-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSearchMsg(null); }}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Stadt oder Ort suchen — z.B. Winterthur"
+              className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl px-4 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] transition"
+            />
+            <button
+              onClick={handleSearch}
+              disabled={!search.trim()}
+              aria-label="Karte zentrieren"
+              className="bg-[var(--accent)] text-white rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-90 transition disabled:opacity-40 flex-shrink-0 flex items-center gap-1.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6" cy="6" r="4"/><path d="M10 10l2.5 2.5"/>
+              </svg>
+              <span className="hidden sm:inline">Suchen</span>
+            </button>
+          </div>
+          {searchMsg && (
+            <p className="text-xs text-[var(--text-muted)] mt-1.5 px-1">{searchMsg}</p>
+          )}
+          {/* Quick city chips */}
+          <div className="flex gap-1.5 mt-2 flex-wrap">
+            {Object.keys(ZH_CITIES).slice(0, 5).map((city) => (
+              <button
+                key={city}
+                onClick={() => {
+                  setSearch(city);
+                  setSearchMsg(null);
+                  if (mapInstanceRef.current) {
+                    mapInstanceRef.current.flyTo(ZH_CITIES[city], 13, { duration: 0.8 });
+                  }
+                }}
+                className="text-xs bg-[var(--bg-subtle)] border border-[var(--border)] text-[var(--text-secondary)] px-2.5 py-1 rounded-full hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
+              >
+                {city}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Map container */}

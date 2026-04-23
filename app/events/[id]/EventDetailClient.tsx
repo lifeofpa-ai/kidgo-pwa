@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
+import { trackVisit } from "@/lib/gamification";
 
 interface Review {
   id: string;
@@ -229,6 +230,7 @@ export default function EventDetailClient({ id }: { id: string }) {
     });
     setReviewSubmitted(true);
     setSubmittingReview(false);
+    try { localStorage.setItem("kidgo_has_reviewed", "true"); } catch {}
     await fetchReviews();
   };
 
@@ -266,6 +268,7 @@ export default function EventDetailClient({ id }: { id: string }) {
           const filtered = visits.filter((v: any) => v.id !== eventData.id);
           const compact = { id: eventData.id, titel: eventData.titel, datum: eventData.datum, ort: eventData.ort, kategorie_bild_url: eventData.kategorie_bild_url, kategorien: eventData.kategorien };
           localStorage.setItem("kidgo_recent_visits", JSON.stringify([compact, ...filtered].slice(0, 10)));
+          trackVisit(eventData.id);
         } catch {}
 
         try {

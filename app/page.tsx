@@ -8,6 +8,11 @@ import { KidgoLogo } from "@/components/KidgoLogo";
 import { AuthButton } from "@/components/AuthButton";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { useAuth } from "@/lib/auth-context";
+import {
+  getLocalStats,
+  getLevelProgress,
+  trackGeheimtipp,
+} from "@/lib/gamification";
 
 // ============================================================
 // TYPES
@@ -834,6 +839,7 @@ function RecommendationCard({
   entdeckerScore,
   isBookmarked = false,
   onBookmark,
+  bookmarkCount,
 }: {
   event: KidgoEvent;
   reasons: string[];
@@ -846,6 +852,7 @@ function RecommendationCard({
   entdeckerScore?: number;
   isBookmarked?: boolean;
   onBookmark?: (e: React.MouseEvent) => void;
+  bookmarkCount?: number;
 }) {
   const source = sources.find((s) => s.id === event.quelle_id);
 
@@ -971,9 +978,26 @@ function RecommendationCard({
               )}
             </div>
             {entdeckerScore !== undefined && (
-              <span className="flex-shrink-0 text-xs text-kidgo-400 font-medium">⭐ {entdeckerScore}/10</span>
+              <span className="flex-shrink-0 text-xs text-kidgo-400 font-medium">{entdeckerScore}/10</span>
             )}
           </div>
+
+          {bookmarkCount && bookmarkCount > 1 && (
+            <div className="mt-2.5 flex items-center gap-1.5">
+              <div className="flex -space-x-1">
+                {[...Array(Math.min(3, bookmarkCount))].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-4 h-4 rounded-full bg-kidgo-100 border border-white"
+                    style={{ zIndex: 3 - i }}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-gray-400 font-medium">
+                {bookmarkCount} {bookmarkCount === 1 ? "Familie" : "Familien"} interessiert
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </Link>
@@ -1100,6 +1124,11 @@ export default function Home() {
 
   // Sprint 7: Search history
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // Sprint 11: Social proof, countdown, AI
+  const [bookmarkCounts, setBookmarkCounts] = useState<Map<string, number>>(new Map());
+  const [countdownTick, setCountdownTick]   = useState(0);
+  const [aiLoading, setAiLoading]           = useState(false);
 
   // Sprint 10: Show profile setup when user logs in without profile
   useEffect(() => {
@@ -1245,6 +1274,12 @@ export default function Home() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [mounted]);
+
+  // Sprint 11: Live countdown tick every minute
+  useEffect(() => {
+    const interval = setInterval(() => setCountdownTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sprint 3: PWA install banner
   useEffect(() => {
@@ -1424,6 +1459,19 @@ export default function Home() {
         localStorage.setItem("kidgo_cached_events", JSON.stringify(eventsData.slice(0, 50)));
       } catch {}
 
+      // Sprint 11: Social proof — aggregate bookmark counts
+      try {
+        const supabaseBrowser = createClient();
+        const { data: bkData } = await supabaseBrowser.rpc("get_event_bookmark_counts");
+        if (bkData) {
+          const bkMap = new Map<string, number>();
+          for (const row of bkData as { event_id: string; bookmark_count: number }[]) {
+            bkMap.set(row.event_id, row.bookmark_count);
+          }
+          setBookmarkCounts(bkMap);
+        }
+      } catch {}
+
       const countMap = new Map<string, number>();
       for (const e of eventsData) {
         if (e.quelle_id) countMap.set(e.quelle_id, (countMap.get(e.quelle_id) || 0) + 1);
@@ -1498,6 +1546,47 @@ export default function Home() {
     setTimeout(() => {
       chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
+  };
+
+  const handleAiQuery = async () => {
+    const q = chatInput.trim();
+    if (!q || allEventsPool.length === 0 || aiLoading) return;
+    setAiLoading(true);
+    try {
+      const supabaseBrowser = createClient();
+      const topEvents = [...allEventsPool]
+        .slice(0, 20)
+        .map((e) => ({
+          id: e.id,
+          titel: e.titel,
+          beschreibung: e.beschreibung,
+          datum: e.datum,
+          ort: e.ort,
+          preis_chf: e.preis_chf,
+          kategorien: e.kategorien,
+          indoor_outdoor: e.indoor_outdoor,
+          alters_buckets: e.alters_buckets,
+        }));
+      const { data, error } = await supabaseBrowser.functions.invoke("ask-kidgo", {
+        body: {
+          question: q,
+          events: topEvents,
+          context: {
+            age_buckets: selectedBuckets,
+            weather_code: weatherCode,
+            hour: new Date().getHours(),
+          },
+        },
+      });
+      if (data && !error) {
+        const matchedEvents = ((data.ids || []) as string[])
+          .map((id) => allEventsPool.find((e) => e.id === id))
+          .filter((e): e is KidgoEvent => !!e);
+        setChatResult({ message: data.answer, events: matchedEvents });
+        setTimeout(() => chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+      }
+    } catch {}
+    setAiLoading(false);
   };
 
   const handleGenerateDayPlan = () => {
@@ -1627,6 +1716,9 @@ export default function Home() {
     e.stopPropagation();
     setBookmarks((prev) => {
       const exists = prev.some((b) => b.id === event.id);
+      if (!exists && event.quelle_id && smallSourceIds.has(event.quelle_id)) {
+        trackGeheimtipp(event.id);
+      }
       const next: CompactEvent[] = exists
         ? prev.filter((b) => b.id !== event.id)
         : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...prev];
@@ -1665,6 +1757,10 @@ export default function Home() {
 
   const now = new Date();
   const headline = getHeadline(now);
+
+  // Sprint 11: Gamification
+  const gamificationStats = mounted ? getLocalStats(bookmarks.length) : null;
+  const levelInfo = gamificationStats ? getLevelProgress(gamificationStats.visitedEventIds.length) : null;
 
   if (!mounted) return null;
 
@@ -1937,7 +2033,7 @@ export default function Home() {
                   )}
                 </div>
               )}
-              <AuthButton />
+              <AuthButton level={user && levelInfo ? levelInfo.current.label : undefined} />
               <button
                 onClick={toggleTheme}
                 aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
@@ -2203,6 +2299,7 @@ export default function Home() {
                   entdeckerScore={computeEntdeckerScore(cnt)}
                   isBookmarked={bookmarks.some((b) => b.id === event.id)}
                   onBookmark={(e) => toggleBookmark(event, e)}
+                  bookmarkCount={bookmarkCounts.get(event.id)}
                 />
               );
             })}
@@ -2390,9 +2487,30 @@ export default function Home() {
                 <button
                   onClick={() => handleChatQuery(chatInput)}
                   disabled={!chatInput.trim()}
+                  aria-label="Suchen"
                   className="bg-kidgo-400 text-white rounded-xl px-4 py-2.5 font-bold text-sm hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
                 >
-                  →
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7h8M7 3l4 4-4 4"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={handleAiQuery}
+                  disabled={!chatInput.trim() || aiLoading}
+                  aria-label="AI-Empfehlung von Kidgo"
+                  title="AI-Empfehlung"
+                  className="bg-[var(--bg-subtle)] border border-kidgo-200 text-kidgo-600 rounded-xl px-3 py-2.5 text-xs font-bold hover:bg-kidgo-50 hover:border-kidgo-300 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0 flex items-center gap-1.5"
+                >
+                  {aiLoading ? (
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="animate-spin">
+                      <path d="M7 1.5A5.5 5.5 0 1 1 1.5 7"/>
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 1l1.5 3 3.3.5-2.4 2.3.6 3.2L7 8.5l-3 1.5.6-3.2-2.4-2.3 3.3-.5z"/>
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline">AI</span>
                 </button>
               </div>
             </div>
@@ -2426,6 +2544,57 @@ export default function Home() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ===== SPRINT 11: KARTEN-KACHEL ===== */}
+        {!loading && allEventsPool.length > 0 && (
+          <div className="mt-6 card-enter">
+            <Link href="/map" className="block group">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-kidgo-200 transition-all">
+                <div className="relative h-24 bg-gradient-to-br from-kidgo-50 to-kidgo-100 overflow-hidden">
+                  {/* Decorative map grid lines */}
+                  <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 400 96" preserveAspectRatio="xMidYMid slice">
+                    <line x1="0" y1="32" x2="400" y2="32" stroke="#5BBAA7" strokeWidth="1"/>
+                    <line x1="0" y1="64" x2="400" y2="64" stroke="#5BBAA7" strokeWidth="1"/>
+                    <line x1="80" y1="0" x2="80" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
+                    <line x1="160" y1="0" x2="160" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
+                    <line x1="240" y1="0" x2="240" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
+                    <line x1="320" y1="0" x2="320" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
+                    <circle cx="160" cy="48" r="6" fill="#5BBAA7" opacity="0.5"/>
+                    <circle cx="240" cy="32" r="4" fill="#5BBAA7" opacity="0.4"/>
+                    <circle cx="200" cy="64" r="5" fill="#5BBAA7" opacity="0.4"/>
+                    <circle cx="120" cy="24" r="3" fill="#5BBAA7" opacity="0.3"/>
+                    <circle cx="300" cy="56" r="4" fill="#5BBAA7" opacity="0.35"/>
+                  </svg>
+                  {/* Pin icon */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-10 h-10 bg-white/90 rounded-full shadow-md flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 1.5a5 5 0 0 1 5 5c0 4.2-5 10-5 10S4 10.7 4 6.5a5 5 0 0 1 5-5z"/>
+                        <circle cx="9" cy="6.5" r="2"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm group-hover:text-kidgo-500 transition-colors">
+                      Events auf der Karte
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {allEventsPool.length} Events in der Region Zürich
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-kidgo-500 group-hover:gap-2.5 transition-all">
+                    <span>Karte öffnen</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l3-3-3-3M6 9l3-3-3-3" opacity="0.5"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </Link>
           </div>
         )}
 
@@ -2519,6 +2688,7 @@ export default function Home() {
                       isSeriesParent={seriesParentIds.has(event.id)}
                       isBookmarked={bookmarks.some((b) => b.id === event.id)}
                       onBookmark={(e) => toggleBookmark(event, e)}
+                      bookmarkCount={bookmarkCounts.get(event.id)}
                     />
                   ))}
                 </div>
@@ -2661,6 +2831,60 @@ export default function Home() {
           </div>
         )}
 
+        {/* ===== SPRINT 11: NÄCHSTES EVENT COUNTDOWN ===== */}
+        {bookmarks.length > 0 && !loading && (() => {
+          void countdownTick; // re-render every minute
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const nextBm = bookmarks
+            .filter((bm) => bm.datum)
+            .map((bm) => ({ ...bm, dateObj: new Date(bm.datum! + "T00:00:00") }))
+            .filter((bm) => bm.dateObj >= today)
+            .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())[0];
+          if (!nextBm) return null;
+          const diffMs   = nextBm.dateObj.getTime() - now.getTime();
+          const diffDays  = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          let countdownLabel: string;
+          if (diffDays === 0 && diffHours <= 0) countdownLabel = "Heute";
+          else if (diffDays === 0) countdownLabel = `Heute in ${diffHours} Std.`;
+          else if (diffDays === 1 && diffHours === 0) countdownLabel = "Morgen";
+          else if (diffDays === 1) countdownLabel = `In 1 Tag, ${diffHours} Std.`;
+          else countdownLabel = `In ${diffDays} Tagen${diffHours > 0 ? `, ${diffHours} Std.` : ""}`;
+          return (
+            <div className="mt-8 card-enter">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">
+                Nächstes Event
+              </p>
+              <Link href={`/events/${nextBm.id}`} className="block group">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-kidgo-200 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-base leading-snug truncate group-hover:text-kidgo-500 transition-colors">
+                        {nextBm.titel}
+                      </p>
+                      {nextBm.ort && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{nextBm.ort}</p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-lg font-extrabold text-kidgo-500 leading-tight">{countdownLabel}</p>
+                      {nextBm.datum && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(nextBm.datum + "T00:00:00").toLocaleDateString("de-CH", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          );
+        })()}
+
         {/* ===== SPRINT 6E: GEMERKTE EVENTS ===== */}
         {bookmarks.length > 0 && !loading && (
           <div className="mt-8">
@@ -2768,13 +2992,15 @@ export default function Home() {
         <footer className="mt-10 border-t border-gray-100 pt-6 pb-8 text-center">
           <p className="text-xs text-gray-400 mb-2">© 2026 kidgo · Zürich</p>
           <nav aria-label="Footer-Navigation" className="flex items-center justify-center gap-4 text-xs text-gray-400">
-            <Link href="/map" className="hover:text-gray-600 transition">Karte</Link>
+            <Link href="/map"       className="hover:text-gray-600 transition">Karte</Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/badges"    className="hover:text-gray-600 transition">Abzeichen</Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/dashboard" className="hover:text-gray-600 transition">Dashboard</Link>
             <span aria-hidden="true">·</span>
             <Link href="/impressum" className="hover:text-gray-600 transition">Impressum</Link>
             <span aria-hidden="true">·</span>
-            <Link href="/datenschutz" className="hover:text-gray-600 transition">Datenschutz</Link>
-            <span aria-hidden="true">·</span>
-            <a href="/admin" className="hover:text-gray-500 transition">Admin</a>
+            <a href="/admin"        className="hover:text-gray-500 transition">Admin</a>
           </nav>
         </footer>
       </div>

@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 
-export function AuthButton() {
+export function AuthButton({ level }: { level?: string }) {
   const { user, profile, loading, signOut } = useAuth();
 
   if (loading) return null;
@@ -23,12 +23,23 @@ export function AuthButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-        {displayName}
-      </span>
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-1.5 hover:opacity-80 transition"
+        aria-label="Dashboard öffnen"
+      >
+        {level && (
+          <span className="hidden sm:inline-flex items-center bg-[var(--accent-light)] text-[var(--accent)] text-xs font-bold px-2 py-0.5 rounded-full border border-[var(--accent)]/20">
+            {level}
+          </span>
+        )}
+        <span className="text-xs text-[var(--text-secondary)] hidden sm:block">
+          {displayName}
+        </span>
+      </Link>
       <button
         onClick={() => signOut()}
-        className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:border-gray-300 transition"
+        className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-strong)] transition"
       >
         Abmelden
       </button>

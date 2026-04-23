@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
+import { AuthButton } from "@/components/AuthButton";
+import { ProfileSetupModal } from "@/components/ProfileSetupModal";
+import { useAuth } from "@/lib/auth-context";
 
 // ============================================================
 // TYPES
@@ -1016,6 +1020,8 @@ const EVENTS_CACHE_TTL = 5 * 60 * 1000;
 // ============================================================
 
 export default function Home() {
+  const { user, profile, loading: authLoading } = useAuth();
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"welcome" | "age-select" | "location-ask" | "recommendations">("age-select");
   const [isFirstVisit, setIsFirstVisit] = useState(false);
@@ -1094,6 +1100,40 @@ export default function Home() {
 
   // Sprint 7: Search history
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // Sprint 10: Show profile setup when user logs in without profile
+  useEffect(() => {
+    if (!authLoading && user && profile === null) {
+      setShowProfileSetup(true);
+    }
+  }, [authLoading, user, profile]);
+
+  // Sprint 10: Sync bookmarks from Supabase when user logs in
+  useEffect(() => {
+    if (!user) return;
+    const supabaseBrowser = createClient();
+    supabaseBrowser
+      .from("user_bookmarks")
+      .select("event_id, events(id, titel, datum, ort, kategorie_bild_url, kategorien)")
+      .eq("user_id", user.id)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const serverBookmarks: CompactEvent[] = data
+          .map((row: { event_id: string; events: unknown }) => {
+            const ev = row.events as CompactEvent | null;
+            return ev;
+          })
+          .filter((ev): ev is CompactEvent => ev !== null);
+        setBookmarks((prev) => {
+          const existingIds = new Set(prev.map((b) => b.id));
+          const merged = [
+            ...prev,
+            ...serverBookmarks.filter((b) => !existingIds.has(b.id)),
+          ];
+          return merged;
+        });
+      });
+  }, [user]);
 
   useEffect(() => {
     setMounted(true);
@@ -1591,6 +1631,15 @@ export default function Home() {
         ? prev.filter((b) => b.id !== event.id)
         : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...prev];
       try { localStorage.setItem("kidgo_bookmarks", JSON.stringify(next)); } catch {}
+      // Sync to Supabase if logged in
+      if (user) {
+        const supabaseBrowser = createClient();
+        if (exists) {
+          supabaseBrowser.from("user_bookmarks").delete().eq("user_id", user.id).eq("event_id", event.id);
+        } else {
+          supabaseBrowser.from("user_bookmarks").upsert({ user_id: user.id, event_id: event.id });
+        }
+      }
       return next;
     });
   };
@@ -1599,6 +1648,10 @@ export default function Home() {
     setBookmarks((prev) => {
       const next = prev.filter((b) => b.id !== id);
       try { localStorage.setItem("kidgo_bookmarks", JSON.stringify(next)); } catch {}
+      if (user) {
+        const supabaseBrowser = createClient();
+        supabaseBrowser.from("user_bookmarks").delete().eq("user_id", user.id).eq("event_id", id);
+      }
       return next;
     });
   };
@@ -1782,6 +1835,10 @@ export default function Home() {
   }).length;
 
   return (
+    <>
+    {showProfileSetup && (
+      <ProfileSetupModal onComplete={() => setShowProfileSetup(false)} />
+    )}
     <main id="main-content" role="main" className={`min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C] ${transitionClass}`}>
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
 
@@ -1880,6 +1937,7 @@ export default function Home() {
                   )}
                 </div>
               )}
+              <AuthButton />
               <button
                 onClick={toggleTheme}
                 aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
@@ -2734,5 +2792,6 @@ export default function Home() {
         </button>
       )}
     </main>
+    </>
   );
 }

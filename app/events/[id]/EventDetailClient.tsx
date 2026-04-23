@@ -1,7 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser";
+import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
+
+interface Review {
+  id: string;
+  user_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
 
 const categoryColors: Record<string, string> = {
   "Kreativ": "bg-pink-50 text-pink-600 border-pink-100",
@@ -165,6 +175,7 @@ function IconBell() {
 }
 
 export default function EventDetailClient({ id }: { id: string }) {
+  const { user } = useAuth();
   const [event, setEvent] = useState<any>(null);
   const [source, setSource] = useState<any>(null);
   const [serieTermine, setSerieTermine] = useState<any[]>([]);
@@ -173,6 +184,57 @@ export default function EventDetailClient({ id }: { id: string }) {
   const [similarEvents, setSimilarEvents] = useState<any[]>([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isReminded, setIsReminded] = useState(false);
+
+  // Reviews
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [userRating, setUserRating] = useState(0);
+  const [userComment, setUserComment] = useState("");
+  const [hoverRating, setHoverRating] = useState(0);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  const fetchReviews = async () => {
+    const { data } = await supabase
+      .from("event_reviews")
+      .select("*")
+      .eq("event_id", id)
+      .order("created_at", { ascending: false });
+    if (data) {
+      setReviews(data);
+      if (data.length > 0) {
+        const avg = data.reduce((sum, r) => sum + r.rating, 0) / data.length;
+        setAvgRating(Math.round(avg * 10) / 10);
+      }
+      if (user) {
+        const mine = data.find((r) => r.user_id === user.id);
+        if (mine) {
+          setUserRating(mine.rating);
+          setUserComment(mine.comment ?? "");
+          setReviewSubmitted(true);
+        }
+      }
+    }
+  };
+
+  const submitReview = async () => {
+    if (!user || userRating === 0) return;
+    setSubmittingReview(true);
+    const supabaseBrowser = createClient();
+    await supabaseBrowser.from("event_reviews").upsert({
+      user_id: user.id,
+      event_id: id,
+      rating: userRating,
+      comment: userComment.trim() || null,
+    });
+    setReviewSubmitted(true);
+    setSubmittingReview(false);
+    await fetchReviews();
+  };
+
+  useEffect(() => {
+    fetchReviews();
+  }, [id, user]);
 
   useEffect(() => {
     try {
@@ -749,6 +811,106 @@ export default function EventDetailClient({ id }: { id: string }) {
               </div>
             </div>
           )}
+
+          {/* ===== REVIEWS SECTION ===== */}
+          <section className="mt-10">
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-base font-bold text-[var(--text-primary)]">Bewertungen</h2>
+              {avgRating !== null && (
+                <div className="flex items-center gap-1.5 bg-kidgo-50 rounded-full px-3 py-1">
+                  <span className="text-yellow-400 text-sm">★</span>
+                  <span className="text-sm font-semibold text-kidgo-700">{avgRating}</span>
+                  <span className="text-xs text-kidgo-500">({reviews.length})</span>
+                </div>
+              )}
+            </div>
+
+            {/* Review form for logged-in users */}
+            {user ? (
+              <div className="bg-white dark:bg-gray-800 border border-[var(--border)] rounded-2xl p-4 mb-5">
+                <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                  {reviewSubmitted ? "Deine Bewertung" : "Event bewerten"}
+                </p>
+                {/* Star rating */}
+                <div className="flex gap-1 mb-3">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => { setUserRating(star); setReviewSubmitted(false); }}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="text-2xl leading-none transition-transform hover:scale-110"
+                      aria-label={`${star} Sterne`}
+                    >
+                      <span className={(hoverRating || userRating) >= star ? "text-yellow-400" : "text-gray-200"}>
+                        ★
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {userRating > 0 && (
+                  <>
+                    <textarea
+                      value={userComment}
+                      onChange={(e) => setUserComment(e.target.value)}
+                      placeholder="Kommentar (optional)"
+                      rows={2}
+                      className="w-full border border-[var(--border)] rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-700 text-[var(--text-primary)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-kidgo-300 resize-none mb-2"
+                    />
+                    <button
+                      onClick={submitReview}
+                      disabled={submittingReview}
+                      className="bg-kidgo-500 text-white rounded-xl px-4 py-2 text-xs font-semibold hover:bg-kidgo-600 transition disabled:opacity-50"
+                    >
+                      {submittingReview ? "Speichern…" : reviewSubmitted ? "Aktualisieren" : "Bewertung abgeben"}
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="bg-gray-50 dark:bg-gray-800/50 border border-[var(--border)] rounded-2xl p-4 mb-5 text-center">
+                <p className="text-sm text-[var(--text-muted)] mb-2">Melde dich an, um eine Bewertung abzugeben.</p>
+                <Link
+                  href="/login"
+                  className="inline-block bg-kidgo-500 text-white rounded-xl px-4 py-2 text-xs font-semibold hover:bg-kidgo-600 transition"
+                >
+                  Anmelden
+                </Link>
+              </div>
+            )}
+
+            {/* Reviews list */}
+            {reviews.length > 0 ? (
+              <div className="space-y-3">
+                {reviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="bg-white dark:bg-gray-800 border border-[var(--border)] rounded-2xl px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-yellow-400 text-sm">
+                        {"★".repeat(review.rating)}
+                        <span className="text-gray-200">{"★".repeat(5 - review.rating)}</span>
+                      </span>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {new Date(review.created_at).toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                      {user && review.user_id === user.id && (
+                        <span className="text-xs bg-kidgo-100 text-kidgo-600 rounded-full px-2 py-0.5 ml-auto">Du</span>
+                      )}
+                    </div>
+                    {review.comment && (
+                      <p className="text-sm text-[var(--text-secondary)]">{review.comment}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)] text-center py-4">
+                Noch keine Bewertungen. Sei der Erste!
+              </p>
+            )}
+          </section>
 
           <footer className="mt-12 pt-6 border-t border-[var(--border)] text-center">
             <nav className="flex items-center justify-center gap-4 text-xs text-[var(--text-muted)]">

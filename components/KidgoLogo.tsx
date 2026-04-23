@@ -5,77 +5,51 @@ interface KidgoLogoProps {
 
 const SIZES = { sm: 32, md: 48, lg: 80, xl: 120 } as const;
 
-const TEAL = "#5BBAA7";
-const CREAM = "#F5F0E8";
-
-const HEX_PATH =
-  "M9.5,42.2 L23,18.8 Q27.5,11 36.5,11 " +
-  "L63.5,11 Q72.5,11 77,18.8 " +
-  "L90.5,42.2 Q95,50 90.5,57.8 " +
-  "L77,81.2 Q72.5,89 63.5,89 " +
-  "L36.5,89 Q27.5,89 23,81.2 " +
-  "L9.5,57.8 Q5,50 9.5,42.2 Z";
-
 export function KidgoLogo({ size = "md", className = "" }: KidgoLogoProps) {
-  const px = SIZES[size];
+  const w = SIZES[size];
+  const h = Math.round(w * (500 / 800));
 
   return (
     <svg
-      width={px}
-      height={px}
-      viewBox="0 0 100 100"
-      fill="none"
+      width={w}
+      height={h}
+      viewBox="0 0 800 500"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-label="Kidgo"
       role="img"
     >
-      {/* Teal background */}
-      <rect width="100" height="100" fill={TEAL} />
+      <rect width="800" height="500" fill="#76C4B9" />
 
-      {/* Cream hexagon */}
-      <path d={HEX_PATH} fill={CREAM} />
-
-      {/* Binding clips — drawn before calendar; calendar's cream fill masks the lower half,
-          leaving only the protruding rounded tops visible as U-shaped rings */}
-      <rect x="36" y="11" width="8" height="12" rx="4" fill={TEAL} />
-      <rect x="56" y="11" width="8" height="12" rx="4" fill={TEAL} />
-
-      {/* Calendar frame — outline only (cream fill masks clip lower halves) */}
-      <rect
-        x="28"
-        y="19"
-        width="44"
-        height="30"
-        rx="4"
-        fill={CREAM}
-        stroke={TEAL}
-        strokeWidth="2"
-      />
-
-      {/* Header separator line */}
-      <line x1="30" y1="28" x2="70" y2="28" stroke={TEAL} strokeWidth="1.5" />
-
-      {/* Checkmark — thick, large, centered in calendar body */}
       <path
-        d="M35,39 L44,47 L65,32"
-        stroke={TEAL}
-        strokeWidth="3.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
+        d="M400 50 L616.5 175 V425 L400 550 L183.5 425 V175 Z"
+        fill="#F9F9E0"
+        transform="translate(0, -50)"
       />
 
-      {/* KIDGO wordmark — bold, close to calendar icon */}
+      <g fill="#76C4B9">
+        <rect x="355" y="145" width="90" height="75" rx="10" />
+        <rect x="370" y="135" width="10" height="20" rx="5" />
+        <rect x="420" y="135" width="10" height="20" rx="5" />
+        <path
+          d="M380 185 l15 15 l25 -25"
+          stroke="#F9F9E0"
+          strokeWidth="8"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+
       <text
-        x="50"
-        y="71"
+        x="400"
+        y="355"
+        fontFamily="sans-serif"
+        fontWeight="bold"
+        fontSize="110"
         textAnchor="middle"
-        fontFamily="Nunito, 'Arial Black', 'Helvetica Neue', Arial, sans-serif"
-        fontWeight="900"
-        fontSize="22"
-        fill={TEAL}
-        letterSpacing="2"
+        fill="#76C4B9"
+        style={{ letterSpacing: "2px" }}
       >
         KIDGO
       </text>

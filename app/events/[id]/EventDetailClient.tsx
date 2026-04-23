@@ -626,18 +626,23 @@ export default function EventDetailClient({ id }: { id: string }) {
           {/* CTA buttons */}
           <div className="mt-8 space-y-3">
 
-            {/* Erinnere mich */}
+            {/* Erinnere mich — primary CTA */}
             {canRemind && (
               <button
                 onClick={handleReminder}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition border ${
+                className={`w-full flex items-center justify-center gap-2.5 px-4 py-4 rounded-xl font-bold text-base transition-all shadow-sm ${
                   isReminded
-                    ? "bg-kidgo-50 text-kidgo-500 border-kidgo-200"
-                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500"
+                    ? "bg-kidgo-500 text-white shadow-kidgo-200"
+                    : "bg-kidgo-500 text-white hover:bg-kidgo-400 active:scale-[0.98]"
                 }`}
               >
                 <IconBell />
                 {isReminded ? "Erinnerung gesetzt" : "Erinnere mich"}
+                {isReminded && (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8l4 4 6-7"/>
+                  </svg>
+                )}
               </button>
             )}
 

@@ -194,12 +194,34 @@ body,
   animation: bounceIn 0.3s ease;
 }
 
+/* Page slide transitions */
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInFromLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutToLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-40px); }
+}
+.page-slide-in {
+  animation: slideInFromRight 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.page-slide-back {
+  animation: slideInFromLeft 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .card-enter,
   .fade-in,
   .flip-in,
-  .bounce-hover:hover {
+  .bounce-hover:hover,
+  .page-slide-in,
+  .page-slide-back {
     animation: none;
     transition: none;
   }

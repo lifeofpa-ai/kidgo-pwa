@@ -977,6 +977,32 @@ function RecommendationCard({
 }
 
 // ============================================================
+// SWIPE HOOK
+// ============================================================
+
+function useSwipe(onSwipeLeft: () => void, onSwipeRight: () => void) {
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 50) return;
+    if (dx < 0) onSwipeLeft();
+    else onSwipeRight();
+  };
+
+  return { onTouchStart, onTouchEnd };
+}
+
+// ============================================================
 // MODULE-LEVEL 5-MINUTE EVENT CACHE
 // ============================================================
 
@@ -1002,6 +1028,14 @@ export default function Home() {
   const [surpriseEvent, setSurpriseEvent] = useState<KidgoEvent | null>(null);
   const [showSurprise, setShowSurprise] = useState(false);
   const [surpriseAnimKey, setSurpriseAnimKey] = useState(0);
+
+  // Sprint 9C: Swipe gesture state for recommendation cards
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
+  const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
+
+  // Sprint 9D: Page transition direction
+  const [transitionClass, setTransitionClass] = useState("");
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<
     { id: string; url: string | null; latitude: number | null; longitude: number | null }[]
@@ -1048,6 +1082,10 @@ export default function Home() {
   // Sprint 4: Theme toggle + scroll-to-top
   const [isDark, setIsDark] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Sprint 9A: Tomorrow reminder banner
+  const [tomorrowReminders, setTomorrowReminders] = useState<{ id: string; titel: string; ort: string | null }[]>([]);
+  const [showReminderBanner, setShowReminderBanner] = useState(false);
 
   // Sprint 6: Week planner, recent visits, bookmarks
   const [selectedWeekDay, setSelectedWeekDay] = useState<number | null>(null);
@@ -1121,6 +1159,20 @@ export default function Home() {
         }
       } catch {}
     }
+
+    // Sprint 9A: In-app banner for tomorrow's reminders
+    try {
+      const raw = localStorage.getItem("kidgo_reminders");
+      if (raw) {
+        const reminders: { id: string; titel: string; datum: string; ort: string | null }[] = JSON.parse(raw);
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const hits = reminders.filter((r) => r.datum === tomorrow);
+        if (hits.length > 0) {
+          setTomorrowReminders(hits);
+          setShowReminderBanner(true);
+        }
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -1327,9 +1379,9 @@ export default function Home() {
       _sourcesCache = sourcesData || [];
       _cacheTimestamp = Date.now();
 
-      // Sprint 3: Cache for offline use
+      // Sprint 9B: Cache last 50 events for offline use
       try {
-        localStorage.setItem("kidgo_cached_events", JSON.stringify(eventsData.slice(0, 30)));
+        localStorage.setItem("kidgo_cached_events", JSON.stringify(eventsData.slice(0, 50)));
       } catch {}
 
       const countMap = new Map<string, number>();
@@ -1425,6 +1477,16 @@ export default function Home() {
     try { localStorage.setItem("kidgo_theme", next ? "dark" : "light"); } catch {}
   };
 
+  const navigateForward = (target: "welcome" | "age-select" | "location-ask" | "recommendations") => {
+    setTransitionClass("page-slide-in");
+    setStep(target);
+  };
+
+  const navigateBack = (target: "welcome" | "age-select" | "location-ask" | "recommendations") => {
+    setTransitionClass("page-slide-back");
+    setStep(target);
+  };
+
   const handleAgeSelect = (bucket: string) => {
     if (multiChild) {
       setSelectedBuckets((prev) =>
@@ -1434,18 +1496,18 @@ export default function Home() {
       const newBuckets = [bucket];
       setSelectedBuckets(newBuckets);
       localStorage.setItem("kidgo_age_buckets", JSON.stringify(newBuckets));
-      setStep(isFirstVisit ? "location-ask" : "recommendations");
+      navigateForward(isFirstVisit ? "location-ask" : "recommendations");
     }
   };
 
   const handleMultiChildConfirm = () => {
     if (selectedBuckets.length === 0) return;
     localStorage.setItem("kidgo_age_buckets", JSON.stringify(selectedBuckets));
-    setStep(isFirstVisit ? "location-ask" : "recommendations");
+    navigateForward(isFirstVisit ? "location-ask" : "recommendations");
   };
 
   const handleChangeAge = () => {
-    setStep("age-select");
+    navigateBack("age-select");
     setSelectedBuckets([]);
     setMultiChild(false);
     setRecommendations([]);
@@ -1476,6 +1538,50 @@ export default function Home() {
     }, 100);
   };
 
+  // Sprint 9C: Swipe to cycle recommendations or bookmark top card
+  const handleSwipeLeft = () => {
+    if (recommendations.length < 2) return;
+    setSwipeOffset(0);
+    setSwipeHint(null);
+    setRecommendations((prev) => [...prev.slice(1), prev[0]]);
+  };
+
+  const handleSwipeRight = () => {
+    if (recommendations.length === 0) return;
+    setSwipeHint(null);
+    const top = recommendations[0];
+    toggleBookmark(top, { preventDefault: () => {}, stopPropagation: () => {} } as unknown as React.MouseEvent);
+    setSwipeOffset(0);
+  };
+
+  const handleRecTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    swipeTouchStart.current = { x: t.clientX, y: t.clientY };
+    setSwipeOffset(0);
+    setSwipeHint(null);
+  };
+
+  const handleRecTouchMove = (e: React.TouchEvent) => {
+    if (!swipeTouchStart.current) return;
+    const dx = e.touches[0].clientX - swipeTouchStart.current.x;
+    const dy = e.touches[0].clientY - swipeTouchStart.current.y;
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    setSwipeOffset(dx);
+    setSwipeHint(dx < -30 ? "left" : dx > 30 ? "right" : null);
+  };
+
+  const handleRecTouchEnd = (e: React.TouchEvent) => {
+    if (!swipeTouchStart.current) return;
+    const dx = e.changedTouches[0].clientX - swipeTouchStart.current.x;
+    const dy = e.changedTouches[0].clientY - swipeTouchStart.current.y;
+    swipeTouchStart.current = null;
+    setSwipeOffset(0);
+    setSwipeHint(null);
+    if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 60) return;
+    if (dx < 0) handleSwipeLeft();
+    else handleSwipeRight();
+  };
+
   const toggleBookmark = (event: KidgoEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1501,7 +1607,7 @@ export default function Home() {
   const finishOnboarding = () => {
     try { localStorage.setItem("kidgo_onboarded", "true"); } catch {}
     setIsFirstVisit(false);
-    setStep("recommendations");
+    navigateForward("recommendations");
   };
 
   const now = new Date();
@@ -1512,7 +1618,7 @@ export default function Home() {
   // ===== STEP: WELCOME (first-time only) =====
   if (step === "welcome") {
     return (
-      <main className="min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4">
+      <main className={`min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
         <div className="w-full max-w-md mx-auto text-center card-enter">
           <div className="mb-8 flex justify-center">
             <KidgoLogo size="lg" />
@@ -1527,7 +1633,7 @@ export default function Home() {
             Passend fürs Alter, Wetter und deine Ferien ✨
           </p>
           <button
-            onClick={() => setStep("age-select")}
+            onClick={() => navigateForward("age-select")}
             className="w-full bg-white text-[#5BBAA7] py-4 rounded-2xl font-bold text-xl hover:bg-kidgo-50 transition shadow-lg active:scale-95"
           >
             Los geht&apos;s! 👋
@@ -1540,7 +1646,7 @@ export default function Home() {
   // ===== STEP: LOCATION ASK (first-time only) =====
   if (step === "location-ask") {
     return (
-      <main className="min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4">
+      <main className={`min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
         <div className="w-full max-w-md mx-auto card-enter">
           <div className="text-center mb-8">
             <div className="mb-4 flex justify-center"><KidgoLogo size="md" /></div>
@@ -1592,7 +1698,7 @@ export default function Home() {
   // ===== STEP 1: AGE SELECTION =====
   if (step === "age-select") {
     return (
-      <main className="min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4">
+      <main className={`min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
         <div className="w-full max-w-md mx-auto">
           <div className="text-center mb-8">
             <div className="mb-4 flex justify-center"><KidgoLogo size="md" /></div>
@@ -1676,7 +1782,7 @@ export default function Home() {
   }).length;
 
   return (
-    <main id="main-content" role="main" className="min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C]">
+    <main id="main-content" role="main" className={`min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C] ${transitionClass}`}>
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
 
         {/* Sprint 3: PWA Install Banner */}
@@ -1710,6 +1816,42 @@ export default function Home() {
                   ✕
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sprint 9A: Tomorrow reminder banner */}
+        {showReminderBanner && tomorrowReminders.length > 0 && (
+          <div className="mb-5 bg-[var(--bg-card)] border border-kidgo-200 rounded-2xl px-5 py-4 shadow-sm card-enter">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 bg-kidgo-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg width="16" height="16" viewBox="0 0 15 15" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7.5 1.5a5 5 0 0 1 5 5v3l1 1.5H1.5L2.5 9.5v-3a5 5 0 0 1 5-5z"/>
+                  <path d="M6 12.5a1.5 1.5 0 0 0 3 0"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-[var(--text-primary)]">Morgen steht an:</p>
+                {tomorrowReminders.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/events/${r.id}`}
+                    className="block mt-1"
+                  >
+                    <p className="text-sm font-semibold text-kidgo-500 hover:text-kidgo-400 transition truncate">{r.titel}</p>
+                    {r.ort && <p className="text-xs text-[var(--text-muted)] truncate">{r.ort.split(",")[0].trim()}</p>}
+                  </Link>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowReminderBanner(false)}
+                aria-label="Banner schliessen"
+                className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] w-6 h-6 flex items-center justify-center flex-shrink-0 transition"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M2 2l6 6M8 2l-6 6"/>
+                </svg>
+              </button>
             </div>
           </div>
         )}
@@ -1967,9 +2109,26 @@ export default function Home() {
           </div>
         )}
 
-        {/* Recommendation cards */}
+        {/* Recommendation cards — Sprint 9C: swipe left=next, right=save */}
         {!loading && recommendations.length > 0 && (
-          <div className="space-y-4">
+          <div
+            className="space-y-4 relative select-none"
+            onTouchStart={handleRecTouchStart}
+            onTouchMove={handleRecTouchMove}
+            onTouchEnd={handleRecTouchEnd}
+            style={{
+              transform: swipeOffset !== 0 ? `translateX(${swipeOffset * 0.15}px)` : undefined,
+              transition: swipeOffset === 0 ? "transform 0.2s ease" : undefined,
+            }}
+          >
+            {/* Swipe hint overlay */}
+            {swipeHint && (
+              <div className={`absolute inset-0 rounded-2xl pointer-events-none z-10 flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"} opacity-0 ${swipeHint ? "opacity-100" : ""} transition-opacity`}>
+                <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-kidgo-500" : "bg-green-500"}`}>
+                  {swipeHint === "left" ? "Weiter" : "Gemerkt"}
+                </div>
+              </div>
+            )}
             {recommendations.map((event, i) => {
               const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
               return (

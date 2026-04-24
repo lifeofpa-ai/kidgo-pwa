@@ -87,7 +87,17 @@ function detectWeeklyPattern(termine: { datum: string }[]): string | null {
   return WEEKDAYS_DE[new Date(sorted[0].datum + "T00:00:00").getDay()];
 }
 
-function HeroImage({ url, kategorien, title }: { url?: string | null; kategorien?: string[]; title: string }) {
+function HeroImage({
+  url,
+  kategorien,
+  title,
+  parallaxOffset = 0,
+}: {
+  url?: string | null;
+  kategorien?: string[];
+  title: string;
+  parallaxOffset?: number;
+}) {
   const [imgError, setImgError] = useState(false);
   const cat = kategorien?.[0] || "";
   const fallback = categoryFallbackColors[cat] || "from-kidgo-100 to-kidgo-50";
@@ -98,7 +108,12 @@ function HeroImage({ url, kategorien, title }: { url?: string | null; kategorien
         <img
           src={url}
           alt={title}
-          className="w-full h-full object-cover"
+          className="w-full object-cover absolute inset-x-0"
+          style={{
+            height: "135%",
+            top: "-17.5%",
+            transform: `translateY(${parallaxOffset * 0.3}px)`,
+          }}
           onError={() => setImgError(true)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
@@ -192,6 +207,14 @@ export default function EventDetailClient({ id }: { id: string }) {
   const [isReminded, setIsReminded] = useState(false);
   const [eventRating, setEventRatingState] = useState<EventRating | null>(null);
   const [ratingPulse, setRatingPulse] = useState<EventRating | null>(null);
+
+  // Sprint 12: Parallax scroll offset
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Reviews
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -380,6 +403,7 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   const toggleBookmarkDetail = () => {
     if (!event) return;
+    try { (navigator as any).vibrate?.(10); } catch {}
     try {
       const raw = localStorage.getItem("kidgo_bookmarks");
       const bms: any[] = raw ? JSON.parse(raw) : [];
@@ -394,6 +418,7 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   const handleRate = (rating: EventRating) => {
     if (!event) return;
+    try { (navigator as any).vibrate?.(15); } catch {}
     const next = eventRating === rating ? null : rating;
     setEventRatingState(next);
     setEventRating(
@@ -529,17 +554,23 @@ export default function EventDetailClient({ id }: { id: string }) {
 
         {/* Hero */}
         <div className="relative">
-          <HeroImage url={event.kategorie_bild_url} kategorien={event.kategorien} title={event.titel} />
+          <HeroImage
+            url={event.kategorie_bild_url}
+            kategorien={event.kategorien}
+            title={event.titel}
+            parallaxOffset={scrollY}
+          />
 
+          {/* Sprint 12: Floating circle back button */}
           <div className="absolute top-4 left-4">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-gray-700 hover:text-gray-900 text-sm font-medium px-3 py-1.5 rounded-full shadow-sm transition"
+              aria-label="Zurück"
+              className="w-10 h-10 bg-white/90 dark:bg-black/50 backdrop-blur-sm text-gray-700 dark:text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-90 transition-transform"
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 11L5 7l4-4"/>
               </svg>
-              Zurück
             </Link>
           </div>
 

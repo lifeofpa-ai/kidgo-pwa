@@ -69,14 +69,17 @@ export default function BookmarksPage() {
         </div>
 
         {bookmarks.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 3h14a1 1 0 0 1 1 1v17l-8-4.5L4 21V4a1 1 0 0 1 1-1z"/>
+          <div className="text-center py-14">
+            <div className="empty-float mx-auto mb-5 w-24 h-24">
+              <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="96" height="96" rx="24" fill="#EFF8F6"/>
+                <path d="M28 26h40a3 3 0 0 1 3 3v38l-23-12-23 12V29a3 3 0 0 1 3-3z" stroke="#5BBAA7" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="68" cy="30" r="11" fill="white" stroke="#e0e0e0" strokeWidth="1.5"/>
+                <path d="M64 30h8M68 26v8" stroke="#b2bec3" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
             </div>
-            <p className="text-gray-600 dark:text-gray-300 font-semibold mb-1">Noch keine Events gespeichert</p>
-            <p className="text-gray-400 text-sm mb-6">Tippe auf das Lesezeichen-Icon bei einem Event</p>
+            <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">Noch nichts gemerkt</p>
+            <p className="text-gray-400 text-sm mb-6">Entdecke Events — tippe auf das Lesezeichen-Icon</p>
             <Link
               href="/"
               className="inline-block bg-[#5BBAA7] text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-[#4da896] transition"

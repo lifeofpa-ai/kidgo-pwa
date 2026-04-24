@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { BottomNav } from "@/components/BottomNav";
+import { PageTransitionWrapper } from "@/components/PageTransitionWrapper";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -60,7 +61,9 @@ export default function RootLayout({
         <a href="#main-content" className="skip-to-content">
           Zum Inhalt springen
         </a>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <PageTransitionWrapper>{children}</PageTransitionWrapper>
+        </AuthProvider>
         <BottomNav />
       </body>
     </html>

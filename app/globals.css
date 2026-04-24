@@ -214,6 +214,50 @@ body,
   animation: slideInFromLeft 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* ── Page transitions ── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.page-enter {
+  animation: pageIn 0.3s ease-out both;
+}
+
+/* ── Glassmorphism header ── */
+.glass-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(248, 245, 240, 0.82);
+  border-bottom: 1px solid rgba(91, 186, 167, 0.12);
+}
+.dark .glass-header {
+  background: rgba(26, 29, 28, 0.88);
+  border-bottom: 1px solid rgba(91, 186, 167, 0.18);
+}
+
+/* ── Pull-to-refresh logo spin ── */
+@keyframes logoSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.logo-spin {
+  animation: logoSpin 0.9s linear infinite;
+}
+
+/* ── Empty state float ── */
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+.empty-float {
+  animation: emptyFloat 3s ease-in-out infinite;
+}
+
+/* ── Card stack ── */
+.card-stack-top {
+  will-change: transform;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .card-enter,
@@ -221,7 +265,10 @@ body,
   .flip-in,
   .bounce-hover:hover,
   .page-slide-in,
-  .page-slide-back {
+  .page-slide-back,
+  .page-enter,
+  .empty-float,
+  .logo-spin {
     animation: none;
     transition: none;
   }

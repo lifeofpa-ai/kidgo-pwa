@@ -1083,6 +1083,18 @@ export default function Home() {
   const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
   const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
 
+  // Sprint 12: Card stack animation
+  const [cardExiting, setCardExiting] = useState(false);
+  const [exitDirection, setExitDirection] = useState<"left" | "right">("left");
+  const [cardIndex, setCardIndex] = useState(0);
+
+  // Sprint 12: Pull-to-refresh
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullTouchStartY = useRef<number>(0);
+  const PULL_THRESHOLD = 80;
+
   // Sprint 9D: Page transition direction
   const [transitionClass, setTransitionClass] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1707,23 +1719,38 @@ export default function Home() {
     }, 100);
   };
 
-  // Sprint 9C: Swipe to cycle recommendations or bookmark top card
+  // Sprint 12: Card stack — animated swipe handlers
   const handleSwipeLeft = () => {
-    if (recommendations.length < 2) return;
+    if (recommendations.length < 2 || cardExiting) return;
+    setExitDirection("left");
+    setCardExiting(true);
     setSwipeOffset(0);
     setSwipeHint(null);
-    setRecommendations((prev) => [...prev.slice(1), prev[0]]);
+    setTimeout(() => {
+      setRecommendations((prev) => [...prev.slice(1), prev[0]]);
+      setCardIndex((i) => (i + 1) % Math.max(1, recommendations.length));
+      setCardExiting(false);
+    }, 340);
   };
 
   const handleSwipeRight = () => {
-    if (recommendations.length === 0) return;
+    if (recommendations.length === 0 || cardExiting) return;
     setSwipeHint(null);
     const top = recommendations[0];
+    try { (navigator as any).vibrate?.(10); } catch {}
     toggleBookmark(top, { preventDefault: () => {}, stopPropagation: () => {} } as unknown as React.MouseEvent);
+    setExitDirection("right");
+    setCardExiting(true);
     setSwipeOffset(0);
+    setTimeout(() => {
+      setRecommendations((prev) => [...prev.slice(1), prev[0]]);
+      setCardIndex((i) => (i + 1) % Math.max(1, recommendations.length));
+      setCardExiting(false);
+    }, 340);
   };
 
   const handleRecTouchStart = (e: React.TouchEvent) => {
+    if (cardExiting) return;
     const t = e.touches[0];
     swipeTouchStart.current = { x: t.clientX, y: t.clientY };
     setSwipeOffset(0);
@@ -1731,7 +1758,7 @@ export default function Home() {
   };
 
   const handleRecTouchMove = (e: React.TouchEvent) => {
-    if (!swipeTouchStart.current) return;
+    if (!swipeTouchStart.current || cardExiting) return;
     const dx = e.touches[0].clientX - swipeTouchStart.current.x;
     const dy = e.touches[0].clientY - swipeTouchStart.current.y;
     if (Math.abs(dy) > Math.abs(dx)) return;
@@ -1740,7 +1767,7 @@ export default function Home() {
   };
 
   const handleRecTouchEnd = (e: React.TouchEvent) => {
-    if (!swipeTouchStart.current) return;
+    if (!swipeTouchStart.current || cardExiting) return;
     const dx = e.changedTouches[0].clientX - swipeTouchStart.current.x;
     const dy = e.changedTouches[0].clientY - swipeTouchStart.current.y;
     swipeTouchStart.current = null;
@@ -1751,9 +1778,45 @@ export default function Home() {
     else handleSwipeRight();
   };
 
+  // Sprint 12: Pull-to-refresh handlers
+  const handlePageTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0 && !isRefreshing) {
+      pullTouchStartY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handlePageTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const dy = e.touches[0].clientY - pullTouchStartY.current;
+    if (dy > 0 && window.scrollY === 0) {
+      setPullY(Math.min(dy * 0.55, 100));
+    } else {
+      setIsPulling(false);
+      setPullY(0);
+    }
+  };
+
+  const handlePageTouchEnd = async () => {
+    if (!isPulling) return;
+    setIsPulling(false);
+    if (pullY >= PULL_THRESHOLD) {
+      setPullY(0);
+      setIsRefreshing(true);
+      _eventsCache = null;
+      _sourcesCache = null;
+      _cacheTimestamp = 0;
+      await fetchAndScore();
+      setIsRefreshing(false);
+    } else {
+      setPullY(0);
+    }
+  };
+
   const toggleBookmark = (event: KidgoEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    try { (navigator as any).vibrate?.(10); } catch {}
     setBookmarks((prev) => {
       const exists = prev.some((b) => b.id === event.id);
       if (!exists && event.quelle_id && smallSourceIds.has(event.quelle_id)) {
@@ -1988,7 +2051,31 @@ export default function Home() {
         }}
       />
     )}
-    <main id="main-content" role="main" className={`min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C] ${transitionClass}`}>
+    <main
+      id="main-content"
+      role="main"
+      className={`min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C] ${transitionClass}`}
+      onTouchStart={handlePageTouchStart}
+      onTouchMove={handlePageTouchMove}
+      onTouchEnd={handlePageTouchEnd}
+    >
+      {/* Sprint 12: Pull-to-refresh indicator */}
+      {(isPulling || isRefreshing) && (
+        <div
+          className="flex justify-center items-center overflow-hidden"
+          style={{
+            height: isRefreshing ? "64px" : `${Math.min(pullY * 0.85, 64)}px`,
+            transition: isRefreshing ? "none" : "height 0.1s linear",
+          }}
+        >
+          <div
+            className={isRefreshing ? "logo-spin" : ""}
+            style={{ transform: !isRefreshing ? `rotate(${pullY * 2.8}deg)` : undefined }}
+          >
+            <KidgoLogo size="sm" />
+          </div>
+        </div>
+      )}
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10 pb-24 md:pb-10">
 
         {/* Sprint 3: PWA Install Banner */}
@@ -2073,15 +2160,15 @@ export default function Home() {
           </div>
         )}
 
-        {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center justify-between mb-5">
+        {/* Sprint 12: Glassmorphism sticky header bar */}
+        <div className="sticky top-0 z-30 -mx-4 px-4 py-2.5 mb-5 glass-header">
+          <div className="flex items-center justify-between max-w-2xl mx-auto">
             <Link href="/" aria-label="Startseite">
               <KidgoLogo size="sm" />
             </Link>
             <div className="flex items-center gap-2">
               {weatherCode !== null && (
-                <div className="bg-white rounded-xl px-3 py-1.5 shadow-sm text-sm text-gray-600 flex items-center gap-1.5 border border-gray-100">
+                <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700">
                   <span aria-hidden="true">{weatherIcon(weatherCode)}</span>
                   {weatherTemp !== null && (
                     <span className="font-medium">{Math.round(weatherTemp)}°C</span>
@@ -2092,7 +2179,7 @@ export default function Home() {
               <button
                 onClick={toggleTheme}
                 aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
-                className="bg-white rounded-xl w-9 h-9 flex items-center justify-center shadow-sm border border-gray-100 hover:border-gray-200 transition text-gray-500"
+                className="bg-white/80 dark:bg-gray-800/80 rounded-xl w-9 h-9 flex items-center justify-center border border-gray-100 dark:border-gray-700 hover:border-gray-200 transition text-gray-500 dark:text-gray-400"
               >
                 {isDark ? (
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2107,7 +2194,9 @@ export default function Home() {
               </button>
             </div>
           </div>
+        </div>
 
+        <header className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight mb-1">
             {headline.title}
           </h1>
@@ -2303,12 +2392,21 @@ export default function Home() {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Sprint 12: Animated empty state */}
         {!loading && recommendations.length === 0 && !isOffline && (
-          <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
-            <div className="text-5xl mb-3">🔍</div>
-            <p className="text-gray-700 font-semibold mb-1">Keine aktuellen Events gefunden</p>
-            <p className="text-gray-400 text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
+          <div className="text-center py-14 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="empty-float mx-auto mb-5 w-20 h-20">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="80" height="80" rx="20" fill="var(--bg-subtle)"/>
+                <rect x="16" y="20" width="36" height="40" rx="3" stroke="#5BBAA7" strokeWidth="2" fill="none"/>
+                <path d="M16 30h36" stroke="#5BBAA7" strokeWidth="2"/>
+                <path d="M24 24v-6M44 24v-6" stroke="#5BBAA7" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="56" cy="24" r="10" fill="var(--bg-page)" stroke="#b2bec3" strokeWidth="1.5"/>
+                <path d="M52 24h8M56 20v8" stroke="#b2bec3" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
+            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
             <Link
               href="/explore"
               className="bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition"
@@ -2318,48 +2416,138 @@ export default function Home() {
           </div>
         )}
 
-        {/* Recommendation cards — Sprint 9C: swipe left=next, right=save */}
+        {/* Sprint 12: Card Stack — Tinder-style stacked cards */}
         {!loading && recommendations.length > 0 && (
-          <div
-            className="space-y-4 relative select-none"
-            onTouchStart={handleRecTouchStart}
-            onTouchMove={handleRecTouchMove}
-            onTouchEnd={handleRecTouchEnd}
-            style={{
-              transform: swipeOffset !== 0 ? `translateX(${swipeOffset * 0.15}px)` : undefined,
-              transition: swipeOffset === 0 ? "transform 0.2s ease" : undefined,
-            }}
-          >
-            {/* Swipe hint overlay */}
+          <div className="relative select-none" style={{ minHeight: "420px" }}>
+
+            {/* Background stacked cards (peek behind top card) */}
+            {recommendations.slice(1).map((event, ri) => {
+              const stackPos = ri + 1;
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <div
+                  key={`stack-${event.id}`}
+                  className="absolute inset-x-0 top-0 pointer-events-none"
+                  aria-hidden="true"
+                  style={{
+                    zIndex: recommendations.length - stackPos,
+                    transform: `scale(${1 - stackPos * 0.035}) translateY(${stackPos * 13}px)`,
+                    transformOrigin: "center top",
+                    opacity: 1 - stackPos * 0.07,
+                  }}
+                >
+                  <RecommendationCard
+                    event={event}
+                    reasons={event.reasons}
+                    sources={sources}
+                    userLocation={userLocation}
+                    animIndex={0}
+                    selectedBuckets={selectedBuckets}
+                    isSeriesParent={seriesParentIds.has(event.id)}
+                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                    entdeckerScore={computeEntdeckerScore(cnt)}
+                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                    bookmarkCount={bookmarkCounts.get(event.id)}
+                  />
+                </div>
+              );
+            })}
+
+            {/* Top card — interactive, draggable */}
+            {(() => {
+              const event = recommendations[0];
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <div
+                  className="absolute inset-x-0 top-0 card-stack-top"
+                  style={{
+                    zIndex: recommendations.length + 1,
+                    transform: cardExiting
+                      ? `translateX(${exitDirection === "left" ? "-130%" : "130%"}) rotate(${exitDirection === "left" ? -13 : 13}deg)`
+                      : `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.024}deg)`,
+                    transition: cardExiting
+                      ? "transform 0.34s cubic-bezier(0.4,0,0.2,1)"
+                      : swipeOffset === 0 ? "transform 0.2s ease" : "none",
+                  }}
+                  onTouchStart={handleRecTouchStart}
+                  onTouchMove={handleRecTouchMove}
+                  onTouchEnd={handleRecTouchEnd}
+                >
+                  <RecommendationCard
+                    key={event.id}
+                    event={event}
+                    reasons={event.reasons}
+                    sources={sources}
+                    userLocation={userLocation}
+                    animIndex={0}
+                    selectedBuckets={selectedBuckets}
+                    isSeriesParent={seriesParentIds.has(event.id)}
+                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                    entdeckerScore={computeEntdeckerScore(cnt)}
+                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                    onBookmark={(e) => toggleBookmark(event, e)}
+                    bookmarkCount={bookmarkCounts.get(event.id)}
+                  />
+                </div>
+              );
+            })()}
+
+            {/* Swipe hint badge */}
             {swipeHint && (
-              <div className={`absolute inset-0 rounded-2xl pointer-events-none z-10 flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"} opacity-0 ${swipeHint ? "opacity-100" : ""} transition-opacity`}>
-                <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-kidgo-500" : "bg-green-500"}`}>
+              <div
+                className={`absolute top-0 left-0 right-0 rounded-2xl pointer-events-none flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"}`}
+                style={{ height: "200px", zIndex: recommendations.length + 2 }}
+              >
+                <div
+                  className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-kidgo-500" : "bg-green-500"}`}
+                >
                   {swipeHint === "left" ? "Weiter" : "Gemerkt"}
                 </div>
               </div>
             )}
-            {recommendations.map((event, i) => {
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              return (
-                <RecommendationCard
-                  key={event.id}
-                  event={event}
-                  reasons={event.reasons}
-                  sources={sources}
-                  userLocation={userLocation}
-                  animIndex={i}
-                  selectedBuckets={selectedBuckets}
-                  isSeriesParent={seriesParentIds.has(event.id)}
-                  isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                  entdeckerScore={computeEntdeckerScore(cnt)}
-                  isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                  onBookmark={(e) => toggleBookmark(event, e)}
-                  bookmarkCount={bookmarkCounts.get(event.id)}
-                />
-              );
-            })}
+
+            {/* Counter + action buttons */}
+            <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-56px" }}>
+              <button
+                onClick={handleSwipeLeft}
+                aria-label="Nächste Karte"
+                className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg transition-all active:scale-90"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 9H4M4 9l5-5M4 9l5 5"/>
+                </svg>
+              </button>
+              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 min-w-[36px] text-center tabular-nums">
+                {(cardIndex % recommendations.length) + 1}/{recommendations.length}
+              </span>
+              <button
+                onClick={handleSwipeRight}
+                aria-label={bookmarks.some((b) => b.id === recommendations[0].id) ? "Event bereits gemerkt" : "Event merken"}
+                className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all active:scale-90 ${
+                  bookmarks.some((b) => b.id === recommendations[0].id)
+                    ? "bg-kidgo-400 text-white border border-kidgo-300"
+                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg"
+                }`}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 18 18"
+                  fill={bookmarks.some((b) => b.id === recommendations[0].id) ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 3h12v13.5L9 13.5 3 16.5V3z"/>
+                </svg>
+              </button>
+            </div>
           </div>
         )}
+
+        {/* Spacer for card stack action buttons */}
+        {!loading && recommendations.length > 0 && <div className="mt-20" />}
 
         {/* ===== SPRINT 11: QUICK ACTIONS ===== */}
         {!loading && (

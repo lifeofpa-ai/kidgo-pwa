@@ -62,14 +62,17 @@ export default function HistoryPage() {
         </div>
 
         {visits.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M12 7v5l3 3"/>
+          <div className="text-center py-14">
+            <div className="empty-float mx-auto mb-5 w-24 h-24">
+              <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="96" height="96" rx="24" fill="#EFF8F6"/>
+                <circle cx="48" cy="48" r="22" stroke="#5BBAA7" strokeWidth="2.2" fill="none"/>
+                <path d="M48 30v4M48 62v4M30 48h4M62 48h4" stroke="#5BBAA7" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M40 40l16 6-6 16-16-6z" fill="#5BBAA7" fillOpacity="0.25" stroke="#5BBAA7" strokeWidth="1.5" strokeLinejoin="round"/>
+                <circle cx="48" cy="48" r="4" fill="#5BBAA7"/>
               </svg>
             </div>
-            <p className="text-gray-600 dark:text-gray-300 font-semibold mb-1">Noch keine Events angeschaut</p>
+            <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">Dein Abenteuer beginnt hier</p>
             <p className="text-gray-400 text-sm mb-6">Besuchte Event-Seiten erscheinen hier</p>
             <Link
               href="/"

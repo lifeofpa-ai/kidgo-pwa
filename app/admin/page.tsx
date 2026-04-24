@@ -2,12 +2,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-const ADMIN_PW = "FpEEzd8u8B$Q0!0fMm3a";
-
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
   const [tab, setTab] = useState<"events" | "quellen" | "live">("events");
   const [pendingEvents, setPendingEvents] = useState<any[]>([]);
   const [pendingQuellen, setPendingQuellen] = useState<any[]>([]);
@@ -29,9 +28,22 @@ export default function AdminPage() {
   const [reviewSending, setReviewSending] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const login = () => {
-    if (pw === ADMIN_PW) { setAuthed(true); }
-    else { setPwError(true); }
+  const login = async () => {
+    setPwLoading(true);
+    setPwError(false);
+    try {
+      const res = await fetch("/api/admin-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (res.ok) { setAuthed(true); }
+      else { setPwError(true); }
+    } catch {
+      setPwError(true);
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   const loadData = async () => {
@@ -269,8 +281,8 @@ export default function AdminPage() {
             className={`w-full px-4 py-3 border rounded-xl mb-3 focus:ring-2 focus:ring-kidgo-400 focus:outline-none ${pwError ? "border-red-400 bg-red-50" : "border-gray-200"}`}
           />
           {pwError && <p className="text-red-500 text-sm mb-3 text-center">Falsches Passwort</p>}
-          <button onClick={login} className="w-full bg-kidgo-500 text-white py-3 rounded-xl font-semibold hover:bg-kidgo-600 transition">
-            Einloggen
+          <button onClick={login} disabled={pwLoading} className="w-full bg-kidgo-500 text-white py-3 rounded-xl font-semibold hover:bg-kidgo-600 transition disabled:opacity-50">
+            {pwLoading ? "Prüfe…" : "Einloggen"}
           </button>
         </div>
       </main>

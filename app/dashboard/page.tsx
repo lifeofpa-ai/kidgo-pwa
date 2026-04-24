@@ -134,7 +134,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg-page)]">
-      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10 pb-24 md:pb-10">
 
         {/* Header */}
         <header className="flex items-center justify-between mb-8">

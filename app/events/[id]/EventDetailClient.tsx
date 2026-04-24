@@ -550,7 +550,7 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   return (
     <main className="min-h-screen bg-[var(--bg-page)]">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
 
         {/* Hero */}
         <div className="relative">
@@ -601,7 +601,7 @@ export default function EventDetailClient({ id }: { id: string }) {
         </div>
 
         {/* Content */}
-        <div className="px-5 sm:px-7 pb-12">
+        <div className="px-5 sm:px-7 pb-20 md:pb-12">
 
           {!hasImage && (
             <div className="pt-6 mb-5">

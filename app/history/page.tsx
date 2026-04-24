@@ -33,7 +33,7 @@ export default function HistoryPage() {
 
   return (
     <main id="main-content" role="main" className="min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C]">
-      <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
+      <div className="max-w-3xl mx-auto px-4 py-8 pb-24 md:pb-10">
 
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

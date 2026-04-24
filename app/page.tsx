@@ -942,7 +942,7 @@ function RecommendationCard({
         <EventImage
           url={event.kategorie_bild_url}
           kategorien={event.kategorien}
-          className="h-48 w-full overflow-hidden"
+          className="h-48 md:h-60 w-full overflow-hidden"
           title={event.titel}
         />
         <div className="p-4">
@@ -2117,7 +2117,7 @@ export default function Home() {
           </div>
         </div>
       )}
-      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10 pb-24 md:pb-10">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10 pb-24 md:pb-10">
 
         {/* Sprint 3: PWA Install Banner */}
         {showInstallBanner && (
@@ -2203,7 +2203,7 @@ export default function Home() {
 
         {/* Sprint 12: Glassmorphism sticky header bar */}
         <div className="sticky top-0 z-30 -mx-4 px-4 py-2.5 mb-5 glass-header">
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
+          <div className="flex items-center justify-between max-w-3xl mx-auto">
             <Link href="/" aria-label="Startseite">
               <KidgoLogo size="sm" />
             </Link>
@@ -2404,7 +2404,7 @@ export default function Home() {
                 <p className="text-gray-400 text-sm">Aktuell keine passenden Events</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                 {challengeEvents.slice(0, 5).map((event, i) => (
                   <RecommendationCard
                     key={event.id}
@@ -2459,7 +2459,7 @@ export default function Home() {
 
         {/* Sprint 12: Card Stack — Tinder-style stacked cards */}
         {!loading && recommendations.length > 0 && (
-          <div className="relative select-none" style={{ minHeight: "420px" }}>
+          <div className="relative select-none min-h-[420px] md:min-h-[520px]">
 
             {/* Background stacked cards (peek behind top card) */}
             {recommendations.slice(1).map((event, ri) => {
@@ -2913,7 +2913,7 @@ export default function Home() {
               <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-kidgo-50/40">
                 <p className="text-sm font-semibold text-gray-700 mb-4">{chatResult.message}</p>
                 {chatResult.events.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                     {chatResult.events.map((event, i) => (
                       <RecommendationCard
                         key={event.id}
@@ -3080,7 +3080,7 @@ export default function Home() {
                   <p className="text-gray-500">Gerade keine Events in dieser Sammlung</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                   {filtered.map((event, i) => (
                     <RecommendationCard
                       key={event.id}

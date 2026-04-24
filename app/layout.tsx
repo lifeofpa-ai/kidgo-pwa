@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { BottomNav } from "@/components/BottomNav";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -60,6 +61,7 @@ export default function RootLayout({
           Zum Inhalt springen
         </a>
         <AuthProvider>{children}</AuthProvider>
+        <BottomNav />
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -39,7 +39,7 @@ function findCityCoords(query: string): [number, number] | null {
   return null;
 }
 
-export default function MapPage() {
+function MapPageInner() {
   const searchParams  = useSearchParams();
   const mapRef        = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -287,5 +287,17 @@ export default function MapPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-2 border-kidgo-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <MapPageInner />
+    </Suspense>
   );
 }

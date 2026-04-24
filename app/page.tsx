@@ -13,6 +13,8 @@ import {
   getLevelProgress,
   trackGeheimtipp,
 } from "@/lib/gamification";
+import { InterestsModal } from "@/components/InterestsModal";
+import { eventMatchesInterests } from "@/lib/interests";
 
 // ============================================================
 // TYPES
@@ -388,7 +390,8 @@ function scoreEvent(
   event: KidgoEvent,
   selectedBuckets: string[],
   weatherCode: number | null,
-  now: Date
+  now: Date,
+  interests: string[] = []
 ): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];
@@ -473,6 +476,10 @@ function scoreEvent(
     new Date(event.created_at) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   ) {
     score -= 5;
+  }
+
+  if (interests.length > 0 && eventMatchesInterests(event, interests)) {
+    score += 5;
   }
 
   return { score, reasons };
@@ -694,11 +701,12 @@ function isFreeEvent(event: KidgoEvent): boolean {
 function buildDayPlan(
   events: KidgoEvent[],
   selectedBuckets: string[],
-  weatherCode: number | null
+  weatherCode: number | null,
+  interests: string[] = []
 ): DayPlanResult {
   const now = new Date();
   const scored = [...events]
-    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherCode, now).score }))
+    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherCode, now, interests).score }))
     .sort(() => Math.random() - 0.5)
     .sort((a, b) => b.score - a.score);
 
@@ -1097,6 +1105,15 @@ export default function Home() {
   const [sourceCountMap, setSourceCountMap] = useState<Map<string, number>>(new Map());
   const [smallSourceIds, setSmallSourceIds] = useState<Set<string>>(new Set());
 
+  // Sprint 11: Interests
+  const [userInterests, setUserInterests] = useState<string[]>([]);
+  const [showInterestsModal, setShowInterestsModal] = useState(false);
+
+  // Sprint 11: Collapsible sections (all closed by default)
+  const [wochenplanerOpen, setWochenplanerOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
+
   // Feature 4: Streak
   const [visitCount, setVisitCount] = useState(0);
 
@@ -1205,6 +1222,10 @@ export default function Home() {
     try {
       const raw = localStorage.getItem("kidgo_search_history");
       if (raw) setSearchHistory(JSON.parse(raw));
+    } catch {}
+    try {
+      const raw = localStorage.getItem("kidgo_interests");
+      if (raw) setUserInterests(JSON.parse(raw));
     } catch {}
 
     // Register service worker + check reminders on app open
@@ -1386,7 +1407,7 @@ export default function Home() {
           setAllEvents(ageFiltered);
           const now = new Date();
           const scored: ScoredEvent[] = ageFiltered.map((event) => {
-            const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now);
+            const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests);
             return { ...event, score, reasons };
           });
           scored.sort((a, b) => b.score - a.score);
@@ -1407,7 +1428,7 @@ export default function Home() {
       setAllEvents(ageFiltered);
       const now = new Date();
       const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now);
+        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests);
         return { ...event, score, reasons };
       });
       scored.sort((a, b) => b.score - a.score);
@@ -1493,7 +1514,7 @@ export default function Home() {
 
       const now = new Date();
       const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now);
+        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests);
         return { ...event, score, reasons };
       });
 
@@ -1529,7 +1550,7 @@ export default function Home() {
 
     const now = new Date();
     const scored = [...filtered]
-      .map((e) => ({ ...e, score: scoreEvent(e, effectiveBuckets, weatherCode, now).score }))
+      .map((e) => ({ ...e, score: scoreEvent(e, effectiveBuckets, weatherCode, now, userInterests).score }))
       .sort(() => Math.random() - 0.5)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);
@@ -1591,7 +1612,7 @@ export default function Home() {
 
   const handleGenerateDayPlan = () => {
     if (allEvents.length === 0) return;
-    const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode);
+    const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode, userInterests);
     setDayPlan(plan);
     setShowDayPlan(true);
     setTimeout(() => {
@@ -1753,6 +1774,11 @@ export default function Home() {
     try { localStorage.setItem("kidgo_onboarded", "true"); } catch {}
     setIsFirstVisit(false);
     navigateForward("recommendations");
+    // Sprint 11: Show interests modal if not yet set
+    try {
+      const existing = localStorage.getItem("kidgo_interests");
+      if (!existing) setShowInterestsModal(true);
+    } catch {}
   };
 
   const now = new Date();
@@ -1935,8 +1961,16 @@ export default function Home() {
     {showProfileSetup && (
       <ProfileSetupModal onComplete={() => setShowProfileSetup(false)} />
     )}
+    {showInterestsModal && (
+      <InterestsModal
+        onComplete={(interests) => {
+          setUserInterests(interests);
+          setShowInterestsModal(false);
+        }}
+      />
+    )}
     <main id="main-content" role="main" className={`min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C] ${transitionClass}`}>
-      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10 pb-24 md:pb-10">
 
         {/* Sprint 3: PWA Install Banner */}
         {showInstallBanner && (
@@ -2308,7 +2342,84 @@ export default function Home() {
           </div>
         )}
 
-        {/* ===== SPRINT 6A: WOCHENPLANER ===== */}
+        {/* ===== SPRINT 11: QUICK ACTIONS ===== */}
+        {!loading && (
+          <div className="mt-6">
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
+              {/* Karte */}
+              <Link href="/map" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
+                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 2a6 6 0 0 1 6 6c0 5.5-6 13-6 13S5 13.5 5 8a6 6 0 0 1 6-6z"/>
+                    <circle cx="11" cy="8" r="2"/>
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Karte</span>
+              </Link>
+
+              {/* Gratis */}
+              <button
+                onClick={() => { setChatOpen(true); handleChatQuery("Gratis am Wochenende"); }}
+                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+              >
+                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M8 11h6M11 8v6"/>
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Gratis</span>
+              </button>
+
+              {/* Camps */}
+              <button
+                onClick={() => { setChatOpen(true); handleChatQuery("Feriencamps für Kinder"); }}
+                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+              >
+                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 18L11 4l7 14H4z"/>
+                    <path d="M11 4v6M8.5 12h5"/>
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Camps</span>
+              </button>
+
+              {/* Frag Kidgo */}
+              <button
+                onClick={() => {
+                  setChatOpen(true);
+                  setTimeout(() => {
+                    document.getElementById("kidgo-chat-input")?.focus();
+                    document.getElementById("kidgo-chat-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }, 150);
+                }}
+                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+              >
+                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 18V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7L4 18z"/>
+                    <path d="M8 9h6M8 12h4"/>
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Frag Kidgo</span>
+              </button>
+
+              {/* Verlauf */}
+              <Link href="/history" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
+                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M11 7v4l3 2"/>
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Verlauf</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* ===== SPRINT 6A: WOCHENPLANER (collapsible) ===== */}
         {!loading && allEventsPool.length > 0 && (() => {
           const todayNow = new Date();
           const dow = todayNow.getDay();
@@ -2329,7 +2440,16 @@ export default function Home() {
 
           return (
             <div className="mt-8">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Deine Woche</p>
+              <button
+                onClick={() => setWochenplanerOpen((o) => !o)}
+                className="w-full flex items-center justify-between mb-3 px-0.5"
+              >
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Deine Woche</p>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 transition-transform duration-200 ${wochenplanerOpen ? "rotate-180" : ""}`}>
+                  <path d="M3 5l4 4 4-4"/>
+                </svg>
+              </button>
+              <div style={{ maxHeight: wochenplanerOpen ? "600px" : "0", overflow: "hidden", transition: "max-height 0.35s ease" }}>
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="flex">
                   {weekDays.map((day, i) => {
@@ -2405,17 +2525,28 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              </div>
             </div>
           );
         })()}
 
-        {/* ===== FEATURE A: FRAG KIDGO CHAT ===== */}
+        {/* ===== FEATURE A: FRAG KIDGO CHAT (collapsible) ===== */}
         {!loading && allEventsPool.length > 0 && (
-          <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-5">
-              <div className="flex items-center gap-2 mb-1">
+          <div id="kidgo-chat-section" className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <button
+              onClick={() => setChatOpen((o) => !o)}
+              className="w-full flex items-center justify-between p-5 pb-4 text-left"
+            >
+              <div>
                 <h2 className="font-bold text-gray-800 text-lg">Frag Kidgo</h2>
+                <p className="text-gray-400 text-sm">Beschreib was du suchst</p>
               </div>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 flex-shrink-0 ml-3 transition-transform duration-200 ${chatOpen ? "rotate-180" : ""}`}>
+                <path d="M3 5l4 4 4-4"/>
+              </svg>
+            </button>
+            <div style={{ maxHeight: chatOpen ? "800px" : "0", overflow: "hidden", transition: "max-height 0.35s ease" }}>
+            <div className="px-5 pb-5">
               <p className="text-gray-400 text-sm mb-4">
                 Beschreib was du suchst — ich filtere passende Events für dich
               </p>
@@ -2479,6 +2610,7 @@ export default function Home() {
 
               <div className="flex gap-2">
                 <input
+                  id="kidgo-chat-input"
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
@@ -2546,6 +2678,7 @@ export default function Home() {
                 )}
               </div>
             )}
+            </div>{/* end collapsible */}
           </div>
         )}
 
@@ -2621,10 +2754,19 @@ export default function Home() {
           </div>
         )}
 
-        {/* ===== FEATURE 1: SMART COLLECTIONS ===== */}
+        {/* ===== FEATURE 1: SMART COLLECTIONS (collapsible) ===== */}
         {!loading && allEventsPool.length > 0 && (
           <div className="mt-6">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Sammlungen</p>
+            <button
+              onClick={() => setCollectionsOpen((o) => !o)}
+              className="w-full flex items-center justify-between mb-3 px-0.5"
+            >
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sammlungen</p>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 transition-transform duration-200 ${collectionsOpen ? "rotate-180" : ""}`}>
+                <path d="M3 5l4 4 4-4"/>
+              </svg>
+            </button>
+            <div style={{ maxHeight: collectionsOpen ? "400px" : "0", overflow: "hidden", transition: "max-height 0.35s ease" }}>
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
               {SMART_COLLECTIONS.map((col) => {
                 const colNow = new Date();
@@ -2650,10 +2792,11 @@ export default function Home() {
                 );
               })}
             </div>
+            </div>{/* end collapsible */}
           </div>
         )}
 
-        {activeCollection && (() => {
+        {activeCollection && collectionsOpen && (() => {
           const col = SMART_COLLECTIONS.find((c) => c.id === activeCollection)!;
           const colNow = new Date();
           const filtered = allEventsPool.filter((e) => col.filter(e, colNow));

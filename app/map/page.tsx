@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { trackMapOpened } from "@/lib/gamification";
 
 const ZH_CITIES: Record<string, [number, number]> = {
   Zürich:      [47.37, 8.54],
@@ -48,6 +49,10 @@ function MapPageInner() {
   const [mapReady, setMapReady]   = useState(false);
   const [search, setSearch]       = useState(searchParams.get("city") ?? "");
   const [searchMsg, setSearchMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    trackMapOpened();
+  }, []);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];

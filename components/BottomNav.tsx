@@ -44,6 +44,14 @@ export function BottomNav() {
           <span className="text-[10px] font-medium">Merkliste</span>
         </Link>
 
+        <Link href="/badges" className={tabCls("/badges")} aria-label="Abzeichen">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="9" r="5"/>
+            <path d="M7.5 14.5L11 20l3.5-5.5"/>
+          </svg>
+          <span className="text-[10px] font-medium">Erfolge</span>
+        </Link>
+
         <Link href="/dashboard" className={tabCls("/dashboard")} aria-label="Profil">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="8" r="3.5"/>

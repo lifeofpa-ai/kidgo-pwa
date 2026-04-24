@@ -1,11 +1,14 @@
-// Gamification: badges and explorer levels
+// Gamification: badges and explorer levels for Kidgo Sprint 15
 
 export interface GamificationStats {
   visitedEventIds: string[];
   bookmarkCount: number;
   geheimtippsFound: string[];
-  hasReviewed: boolean;
-  challengeCompleted: boolean;
+  ratedCount: number;
+  weeklyStreak: number;
+  dayPlanCount: number;
+  mapOpened: boolean;
+  chatCount: number;
 }
 
 export interface BadgeDef {
@@ -13,49 +16,71 @@ export interface BadgeDef {
   name: string;
   description: string;
   requirement: string;
+  emoji: string;
 }
 
 export const BADGE_DEFS: BadgeDef[] = [
   {
-    id: "first_review",
-    name: "Erste Bewertung",
-    description: "Deine erste Event-Bewertung abgegeben",
-    requirement: "1 Bewertung schreiben",
-  },
-  {
-    id: "events_5",
-    name: "5 Events besucht",
-    description: "Fünf Events entdeckt",
+    id: "entdecker",
+    name: "Entdecker",
+    description: "5 verschiedene Events angeschaut",
     requirement: "5 Events besuchen",
+    emoji: "🔭",
   },
   {
-    id: "bookmarks_10",
-    name: "Merkliste-Fan",
-    description: "Zehn Events auf die Merkliste gesetzt",
-    requirement: "10 Events merken",
+    id: "bewerter",
+    name: "Bewerter",
+    description: "3 Events bewertet (Daumen hoch/runter)",
+    requirement: "3 Events bewerten",
+    emoji: "👍",
   },
   {
-    id: "secrets_3",
-    name: "Geheimtipp-Finder",
-    description: "Drei Geheimtipps entdeckt",
-    requirement: "3 Geheimtipps merken",
+    id: "stammgast",
+    name: "Stammgast",
+    description: "3 Wochen in Folge aktiv",
+    requirement: "3 Wochen in Folge aktiv sein",
+    emoji: "🔥",
   },
   {
-    id: "challenge_done",
-    name: "Challenge-Held",
-    description: "Eine wöchentliche Challenge abgeschlossen",
-    requirement: "Challenge annehmen",
+    id: "geheimtipp_jaeger",
+    name: "Geheimtipp-Jäger",
+    description: "3 Events mit Geheimtipp-Badge gefunden",
+    requirement: "3 Geheimtipps besuchen",
+    emoji: "🤫",
+  },
+  {
+    id: "planer",
+    name: "Planer",
+    description: "\"Plan meinen Tag\" 3× genutzt",
+    requirement: "\"Plan meinen Tag\" 3× verwenden",
+    emoji: "📅",
+  },
+  {
+    id: "kartograph",
+    name: "Kartograph",
+    description: "Kartenansicht geöffnet",
+    requirement: "Karte öffnen",
+    emoji: "🗺️",
+  },
+  {
+    id: "frag_experte",
+    name: "Frag-Experte",
+    description: "\"Frag Kidgo\" 5× genutzt",
+    requirement: "Chat 5× nutzen",
+    emoji: "💬",
   },
 ];
 
 function checkBadge(id: string, stats: GamificationStats): boolean {
   switch (id) {
-    case "first_review":   return stats.hasReviewed;
-    case "events_5":       return stats.visitedEventIds.length >= 5;
-    case "bookmarks_10":   return stats.bookmarkCount >= 10;
-    case "secrets_3":      return stats.geheimtippsFound.length >= 3;
-    case "challenge_done": return stats.challengeCompleted;
-    default:               return false;
+    case "entdecker":         return stats.visitedEventIds.length >= 5;
+    case "bewerter":          return stats.ratedCount >= 3;
+    case "stammgast":         return stats.weeklyStreak >= 3;
+    case "geheimtipp_jaeger": return stats.geheimtippsFound.length >= 3;
+    case "planer":            return stats.dayPlanCount >= 3;
+    case "kartograph":        return stats.mapOpened;
+    case "frag_experte":      return stats.chatCount >= 5;
+    default:                  return false;
   }
 }
 
@@ -110,7 +135,17 @@ export function getLevelProgress(visitedCount: number): {
   };
 }
 
-const LS_VISITED    = "kidgo_visited_event_ids";
+// ISO year-week key, e.g. "2026-W17"
+function getWeekKey(): string {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const week = Math.ceil(
+    ((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
+  );
+  return `${now.getFullYear()}-W${week}`;
+}
+
+const LS_VISITED     = "kidgo_visited_event_ids";
 const LS_GEHEIMTIPPS = "kidgo_geheimtipps_found";
 
 export function getLocalStats(bookmarkCount: number): GamificationStats {
@@ -119,10 +154,14 @@ export function getLocalStats(bookmarkCount: number): GamificationStats {
       visitedEventIds: [],
       bookmarkCount,
       geheimtippsFound: [],
-      hasReviewed: false,
-      challengeCompleted: false,
+      ratedCount: 0,
+      weeklyStreak: 0,
+      dayPlanCount: 0,
+      mapOpened: false,
+      chatCount: 0,
     };
   }
+
   let visitedEventIds: string[] = [];
   let geheimtippsFound: string[] = [];
   try {
@@ -131,15 +170,44 @@ export function getLocalStats(bookmarkCount: number): GamificationStats {
     const g = localStorage.getItem(LS_GEHEIMTIPPS);
     if (g) geheimtippsFound = JSON.parse(g);
   } catch {}
-  const hasReviewed      = localStorage.getItem("kidgo_has_reviewed") === "true";
-  const challengeCompleted = localStorage.getItem("kidgo_challenge_accepted") === "true";
-  return { visitedEventIds, bookmarkCount, geheimtippsFound, hasReviewed, challengeCompleted };
+
+  let ratedCount = 0;
+  try {
+    const raw = localStorage.getItem("kidgo_liked_events");
+    if (raw) ratedCount = (JSON.parse(raw) as unknown[]).length;
+  } catch {}
+
+  let weeklyStreak = 0;
+  try {
+    const raw = localStorage.getItem("kidgo_weekly_activity");
+    if (raw) {
+      const weeks: string[] = JSON.parse(raw);
+      const [yearStr, weekStr] = getWeekKey().split("-W");
+      const currentYear = parseInt(yearStr, 10);
+      const currentWeekNum = parseInt(weekStr, 10);
+      let streak = 0;
+      for (let i = 0; i < 52; i++) {
+        let w = currentWeekNum - i;
+        let y = currentYear;
+        if (w <= 0) { w += 52; y -= 1; }
+        if (weeks.includes(`${y}-W${w}`)) streak++;
+        else break;
+      }
+      weeklyStreak = streak;
+    }
+  } catch {}
+
+  const dayPlanCount = parseInt(localStorage.getItem("kidgo_day_plan_count") || "0", 10);
+  const mapOpened = localStorage.getItem("kidgo_map_opened") === "true";
+  const chatCount = parseInt(localStorage.getItem("kidgo_chat_count") || "0", 10);
+
+  return { visitedEventIds, bookmarkCount, geheimtippsFound, ratedCount, weeklyStreak, dayPlanCount, mapOpened, chatCount };
 }
 
 export function trackVisit(eventId: string): void {
   if (typeof window === "undefined") return;
   try {
-    const raw  = localStorage.getItem(LS_VISITED);
+    const raw = localStorage.getItem(LS_VISITED);
     const ids: string[] = raw ? JSON.parse(raw) : [];
     if (!ids.includes(eventId)) {
       ids.push(eventId);
@@ -151,11 +219,63 @@ export function trackVisit(eventId: string): void {
 export function trackGeheimtipp(eventId: string): void {
   if (typeof window === "undefined") return;
   try {
-    const raw  = localStorage.getItem(LS_GEHEIMTIPPS);
+    const raw = localStorage.getItem(LS_GEHEIMTIPPS);
     const ids: string[] = raw ? JSON.parse(raw) : [];
     if (!ids.includes(eventId)) {
       ids.push(eventId);
       localStorage.setItem(LS_GEHEIMTIPPS, JSON.stringify(ids));
     }
   } catch {}
+}
+
+export function trackWeeklyActivity(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const key = getWeekKey();
+    const raw = localStorage.getItem("kidgo_weekly_activity");
+    const weeks: string[] = raw ? JSON.parse(raw) : [];
+    if (!weeks.includes(key)) {
+      weeks.push(key);
+      localStorage.setItem("kidgo_weekly_activity", JSON.stringify(weeks));
+    }
+  } catch {}
+}
+
+export function trackDayPlanUsed(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const count = parseInt(localStorage.getItem("kidgo_day_plan_count") || "0", 10) + 1;
+    localStorage.setItem("kidgo_day_plan_count", String(count));
+  } catch {}
+}
+
+export function trackMapOpened(): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem("kidgo_map_opened", "true"); } catch {}
+}
+
+export function trackChatUsed(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const count = parseInt(localStorage.getItem("kidgo_chat_count") || "0", 10) + 1;
+    localStorage.setItem("kidgo_chat_count", String(count));
+  } catch {}
+}
+
+// Returns badges newly earned since last popup — also marks them as shown
+export function popNewBadges(stats: GamificationStats): BadgeDef[] {
+  if (typeof window === "undefined") return [];
+  const allEarned = getEarnedBadgeIds(stats);
+  let shown: string[] = [];
+  try {
+    const raw = localStorage.getItem("kidgo_shown_badges");
+    if (raw) shown = JSON.parse(raw);
+  } catch {}
+  const newIds = allEarned.filter((id) => !shown.includes(id));
+  if (newIds.length > 0) {
+    try {
+      localStorage.setItem("kidgo_shown_badges", JSON.stringify([...shown, ...newIds]));
+    } catch {}
+  }
+  return newIds.map((id) => BADGE_DEFS.find((b) => b.id === id)!).filter(Boolean);
 }

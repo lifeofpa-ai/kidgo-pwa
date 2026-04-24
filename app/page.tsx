@@ -12,7 +12,13 @@ import {
   getLocalStats,
   getLevelProgress,
   trackGeheimtipp,
+  trackChatUsed,
+  trackDayPlanUsed,
+  trackWeeklyActivity,
+  popNewBadges,
+  type BadgeDef,
 } from "@/lib/gamification";
+import { BadgePopup } from "@/components/BadgePopup";
 import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { InterestsModal } from "@/components/InterestsModal";
 import { eventMatchesInterests } from "@/lib/interests";
@@ -1202,6 +1208,11 @@ export default function Home() {
   const [countdownTick, setCountdownTick]   = useState(0);
   const [aiLoading, setAiLoading]           = useState(false);
 
+  // Sprint 15: Badge popups + notification prompt
+  const [badgePopup, setBadgePopup]         = useState<BadgeDef | null>(null);
+  const [badgeQueue, setBadgeQueue]         = useState<BadgeDef[]>([]);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+
   // Sprint 10: Show profile setup when user logs in without profile
   useEffect(() => {
     if (!authLoading && user && profile === null) {
@@ -1288,26 +1299,44 @@ export default function Home() {
       setPreferenceProfile(profile);
     } catch {}
 
-    // Register service worker + check reminders on app open
+    // Register service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+
+    // Track weekly activity for Stammgast badge
+    trackWeeklyActivity();
+
+    // Notification permission: elegant prompt after 6s (first visit, not yet granted/denied)
+    if ("Notification" in window && Notification.permission === "default") {
+      const dismissed = localStorage.getItem("kidgo_notif_prompt_dismissed");
+      if (!dismissed) {
+        setTimeout(() => setShowNotifPrompt(true), 6000);
+      }
+    }
+
+    // Push notifications — max once per day (spam protection)
     if ("Notification" in window && Notification.permission === "granted") {
-      try {
-        const raw = localStorage.getItem("kidgo_reminders");
-        if (raw) {
-          const reminders: { id: string; titel: string; datum: string; ort: string }[] = JSON.parse(raw);
-          const today = new Date().toISOString().split("T")[0];
-          const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-          navigator.serviceWorker.ready.then((reg) => {
-            for (const r of reminders) {
-              if (r.datum === today || r.datum === tomorrow) {
-                reg.active?.postMessage({ type: "SHOW_REMINDER", ...r });
+      const today = new Date().toISOString().split("T")[0];
+      const lastSent = localStorage.getItem("kidgo_push_last_sent");
+      if (lastSent !== today) {
+        navigator.serviceWorker.ready.then((reg) => {
+          // Event reminders for today / tomorrow
+          try {
+            const raw = localStorage.getItem("kidgo_reminders");
+            if (raw) {
+              const reminders: { id: string; titel: string; datum: string; ort: string }[] = JSON.parse(raw);
+              const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+              for (const r of reminders) {
+                if (r.datum === today || r.datum === tomorrow) {
+                  reg.active?.postMessage({ type: "SHOW_REMINDER", ...r });
+                }
               }
             }
-          }).catch(() => {});
-        }
-      } catch {}
+          } catch {}
+          localStorage.setItem("kidgo_push_last_sent", today);
+        }).catch(() => {});
+      }
     }
 
     // Sprint 9A: In-app banner for tomorrow's reminders
@@ -1361,6 +1390,30 @@ export default function Home() {
     const interval = setInterval(() => setCountdownTick((t) => t + 1), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Sprint 15: Weekend preview push — Friday 16:00+, max once per day
+  useEffect(() => {
+    if (!mounted || allEventsPool.length === 0) return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const now = new Date();
+    if (now.getDay() !== 5 || now.getHours() < 16) return;
+    const today = now.toISOString().split("T")[0];
+    const lastSent = localStorage.getItem("kidgo_push_last_sent");
+    if (lastSent === today) return;
+    const weekend = [now.getDay() === 5 ? 6 : 0, now.getDay() === 5 ? 0 : 0];
+    const sat = new Date(now); sat.setDate(now.getDate() + (6 - now.getDay()));
+    const sun = new Date(now); sun.setDate(now.getDate() + (7 - now.getDay()));
+    const satStr = sat.toISOString().split("T")[0];
+    const sunStr = sun.toISOString().split("T")[0];
+    const weekendEvents = allEventsPool
+      .filter((e) => e.datum && (e.datum === satStr || e.datum === sunStr))
+      .slice(0, 3);
+    if (weekendEvents.length === 0) return;
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.active?.postMessage({ type: "SHOW_WEEKEND_PREVIEW", events: weekendEvents });
+      localStorage.setItem("kidgo_push_last_sent", today);
+    }).catch(() => {});
+  }, [mounted, allEventsPool]);
 
   // Sprint 3: PWA install banner
   useEffect(() => {
@@ -1600,6 +1653,8 @@ export default function Home() {
     const q = query.trim();
     if (!q) return;
     setChatInput(q);
+    trackChatUsed();
+    triggerBadgeCheck();
 
     const parsed = parseNaturalQuery(q);
     const effectiveBuckets = parsed.ageBuckets.length > 0 ? parsed.ageBuckets : selectedBuckets;
@@ -1631,43 +1686,77 @@ export default function Home() {
 
   const handleAiQuery = async () => {
     const q = chatInput.trim();
-    if (!q || allEventsPool.length === 0 || aiLoading) return;
+    if (!q || aiLoading) return;
     setAiLoading(true);
+    trackChatUsed();
+
+    // Liked categories from preference profile
+    const likedCats = preferenceProfile?.preferredCategories?.slice(0, 5) ?? [];
+
     try {
       const supabaseBrowser = createClient();
-      const topEvents = [...allEventsPool]
-        .slice(0, 20)
-        .map((e) => ({
-          id: e.id,
-          titel: e.titel,
-          beschreibung: e.beschreibung,
-          datum: e.datum,
-          ort: e.ort,
-          preis_chf: e.preis_chf,
-          kategorien: e.kategorien,
-          indoor_outdoor: e.indoor_outdoor,
-          alters_buckets: e.alters_buckets,
-        }));
-      const { data, error } = await supabaseBrowser.functions.invoke("ask-kidgo", {
-        body: {
-          question: q,
-          events: topEvents,
-          context: {
-            age_buckets: selectedBuckets,
-            weather_code: weatherCode,
-            hour: new Date().getHours(),
+
+      // 8-second timeout with fallback to client-side
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      let succeeded = false;
+      try {
+        const { data, error } = await supabaseBrowser.functions.invoke("ask-kidgo", {
+          body: {
+            question: q,
+            context: {
+              age_buckets: selectedBuckets,
+              weather_code: weatherCode,
+              hour: new Date().getHours(),
+              liked_categories: likedCats,
+              standort: userLocation ? "Zürich" : null,
+            },
           },
-        },
-      });
-      if (data && !error) {
-        const matchedEvents = ((data.ids || []) as string[])
-          .map((id) => allEventsPool.find((e) => e.id === id))
-          .filter((e): e is KidgoEvent => !!e);
-        setChatResult({ message: data.answer, events: matchedEvents });
-        setTimeout(() => chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+        });
+        clearTimeout(timeout);
+        if (data && !error) {
+          // Edge function returns matched events directly; fall back to allEventsPool lookup
+          const returnedEvents: KidgoEvent[] = Array.isArray(data.events) && data.events.length > 0
+            ? data.events
+            : ((data.ids || []) as string[])
+                .map((id: string) => allEventsPool.find((e) => e.id === id))
+                .filter((e): e is KidgoEvent => !!e);
+          setChatResult({ message: data.answer, events: returnedEvents });
+          succeeded = true;
+          setTimeout(() => chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+        }
+      } catch {
+        clearTimeout(timeout);
+      }
+
+      // Fallback: client-side parse
+      if (!succeeded) {
+        handleChatQuery(q);
       }
     } catch {}
+
+    triggerBadgeCheck();
     setAiLoading(false);
+  };
+
+  const triggerBadgeCheck = () => {
+    const stats = getLocalStats(bookmarks.length);
+    const newBadges = popNewBadges(stats);
+    if (newBadges.length > 0) {
+      setBadgePopup(newBadges[0]);
+      setBadgeQueue(newBadges.slice(1));
+    }
+  };
+
+  const handleBadgePopupClose = () => {
+    setBadgePopup(null);
+    setBadgeQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [next, ...rest] = prev;
+      setTimeout(() => { setBadgePopup(next); setBadgeQueue(rest); }, 400);
+      return [];
+    });
   };
 
   const handleGenerateDayPlan = () => {
@@ -1675,6 +1764,8 @@ export default function Home() {
     const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode, userInterests);
     setDayPlan(plan);
     setShowDayPlan(true);
+    trackDayPlanUsed();
+    triggerBadgeCheck();
     setTimeout(() => {
       document.getElementById("day-plan")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
@@ -2190,6 +2281,45 @@ export default function Home() {
           </div>
         )}
 
+        {/* Sprint 15: Badge popup */}
+        <BadgePopup badge={badgePopup} onClose={handleBadgePopupClose} />
+
+        {/* Sprint 15: Notification permission prompt */}
+        {showNotifPrompt && (
+          <div className="mb-4 bg-[var(--bg-card)] border border-[var(--accent)]/30 rounded-2xl px-4 py-3.5 flex items-center gap-3 card-enter shadow-sm">
+            <span className="text-xl flex-shrink-0">🔔</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Events nicht verpassen</p>
+              <p className="text-xs text-[var(--text-muted)]">Erhalte Erinnerungen für gemerkten Events</p>
+            </div>
+            <button
+              onClick={() => {
+                Notification.requestPermission().then((p) => {
+                  if (p === "denied") {
+                    try { localStorage.setItem("kidgo_notif_prompt_dismissed", "true"); } catch {}
+                  }
+                });
+                setShowNotifPrompt(false);
+              }}
+              className="bg-[var(--accent)] text-white rounded-xl px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition flex-shrink-0"
+            >
+              Ja, gerne
+            </button>
+            <button
+              onClick={() => {
+                setShowNotifPrompt(false);
+                try { localStorage.setItem("kidgo_notif_prompt_dismissed", "true"); } catch {}
+              }}
+              aria-label="Schliessen"
+              className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] w-6 h-6 flex items-center justify-center flex-shrink-0 transition"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M2 2l6 6M8 2l-6 6"/>
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Sprint 3: Offline Banner */}
         {isOffline && (
           <div className="mb-5 bg-gray-700 text-white rounded-2xl px-5 py-3.5 shadow-md flex items-center gap-3 card-enter">
@@ -2216,7 +2346,7 @@ export default function Home() {
                   )}
                 </div>
               )}
-              <AuthButton level={user && levelInfo ? levelInfo.current.label : undefined} />
+              <AuthButton level={levelInfo ? levelInfo.current.label : undefined} />
               <button
                 onClick={toggleTheme}
                 aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}

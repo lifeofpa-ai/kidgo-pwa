@@ -9,27 +9,17 @@ import {
   getLocalStats,
   getEarnedBadgeIds,
   getLevelProgress,
+  popNewBadges,
+  type BadgeDef,
 } from "@/lib/gamification";
-
-function BadgeSkeleton() {
-  return (
-    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-5" aria-hidden>
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl skeleton flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 skeleton w-2/3" />
-          <div className="h-3 skeleton w-full" />
-          <div className="h-3 skeleton w-1/2" />
-        </div>
-      </div>
-    </div>
-  );
-}
+import { BadgePopup } from "@/components/BadgePopup";
 
 export default function BadgesPage() {
-  const [mounted, setMounted]       = useState(false);
-  const [bookmarks, setBookmarks]   = useState<string[]>([]);
-  const [isDark, setIsDark]         = useState(false);
+  const [mounted, setMounted]               = useState(false);
+  const [bookmarks, setBookmarks]           = useState<string[]>([]);
+  const [isDark, setIsDark]                 = useState(false);
+  const [currentPopup, setCurrentPopup]     = useState<BadgeDef | null>(null);
+  const [popupQueue, setPopupQueue]         = useState<BadgeDef[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -42,6 +32,34 @@ export default function BadgesPage() {
       }
     } catch {}
   }, []);
+
+  // Check for newly earned badges on mount
+  useEffect(() => {
+    if (!mounted) return;
+    const bm = (() => {
+      try {
+        const raw = localStorage.getItem("kidgo_bookmarks");
+        return raw ? (JSON.parse(raw) as { id: string }[]).length : 0;
+      } catch { return 0; }
+    })();
+    const stats = getLocalStats(bm);
+    const newBadges = popNewBadges(stats);
+    if (newBadges.length > 0) {
+      setCurrentPopup(newBadges[0]);
+      setPopupQueue(newBadges.slice(1));
+    }
+  }, [mounted]);
+
+  const handlePopupClose = () => {
+    setCurrentPopup(null);
+    if (popupQueue.length > 0) {
+      const [next, ...rest] = popupQueue;
+      setTimeout(() => {
+        setCurrentPopup(next);
+        setPopupQueue(rest);
+      }, 400);
+    }
+  };
 
   const toggleTheme = () => {
     const next = !isDark;
@@ -60,6 +78,9 @@ export default function BadgesPage() {
   return (
     <main className="min-h-screen bg-[var(--bg-page)]">
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+
+        {/* Badge popup */}
+        <BadgePopup badge={currentPopup} onClose={handlePopupClose} />
 
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
@@ -112,15 +133,12 @@ export default function BadgesPage() {
               <p className="text-2xl font-extrabold text-[var(--text-primary)]">
                 {current.label}
               </p>
-              {next && (
+              {next ? (
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
                   Noch {eventsToNext} {eventsToNext === 1 ? "Event" : "Events"} bis {next.label}
                 </p>
-              )}
-              {!next && (
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Höchstes Level erreicht
-                </p>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Höchstes Level erreicht</p>
               )}
             </div>
             <div className="text-right flex-shrink-0">
@@ -186,27 +204,15 @@ export default function BadgesPage() {
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div className="flex items-start gap-4">
-                  {/* Badge icon */}
+                  {/* Badge emoji icon */}
                   <div
-                    className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center border ${
+                    className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center border text-2xl ${
                       earned
                         ? "border-[var(--accent)] bg-[var(--accent-light)]"
                         : "border-[var(--border)] bg-[var(--bg-subtle)]"
                     }`}
                   >
-                    {earned ? (
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="9"/>
-                        <path d="M7 11l3 3 5-5"/>
-                      </svg>
-                    ) : (
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="9" r="4"/>
-                        <path d="M11 14c-4.4 0-7 1.8-7 4M14 4.5l1.5 1.5-5 5-2-2 1.5-1.5 0.5 0.5 3.5-3.5z" opacity="0"/>
-                        <path d="M6 9l2 2 4-4M11 17v-3"/>
-                        <path d="M8 14.5L11 17l3-2.5"/>
-                      </svg>
-                    )}
+                    {badge.emoji}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -243,9 +249,9 @@ export default function BadgesPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
               { value: stats.visitedEventIds.length, label: "Events besucht" },
-              { value: bookmarks.length,             label: "Gemerkt" },
-              { value: stats.geheimtippsFound.length, label: "Geheimtipps" },
-              { value: earnedCount,                  label: "Abzeichen" },
+              { value: bookmarks.length,              label: "Gemerkt"        },
+              { value: stats.geheimtippsFound.length, label: "Geheimtipps"   },
+              { value: earnedCount,                   label: "Abzeichen"      },
             ].map(({ value, label }) => (
               <div key={label} className="text-center">
                 <p className="text-2xl font-extrabold text-[var(--text-primary)]">{value}</p>
@@ -259,9 +265,9 @@ export default function BadgesPage() {
         <footer className="mt-10 border-t border-[var(--border)] pt-6 pb-8 text-center">
           <p className="text-xs text-[var(--text-muted)] mb-2">© 2026 kidgo · Zürich</p>
           <nav className="flex items-center justify-center gap-4 text-xs text-[var(--text-muted)]">
-            <Link href="/"         className="hover:text-[var(--text-secondary)] transition">Start</Link>
+            <Link href="/"          className="hover:text-[var(--text-secondary)] transition">Start</Link>
             <span aria-hidden>·</span>
-            <Link href="/explore"  className="hover:text-[var(--text-secondary)] transition">Entdecken</Link>
+            <Link href="/explore"   className="hover:text-[var(--text-secondary)] transition">Entdecken</Link>
             <span aria-hidden>·</span>
             <Link href="/dashboard" className="hover:text-[var(--text-secondary)] transition">Dashboard</Link>
           </nav>

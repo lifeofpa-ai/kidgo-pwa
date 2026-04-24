@@ -10,12 +10,19 @@ export function AuthButton({ level }: { level?: string }) {
 
   if (!user) {
     return (
-      <Link
-        href="/login"
-        className="bg-kidgo-500 text-white rounded-xl px-3 py-1.5 text-xs font-semibold hover:bg-kidgo-600 transition"
-      >
-        Anmelden
-      </Link>
+      <div className="flex items-center gap-2">
+        {level && (
+          <span className="hidden sm:inline-flex items-center bg-[var(--accent-light)] text-[var(--accent)] text-xs font-bold px-2 py-0.5 rounded-full border border-[var(--accent)]/20">
+            {level}
+          </span>
+        )}
+        <Link
+          href="/login"
+          className="bg-kidgo-500 text-white rounded-xl px-3 py-1.5 text-xs font-semibold hover:bg-kidgo-600 transition"
+        >
+          Anmelden
+        </Link>
+      </div>
     );
   }
 

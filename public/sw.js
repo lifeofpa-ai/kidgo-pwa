@@ -35,7 +35,7 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Show notification for a reminder sent from the main thread
+// Show notifications triggered from the main thread
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SHOW_REMINDER") {
     const { id, titel, ort, datum } = event.data;
@@ -48,6 +48,18 @@ self.addEventListener("message", (event) => {
       badge: "/icons/icon-192.png",
       tag: `kidgo-reminder-${id}`,
       data: { url: `/events/${id}` },
+    });
+  }
+
+  if (event.data?.type === "SHOW_WEEKEND_PREVIEW") {
+    const { events } = event.data;
+    const titles = (events || []).slice(0, 3).map((e) => e.titel).join(", ");
+    self.registration.showNotification("Wochenende! 3 Ideen für euch 🎉", {
+      body: titles || "Entdecke Events auf kidgo",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: "kidgo-weekend-preview",
+      data: { url: "/" },
     });
   }
 });

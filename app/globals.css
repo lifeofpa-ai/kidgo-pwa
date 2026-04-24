@@ -348,3 +348,17 @@ body,
     animation: none;
   }
 }
+
+/* ── Badge confetti ── */
+@keyframes kidgo-confetti-fall {
+  0%   { transform: translateY(-8px) rotate(0deg) scale(1);   opacity: 1; }
+  100% { transform: translateY(110px) rotate(400deg) scale(0.4); opacity: 0; }
+}
+.kidgo-confetti {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  animation: kidgo-confetti-fall 1.6s ease-in forwards;
+}

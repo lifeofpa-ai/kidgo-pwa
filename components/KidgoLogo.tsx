@@ -1,9 +1,10 @@
 interface KidgoLogoProps {
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
-const SIZES = { sm: 32, md: 48, lg: 80, xl: 120 } as const;
+// Widths defined so heights land at: xs≈22, sm≈45, md≈60, lg≈100, xl≈140
+const SIZES = { xs: 36, sm: 72, md: 96, lg: 160, xl: 224 } as const;
 
 export function KidgoLogo({ size = "md", className = "" }: KidgoLogoProps) {
   const w = SIZES[size];

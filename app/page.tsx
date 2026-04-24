@@ -2204,7 +2204,7 @@ export default function Home() {
             className={isRefreshing ? "logo-spin" : ""}
             style={{ transform: !isRefreshing ? `rotate(${pullY * 2.8}deg)` : undefined }}
           >
-            <KidgoLogo size="sm" />
+            <KidgoLogo size="xs" />
           </div>
         </div>
       )}

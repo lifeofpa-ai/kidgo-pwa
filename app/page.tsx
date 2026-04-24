@@ -15,6 +15,12 @@ import {
 } from "@/lib/gamification";
 import { InterestsModal } from "@/components/InterestsModal";
 import { eventMatchesInterests } from "@/lib/interests";
+import {
+  getRatedEvents,
+  buildPreferenceProfile,
+  scoreWithPreferences,
+  type PreferenceProfile,
+} from "@/lib/preferences";
 
 // ============================================================
 // TYPES
@@ -391,7 +397,8 @@ function scoreEvent(
   selectedBuckets: string[],
   weatherCode: number | null,
   now: Date,
-  interests: string[] = []
+  interests: string[] = [],
+  profile: PreferenceProfile | null = null
 ): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];
@@ -480,6 +487,10 @@ function scoreEvent(
 
   if (interests.length > 0 && eventMatchesInterests(event, interests)) {
     score += 5;
+  }
+
+  if (profile) {
+    score += scoreWithPreferences(event, profile);
   }
 
   return { score, reasons };
@@ -1109,6 +1120,9 @@ export default function Home() {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [showInterestsModal, setShowInterestsModal] = useState(false);
 
+  // Sprint 11: Preference profile from liked events
+  const [preferenceProfile, setPreferenceProfile] = useState<PreferenceProfile | null>(null);
+
   // Sprint 11: Collapsible sections (all closed by default)
   const [wochenplanerOpen, setWochenplanerOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -1226,6 +1240,11 @@ export default function Home() {
     try {
       const raw = localStorage.getItem("kidgo_interests");
       if (raw) setUserInterests(JSON.parse(raw));
+    } catch {}
+    try {
+      const rated = getRatedEvents();
+      const profile = buildPreferenceProfile(rated);
+      setPreferenceProfile(profile);
     } catch {}
 
     // Register service worker + check reminders on app open
@@ -1407,7 +1426,7 @@ export default function Home() {
           setAllEvents(ageFiltered);
           const now = new Date();
           const scored: ScoredEvent[] = ageFiltered.map((event) => {
-            const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests);
+            const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
             return { ...event, score, reasons };
           });
           scored.sort((a, b) => b.score - a.score);
@@ -1428,7 +1447,7 @@ export default function Home() {
       setAllEvents(ageFiltered);
       const now = new Date();
       const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests);
+        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
         return { ...event, score, reasons };
       });
       scored.sort((a, b) => b.score - a.score);
@@ -1514,7 +1533,7 @@ export default function Home() {
 
       const now = new Date();
       const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests);
+        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
         return { ...event, score, reasons };
       });
 
@@ -1550,7 +1569,7 @@ export default function Home() {
 
     const now = new Date();
     const scored = [...filtered]
-      .map((e) => ({ ...e, score: scoreEvent(e, effectiveBuckets, weatherCode, now, userInterests).score }))
+      .map((e) => ({ ...e, score: scoreEvent(e, effectiveBuckets, weatherCode, now, userInterests, preferenceProfile).score }))
       .sort(() => Math.random() - 0.5)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);

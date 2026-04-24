@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { trackVisit } from "@/lib/gamification";
+import {
+  getEventRating,
+  setEventRating,
+  type EventRating,
+} from "@/lib/preferences";
 
 interface Review {
   id: string;
@@ -185,6 +190,8 @@ export default function EventDetailClient({ id }: { id: string }) {
   const [similarEvents, setSimilarEvents] = useState<any[]>([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isReminded, setIsReminded] = useState(false);
+  const [eventRating, setEventRatingState] = useState<EventRating | null>(null);
+  const [ratingPulse, setRatingPulse] = useState<EventRating | null>(null);
 
   // Reviews
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -266,7 +273,7 @@ export default function EventDetailClient({ id }: { id: string }) {
           const raw = localStorage.getItem("kidgo_recent_visits");
           const visits: any[] = raw ? JSON.parse(raw) : [];
           const filtered = visits.filter((v: any) => v.id !== eventData.id);
-          const compact = { id: eventData.id, titel: eventData.titel, datum: eventData.datum, ort: eventData.ort, kategorie_bild_url: eventData.kategorie_bild_url, kategorien: eventData.kategorien };
+          const compact = { id: eventData.id, titel: eventData.titel, datum: eventData.datum, ort: eventData.ort, kategorie_bild_url: eventData.kategorie_bild_url, kategorien: eventData.kategorien, visitedAt: new Date().toISOString() };
           localStorage.setItem("kidgo_recent_visits", JSON.stringify([compact, ...filtered].slice(0, 10)));
           trackVisit(eventData.id);
         } catch {}
@@ -285,6 +292,10 @@ export default function EventDetailClient({ id }: { id: string }) {
             const reminders: { id: string }[] = JSON.parse(raw);
             setIsReminded(reminders.some((r) => r.id === eventData.id));
           }
+        } catch {}
+
+        try {
+          setEventRatingState(getEventRating(eventData.id));
         } catch {}
 
         if (eventData.quelle_id) {
@@ -379,6 +390,26 @@ export default function EventDetailClient({ id }: { id: string }) {
       localStorage.setItem("kidgo_bookmarks", JSON.stringify(next));
       setIsBookmarked(!exists);
     } catch {}
+  };
+
+  const handleRate = (rating: EventRating) => {
+    if (!event) return;
+    const next = eventRating === rating ? null : rating;
+    setEventRatingState(next);
+    setEventRating(
+      {
+        id: event.id,
+        kategorien: event.kategorien,
+        ort: event.ort,
+        indoor_outdoor: event.indoor_outdoor,
+        alters_buckets: event.alters_buckets,
+      },
+      next
+    );
+    if (next) {
+      setRatingPulse(next);
+      setTimeout(() => setRatingPulse(null), 600);
+    }
   };
 
   const buildShareText = () => {
@@ -724,6 +755,64 @@ export default function EventDetailClient({ id }: { id: string }) {
               </svg>
               {isBookmarked ? "Gemerkt" : "Event merken"}
             </button>
+
+            {/* Gefallen-Feedback */}
+            <div className="flex items-center gap-3 pt-1">
+              <p className="text-xs text-[var(--text-muted)] flex-1">
+                {eventRating === "like" || eventRating === "superlike"
+                  ? "Danke — wir merken uns euren Geschmack"
+                  : eventRating === "dislike"
+                    ? "Verstanden, wir zeigen euch besseres"
+                    : "Hat euch das Event gefallen?"}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {/* Thumbs down */}
+                <button
+                  onClick={() => handleRate("dislike")}
+                  aria-label="Hat nicht gefallen"
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                    eventRating === "dislike"
+                      ? "bg-gray-200 text-gray-600"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:bg-gray-200 hover:text-gray-600"
+                  } ${ratingPulse === "dislike" ? "scale-125" : ""}`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill={eventRating === "dislike" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 1H4a1 1 0 0 0-.95.68l-1.95 5.85A1 1 0 0 0 2 8.85h4V14a1 1 0 0 0 1 1l4-8V2a1 1 0 0 0-1-1z"/>
+                    <path d="M14 1h-1a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" strokeWidth="1.5"/>
+                  </svg>
+                </button>
+                {/* Thumbs up */}
+                <button
+                  onClick={() => handleRate("like")}
+                  aria-label="Hat gefallen"
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                    eventRating === "like"
+                      ? "bg-[#5BBAA7] text-white"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:bg-[#5BBAA7]/10 hover:text-[#5BBAA7]"
+                  } ${ratingPulse === "like" ? "scale-125" : ""}`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill={eventRating === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 15h7a1 1 0 0 0 .95-.68l1.95-5.85A1 1 0 0 0 14 7.15H10V2a1 1 0 0 0-1-1L5 9v5a1 1 0 0 0 0 1z"/>
+                    <path d="M2 15h1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H2" strokeWidth="1.5"/>
+                  </svg>
+                </button>
+                {/* Super like */}
+                <button
+                  onClick={() => handleRate("superlike")}
+                  aria-label="Mega gut gefallen"
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                    eventRating === "superlike"
+                      ? "bg-amber-400 text-white"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:bg-amber-50 hover:text-amber-500"
+                  } ${ratingPulse === "superlike" ? "scale-125" : ""}`}
+                  title="Mega gut!"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill={eventRating === "superlike" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 1l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 9.8l-3.7 2.7 1.4-4.3L2 5.5h4.5z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
 
             {ctaUrl && (
               <a

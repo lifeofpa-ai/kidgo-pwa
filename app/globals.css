@@ -349,6 +349,30 @@ body,
   }
 }
 
+/* ── Scrollbar hide utility ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Staggered fade-in for lists ── */
+@keyframes staggerFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-fade > * {
+  animation: staggerFade 0.3s ease-out both;
+}
+.stagger-fade > *:nth-child(1)  { animation-delay: 0ms;   }
+.stagger-fade > *:nth-child(2)  { animation-delay: 60ms;  }
+.stagger-fade > *:nth-child(3)  { animation-delay: 120ms; }
+.stagger-fade > *:nth-child(4)  { animation-delay: 180ms; }
+.stagger-fade > *:nth-child(5)  { animation-delay: 240ms; }
+.stagger-fade > *:nth-child(6)  { animation-delay: 300ms; }
+
 /* ── Badge confetti ── */
 @keyframes kidgo-confetti-fall {
   0%   { transform: translateY(-8px) rotate(0deg) scale(1);   opacity: 1; }

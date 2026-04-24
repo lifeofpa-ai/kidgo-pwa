@@ -805,7 +805,7 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" aria-hidden="true">
+    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border)] overflow-hidden" aria-hidden="true">
       <div className="h-48 skeleton" />
       <div className="p-4 space-y-3">
         <div className="h-3.5 skeleton w-2/3" />
@@ -927,7 +927,7 @@ function RecommendationCard({
       style={{ animationDelay: `${animIndex * 80}ms` }}
     >
       <div
-        className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-kidgo-200 group-hover:-translate-y-0.5 relative"
+        className="bg-[var(--bg-card)] rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ease-out overflow-hidden border border-[var(--border)] group-hover:border-kidgo-200 group-hover:scale-[1.01] relative"
         style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
       >
           {onBookmark && (
@@ -968,7 +968,7 @@ function RecommendationCard({
             ))}
           </div>
 
-          <h3 className="font-bold text-gray-900 text-lg leading-snug mb-1.5 group-hover:text-kidgo-500 transition-colors">
+          <h3 className="font-bold text-[var(--text-primary)] text-lg leading-snug mb-1.5 group-hover:text-kidgo-500 transition-colors duration-200">
             {event.titel}
           </h3>
 
@@ -1004,7 +1004,7 @@ function RecommendationCard({
           )}
 
           <div className="flex items-end justify-between gap-2">
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--text-secondary)]">
               {event.datum && (() => {
                 const { label, urgent } = getCountdownLabel(event.datum, new Date());
                 return (
@@ -1044,7 +1044,7 @@ function RecommendationCard({
                   />
                 ))}
               </div>
-              <span className="text-xs text-gray-400 font-medium">
+              <span className="text-xs text-[var(--text-muted)] font-medium">
                 {bookmarkCount} {bookmarkCount === 1 ? "Familie" : "Familien"} interessiert
               </span>
             </div>

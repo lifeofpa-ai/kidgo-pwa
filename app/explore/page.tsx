@@ -53,14 +53,25 @@ function EventCard({ event, source, serienCount, formatDate }: {
   const isCamp = event.event_typ === "camp" || event.kategorien?.includes("Feriencamp");
   const ctaUrl = event.anmelde_link || source?.url;
 
+  const catBorderColors: Record<string, string> = {
+    "Sport": "#3B82F6", "Kreativ": "#EC4899", "Musik": "#8B5CF6",
+    "Tanz": "#8B5CF6", "Natur": "#22C55E", "Tiere": "#22C55E",
+    "Theater": "#EF4444", "Feriencamp": "#06B6D4",
+    "Bildung": "#F59E0B", "Wissenschaft": "#F59E0B", "Ausflug": "#14B8A6",
+  };
+  const leftBorderColor = catBorderColors[cat] || "var(--kidgo-teal)";
+
   return (
-    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all duration-200 overflow-hidden group flex flex-col">
-      <div className="h-40 overflow-hidden bg-[var(--bg-subtle)] flex-shrink-0">
+    <div
+      className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] hover:shadow-md transition-all duration-200 ease-out overflow-hidden group flex flex-col hover:scale-[1.01] active:scale-[0.99]"
+      style={{ borderLeft: `3px solid ${leftBorderColor}` }}
+    >
+      <div className="h-48 overflow-hidden bg-[var(--bg-subtle)] flex-shrink-0 rounded-t-xl">
         {event.kategorie_bild_url && !imgErr ? (
           <img
             src={event.kategorie_bild_url}
             alt={event.titel}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
             loading="lazy"
             onError={() => setImgErr(true)}
           />
@@ -483,7 +494,7 @@ export default function ExplorePage() {
                     <div className="text-center mt-6">
                       <button
                         onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
-                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-kidgo-300 hover:text-kidgo-500 transition"
+                        className="px-6 py-2.5 border border-[var(--kidgo-teal)] text-[var(--kidgo-teal)] text-sm font-semibold rounded-full hover:bg-[var(--accent-light)] transition-all duration-200 ease-out"
                       >
                         {futureEvents.length - visibleCountFuture} weitere laden
                       </button>
@@ -509,7 +520,7 @@ export default function ExplorePage() {
                     <div className="text-center mt-6">
                       <button
                         onClick={() => setVisibleCountAllYear((v) => v + PAGE_SIZE)}
-                        className="px-6 py-2.5 border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] text-sm font-medium rounded-xl hover:border-kidgo-300 hover:text-kidgo-500 transition"
+                        className="px-6 py-2.5 border border-[var(--kidgo-teal)] text-[var(--kidgo-teal)] text-sm font-semibold rounded-full hover:bg-[var(--accent-light)] transition-all duration-200 ease-out"
                       >
                         {allYearActivities.length - visibleCountAllYear} weitere laden
                       </button>

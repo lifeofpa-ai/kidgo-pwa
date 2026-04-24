@@ -66,10 +66,16 @@ export default function HistoryPage() {
             <div className="empty-float mx-auto mb-5 w-24 h-24">
               <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="96" height="96" rx="24" fill="#EFF8F6"/>
-                <circle cx="48" cy="48" r="22" stroke="#5BBAA7" strokeWidth="2.2" fill="none"/>
-                <path d="M48 30v4M48 62v4M30 48h4M62 48h4" stroke="#5BBAA7" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M40 40l16 6-6 16-16-6z" fill="#5BBAA7" fillOpacity="0.25" stroke="#5BBAA7" strokeWidth="1.5" strokeLinejoin="round"/>
-                <circle cx="48" cy="48" r="4" fill="#5BBAA7"/>
+                {/* Compass outer ring */}
+                <circle cx="48" cy="48" r="24" stroke="#5BBAA7" strokeWidth="2.2" fill="none"/>
+                {/* Cardinal tick marks */}
+                <path d="M48 26v5M48 67v5M26 48h5M67 48h5" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.5"/>
+                {/* North needle — teal filled */}
+                <path d="M48 48 L44 34 L48 40 Z" fill="#5BBAA7"/>
+                {/* South needle — teal faded */}
+                <path d="M48 48 L52 62 L48 56 Z" fill="#5BBAA7" fillOpacity="0.3"/>
+                {/* Centre dot */}
+                <circle cx="48" cy="48" r="3.5" fill="#5BBAA7"/>
               </svg>
             </div>
             <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">Dein Abenteuer beginnt hier</p>

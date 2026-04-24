@@ -14,6 +14,7 @@ export interface UserProfile {
   user_id: string;
   display_name: string | null;
   children: Array<{ name: string; age_bucket: string }>;
+  interests: string[] | null;
   created_at: string;
 }
 

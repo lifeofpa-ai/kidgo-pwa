@@ -258,6 +258,68 @@ body,
   will-change: transform;
 }
 
+/* ── Tutorial slide animation ── */
+@keyframes tutorialSlideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Logo pulse loader ── */
+@keyframes logoPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(0.88); }
+}
+.logo-pulse {
+  animation: logoPulse 1.4s ease-in-out infinite;
+}
+
+/* ── Skeleton → card crossfade ── */
+@keyframes cardReveal {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.card-reveal {
+  animation: cardReveal 0.4s ease-out both;
+}
+
+/* ── Typography hierarchy ── */
+.kidgo-h1 {
+  font-size: 1.5rem;       /* 24px */
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.kidgo-h2 {
+  font-size: 1.125rem;     /* 18px */
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.kidgo-body {
+  font-size: 0.9375rem;    /* 15px */
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.kidgo-caption {
+  font-size: 0.75rem;      /* 12px */
+  font-weight: 300;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ── Category color borders ── */
+.cat-border-sport    { border-left: 3px solid #3B82F6; }
+.cat-border-kreativ  { border-left: 3px solid #EC4899; }
+.cat-border-musik    { border-left: 3px solid #8B5CF6; }
+.cat-border-natur    { border-left: 3px solid #22C55E; }
+.cat-border-museum   { border-left: 3px solid #F59E0B; }
+.cat-border-theater  { border-left: 3px solid #EF4444; }
+.cat-border-camp     { border-left: 3px solid #06B6D4; }
+.cat-border-default  { border-left: 3px solid #5BBAA7; }
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .card-enter,
@@ -278,5 +340,11 @@ body,
   }
   .dark .skeleton {
     background: #2d3330;
+  }
+  .logo-pulse {
+    animation: none;
+  }
+  .card-reveal {
+    animation: none;
   }
 }

@@ -73,9 +73,13 @@ export default function BookmarksPage() {
             <div className="empty-float mx-auto mb-5 w-24 h-24">
               <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="96" height="96" rx="24" fill="#EFF8F6"/>
-                <path d="M28 26h40a3 3 0 0 1 3 3v38l-23-12-23 12V29a3 3 0 0 1 3-3z" stroke="#5BBAA7" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="68" cy="30" r="11" fill="white" stroke="#e0e0e0" strokeWidth="1.5"/>
-                <path d="M64 30h8M68 26v8" stroke="#b2bec3" strokeWidth="1.8" strokeLinecap="round"/>
+                {/* Bookmark body */}
+                <path d="M30 24h36a4 4 0 0 1 4 4v40l-22-11-22 11V28a4 4 0 0 1 4-4z" stroke="#5BBAA7" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                {/* Horizontal rule inside bookmark */}
+                <path d="M40 38h16" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.5"/>
+                <path d="M40 45h10" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.35"/>
+                {/* Small decorative star */}
+                <circle cx="48" cy="32" r="3.5" fill="#5BBAA7" fillOpacity="0.25" stroke="#5BBAA7" strokeWidth="1.4"/>
               </svg>
             </div>
             <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">Noch nichts gemerkt</p>

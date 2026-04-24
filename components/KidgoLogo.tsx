@@ -19,28 +19,63 @@ export function KidgoLogo({ size = "md", className = "" }: KidgoLogoProps) {
       aria-label="Kidgo"
       role="img"
     >
+      {/* Background */}
       <rect width="800" height="500" fill="#76C4B9" />
 
+      {/* Hexagon body — cream fill */}
       <path
         d="M400 50 L616.5 175 V425 L400 550 L183.5 425 V175 Z"
         fill="#F9F9E0"
         transform="translate(0, -50)"
       />
 
-      <g fill="#76C4B9">
-        <rect x="355" y="145" width="90" height="75" rx="10" />
-        <rect x="370" y="135" width="10" height="20" rx="5" />
-        <rect x="420" y="135" width="10" height="20" rx="5" />
-        <path
-          d="M380 185 l15 15 l25 -25"
-          stroke="#F9F9E0"
-          strokeWidth="8"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
+      {/* Calendar body — outline only (cream shows through), teal border */}
+      <rect
+        x="352"
+        y="148"
+        width="96"
+        height="78"
+        rx="10"
+        fill="#F9F9E0"
+        stroke="#76C4B9"
+        strokeWidth="6"
+      />
 
+      {/* Calendar clip left — teal pill with white outline (the "eye" / Bügel) */}
+      <rect
+        x="371"
+        y="130"
+        width="16"
+        height="28"
+        rx="8"
+        fill="#76C4B9"
+        stroke="#F9F9E0"
+        strokeWidth="4"
+      />
+
+      {/* Calendar clip right */}
+      <rect
+        x="413"
+        y="130"
+        width="16"
+        height="28"
+        rx="8"
+        fill="#76C4B9"
+        stroke="#F9F9E0"
+        strokeWidth="4"
+      />
+
+      {/* Checkmark — big and thick */}
+      <path
+        d="M370 190 l20 20 l40 -38"
+        stroke="#76C4B9"
+        strokeWidth="14"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* KIDGO wordmark */}
       <text
         x="400"
         y="355"

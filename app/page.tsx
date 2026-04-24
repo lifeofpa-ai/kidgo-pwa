@@ -13,6 +13,7 @@ import {
   getLevelProgress,
   trackGeheimtipp,
 } from "@/lib/gamification";
+import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { InterestsModal } from "@/components/InterestsModal";
 import { eventMatchesInterests } from "@/lib/interests";
 import {
@@ -255,6 +256,28 @@ const categoryEmojis: Record<string, string> = {
   Tanz: "💃", Theater: "🎭", Musik: "🎵", "Mode & Design": "👗",
   Wissenschaft: "🔬", Bildung: "📚", Ausflug: "🗺️", Feriencamp: "🏕️",
 };
+
+const CATEGORY_COLORS: Record<string, string> = {
+  Sport:      "#3B82F6",
+  Kreativ:    "#EC4899",
+  Musik:      "#8B5CF6",
+  Tanz:       "#8B5CF6",
+  Natur:      "#22C55E",
+  Tiere:      "#22C55E",
+  Museum:     "#F59E0B",
+  Bildung:    "#F59E0B",
+  Wissenschaft: "#F59E0B",
+  Theater:    "#EF4444",
+  Feriencamp: "#06B6D4",
+};
+
+function getCategoryColor(kategorien: string[] | null, kategorie: string | null): string {
+  const cats = kategorien ?? (kategorie ? [kategorie] : []);
+  for (const c of cats) {
+    if (CATEGORY_COLORS[c]) return CATEGORY_COLORS[c];
+  }
+  return "#5BBAA7";
+}
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -897,7 +920,10 @@ function RecommendationCard({
       className="block group card-enter"
       style={{ animationDelay: `${animIndex * 80}ms` }}
     >
-      <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-kidgo-200 group-hover:-translate-y-0.5 relative">
+      <div
+        className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-kidgo-200 group-hover:-translate-y-0.5 relative"
+        style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
+      >
           {onBookmark && (
             <button
               onClick={onBookmark}
@@ -1146,6 +1172,9 @@ export default function Home() {
   // Sprint 3: Challenge
   const [challengeAccepted, setChallengeAccepted] = useState(false);
   const [showChallengeEvents, setShowChallengeEvents] = useState(false);
+
+  // Sprint 13: Onboarding tutorial overlay
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Sprint 3: Offline + PWA install
   const [isOffline, setIsOffline] = useState(false);
@@ -1855,12 +1884,21 @@ export default function Home() {
   const finishOnboarding = () => {
     try { localStorage.setItem("kidgo_onboarded", "true"); } catch {}
     setIsFirstVisit(false);
+    // Sprint 13: Show tutorial on first visit
+    try {
+      if (!localStorage.getItem("kidgo_tutorial_seen")) setShowTutorial(true);
+    } catch {}
     navigateForward("recommendations");
     // Sprint 11: Show interests modal if not yet set
     try {
       const existing = localStorage.getItem("kidgo_interests");
       if (!existing) setShowInterestsModal(true);
     } catch {}
+  };
+
+  const handleTutorialComplete = () => {
+    try { localStorage.setItem("kidgo_tutorial_seen", "true"); } catch {}
+    setShowTutorial(false);
   };
 
   const now = new Date();
@@ -2040,6 +2078,9 @@ export default function Home() {
 
   return (
     <>
+    {showTutorial && (
+      <OnboardingTutorial onComplete={handleTutorialComplete} />
+    )}
     {showProfileSetup && (
       <ProfileSetupModal onComplete={() => setShowProfileSetup(false)} />
     )}
@@ -2546,8 +2587,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Spacer for card stack action buttons */}
-        {!loading && recommendations.length > 0 && <div className="mt-20" />}
+        {/* Spacer for card stack action buttons — 112px prevents overlap on all phone sizes */}
+        {!loading && recommendations.length > 0 && <div className="mt-28" />}
 
         {/* ===== SPRINT 11: QUICK ACTIONS ===== */}
         {!loading && (
@@ -2566,7 +2607,13 @@ export default function Home() {
 
               {/* Gratis */}
               <button
-                onClick={() => { setChatOpen(true); handleChatQuery("Gratis am Wochenende"); }}
+                onClick={() => {
+                  setCollectionsOpen(true);
+                  setActiveCollection("gratis");
+                  setTimeout(() => {
+                    document.getElementById("smart-collections")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 50);
+                }}
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
@@ -2580,7 +2627,13 @@ export default function Home() {
 
               {/* Camps */}
               <button
-                onClick={() => { setChatOpen(true); handleChatQuery("Feriencamps für Kinder"); }}
+                onClick={() => {
+                  setCollectionsOpen(true);
+                  setActiveCollection("camps");
+                  setTimeout(() => {
+                    document.getElementById("smart-collections")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 50);
+                }}
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
@@ -2597,9 +2650,9 @@ export default function Home() {
                 onClick={() => {
                   setChatOpen(true);
                   setTimeout(() => {
-                    document.getElementById("kidgo-chat-input")?.focus();
-                    document.getElementById("kidgo-chat-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }, 150);
+                    document.getElementById("kidgo-chat-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    setTimeout(() => document.getElementById("kidgo-chat-input")?.focus(), 200);
+                  }, 400);
                 }}
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
@@ -2963,7 +3016,7 @@ export default function Home() {
 
         {/* ===== FEATURE 1: SMART COLLECTIONS (collapsible) ===== */}
         {!loading && allEventsPool.length > 0 && (
-          <div className="mt-6">
+          <div id="smart-collections" className="mt-6">
             <button
               onClick={() => setCollectionsOpen((o) => !o)}
               className="w-full flex items-center justify-between mb-3 px-0.5"

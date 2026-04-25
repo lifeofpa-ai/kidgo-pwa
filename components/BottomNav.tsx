@@ -85,8 +85,8 @@ export function BottomNav() {
               {active && (
                 <span
                   aria-hidden="true"
-                  className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full"
-                  style={{ backgroundColor: "var(--kidgo-teal)" }}
+                  className="absolute bottom-1 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full"
+                  style={{ background: "linear-gradient(to right, #5BBAA7, #4A9E8E)" }}
                 />
               )}
             </Link>

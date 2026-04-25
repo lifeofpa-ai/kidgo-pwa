@@ -21,8 +21,10 @@ html, body { width: 100%; height: 100%; }
   --border-strong: #b2bec3;
   --accent: #5BBAA7;
   --accent-light: #EFF8F6;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-sm: 0 1px 3px 0 rgba(91,186,167,0.08), 0 1px 2px -1px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 8px -2px rgba(91,186,167,0.10), 0 2px 4px -2px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 24px -5px rgba(91,186,167,0.12), 0 4px 8px -4px rgba(0,0,0,0.08);
+  --kidgo-gradient: linear-gradient(135deg, #5BBAA7, #4A9E8E);
 
   /* Named brand tokens */
   --kidgo-teal: #5BBAA7;
@@ -47,8 +49,9 @@ html, body { width: 100%; height: 100%; }
   --border-strong: #4e5e5b;
   --accent: #7CCBB9;
   --accent-light: #1a2e2a;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 3px 0 rgba(0,0,0,0.25), 0 1px 2px -1px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 8px -2px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 24px -5px rgba(0,0,0,0.5), 0 4px 8px -4px rgba(0,0,0,0.3);
 
   /* Named brand tokens – dark */
   --kidgo-teal: #7CCBB9;
@@ -85,9 +88,9 @@ body,
   background: var(--bg-page) !important;
 }
 
-/* Gradient backgrounds → flat dark */
-.dark .bg-gradient-to-br,
-.dark .bg-gradient-to-r {
+/* Gradient backgrounds → flat dark (preserve intentionally coloured banners) */
+.dark .bg-gradient-to-br:not(.preserve-gradient),
+.dark .bg-gradient-to-r:not(.preserve-gradient) {
   background: var(--bg-subtle) !important;
 }
 
@@ -497,6 +500,85 @@ select:focus {
 .stagger-fade > *:nth-child(4)  { animation-delay: 180ms; }
 .stagger-fade > *:nth-child(5)  { animation-delay: 240ms; }
 .stagger-fade > *:nth-child(6)  { animation-delay: 300ms; }
+
+/* ── Hex design utilities ── */
+.hex-shape {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.hex-badge {
+  clip-path: polygon(14% 0%, 86% 0%, 100% 50%, 86% 100%, 14% 100%, 0% 50%);
+}
+
+/* ── Hex background texture ── */
+.hex-texture {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='70'%3E%3Cpath d='M20 2L38 12v26L20 48 2 38V12z' fill='none' stroke='%235BBAA7' stroke-width='0.7' opacity='0.5'/%3E%3Cpath d='M20 48L38 58v12H2V58z' fill='none' stroke='%235BBAA7' stroke-width='0.7' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: 40px 70px;
+  background-repeat: repeat;
+}
+
+/* ── Teal gradient button ── */
+.btn-primary {
+  background: linear-gradient(135deg, var(--kidgo-teal), var(--kidgo-teal-dark)) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--kidgo-teal-dark), #3A8275) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Cream card ── */
+.cream-card {
+  background-color: var(--kidgo-cream);
+  border-color: rgba(91, 186, 167, 0.2);
+}
+.dark .cream-card {
+  background-color: var(--bg-subtle);
+}
+
+/* ── Gradient left border (for challenge/section banners) ── */
+.teal-gradient-left {
+  position: relative;
+  padding-left: 0;
+}
+.teal-gradient-left::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(to bottom, #5BBAA7, #4A9E8E);
+}
+
+/* ── Photo hover treatment ── */
+.photo-cell img {
+  transition: transform 300ms ease-out, filter 300ms ease-out;
+}
+.group:hover .photo-cell img {
+  transform: scale(1.04);
+  filter: brightness(1.05);
+}
+.dark .photo-cell img {
+  filter: brightness(0.85);
+}
+.dark .group:hover .photo-cell img {
+  filter: brightness(0.95);
+}
+
+/* ── Hexagon divider ── */
+.hex-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+.hex-divider::before,
+.hex-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
 /* ── Badge confetti ── */
 @keyframes kidgo-confetti-fall {

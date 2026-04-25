@@ -28,6 +28,20 @@ import {
   scoreWithPreferences,
   type PreferenceProfile,
 } from "@/lib/preferences";
+import {
+  getCategoryIcon,
+  WeatherIcon,
+  GiftIcon,
+  KreativIcon,
+  TentIcon,
+  TreeIcon,
+  SparkleIcon,
+  MuseumIcon,
+  SportIcon,
+  MapIcon,
+  PhoneIcon,
+  WifiOffIcon,
+} from "@/components/Icons";
 
 // ============================================================
 // TYPES
@@ -257,10 +271,10 @@ const WEEKLY_CHALLENGES = [
   },
 ];
 
-const categoryEmojis: Record<string, string> = {
-  Kreativ: "🎨", Natur: "🌿", Tiere: "🐾", Sport: "⚽",
-  Tanz: "💃", Theater: "🎭", Musik: "🎵", "Mode & Design": "👗",
-  Wissenschaft: "🔬", Bildung: "📚", Ausflug: "🗺️", Feriencamp: "🏕️",
+const CATEGORY_BG_COLORS: Record<string, string> = {
+  Kreativ: "#EC4899", Natur: "#22C55E", Tiere: "#22C55E", Sport: "#3B82F6",
+  Tanz: "#8B5CF6", Theater: "#EF4444", Musik: "#8B5CF6", "Mode & Design": "#F43F5E",
+  Wissenschaft: "#06B6D4", Bildung: "#F59E0B", Ausflug: "#14B8A6", Feriencamp: "#06B6D4",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -401,12 +415,38 @@ function getHeadline(now: Date): { title: string; subtitle: string } {
   return { title: "Schlaf gut! Hier sind Ideen für morgen.", subtitle: "Schon mal für morgen planen" };
 }
 
-function weatherIcon(code: number): string {
-  if (code >= 80) return "⛈️";
-  if (code >= 61) return "🌧️";
-  if (code >= 51) return "🌦️";
-  if (code >= 3)  return "⛅";
-  return "☀️";
+function WeatherIcon({ code }: { code: number }) {
+  if (code >= 80) return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 10a4 4 0 0 1 4-4 4 4 0 0 1 6 3.5A2.5 2.5 0 0 1 11 15H4.5A2.5 2.5 0 0 1 3 10z"/>
+      <path d="M6 15l-1 2M9 15l-0.5 2M12 15l-1 2"/>
+    </svg>
+  );
+  if (code >= 61) return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 10a4 4 0 0 1 4-4 4 4 0 0 1 6 3.5A2.5 2.5 0 0 1 11 15H4.5A2.5 2.5 0 0 1 3 10z"/>
+      <path d="M6 15l-0.5 1.5M9 15l-0.5 1.5"/>
+    </svg>
+  );
+  if (code >= 51) return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="4.5" r="2.5"/>
+      <path d="M3.5 12a3.5 3.5 0 0 1 3.5-3.5h4A2.5 2.5 0 0 1 13 11a2.5 2.5 0 0 1-2.5 2.5H5A2 2 0 0 1 3.5 12z"/>
+      <path d="M7 14.5l-0.5 1.5"/>
+    </svg>
+  );
+  if (code >= 3) return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="4.5" r="2.5"/>
+      <path d="M3.5 12a3.5 3.5 0 0 1 3.5-3.5h4A2.5 2.5 0 0 1 13 11a2.5 2.5 0 0 1-2.5 2.5H5A2 2 0 0 1 3.5 12z"/>
+    </svg>
+  );
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="3.5"/>
+      <path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M12.6 3.4l-.7.7M4.1 11.9l-.7.7"/>
+    </svg>
+  );
 }
 
 function ageToBucket(age: number): string | null {
@@ -830,17 +870,17 @@ function EventImage({
 }) {
   const [err, setErr] = useState(false);
   const cat = kategorien?.[0] || "";
-  const emoji = categoryEmojis[cat] || "🎪";
   const cls = className ?? "h-48 w-full overflow-hidden";
   const altText = title || cat || "Event";
+  const iconColor = CATEGORY_BG_COLORS[cat] || "#5BBAA7";
 
   if (url && !err) {
     return (
-      <div className={cls}>
+      <div className={`${cls} photo-cell`}>
         <img
           src={url}
           alt={altText}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover group-hover:scale-[1.03] group-hover:brightness-105 dark:brightness-90 transition-all duration-300 ease-out"
           loading="lazy"
           onError={() => setErr(true)}
         />
@@ -848,8 +888,10 @@ function EventImage({
     );
   }
   return (
-    <div className={`${cls} bg-gradient-to-br from-kidgo-100 to-kidgo-50 flex items-center justify-center`}>
-      <span className="text-6xl" role="img" aria-label={altText}>{emoji}</span>
+    <div className={`${cls} bg-[var(--bg-subtle)] flex items-center justify-center`} aria-label={altText}>
+      <div className="opacity-20" style={{ color: iconColor }}>
+        {getCategoryIcon(cat, { size: 60 })}
+      </div>
     </div>
   );
 }
@@ -2107,7 +2149,12 @@ export default function Home() {
                       : "border-gray-200 bg-white hover:border-kidgo-300 hover:bg-kidgo-50/50"
                   }`}
                 >
-                  <div className="text-4xl mb-2">{bucket.emoji}</div>
+                  <div className="mb-2 text-kidgo-500">
+                    {bucket.key === "0-3"   && <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="5"/><path d="M3 20c0-4 4-7 9-7s9 3 9 7"/><path d="M9 8h.01M15 8h.01"/><path d="M9.5 10.5 Q12 12 14.5 10.5"/></svg>}
+                    {bucket.key === "4-6"   && <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="3"/><path d="M12 8v8M9 12h6M9 21l3-5 3 5"/></svg>}
+                    {bucket.key === "7-9"   && <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="2.5"/><path d="M14 10l3 4-2 1M10 10l-3 4 2 1M12 10v5M10 21l2-6 2 6"/></svg>}
+                    {bucket.key === "10-12" && <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="13" r="4"/><path d="M16 13h6M14.5 10.5L20 5M5 14H2M3 8l5 5"/></svg>}
+                  </div>
                   <div className="font-bold text-gray-800 text-lg leading-tight">{bucket.label}</div>
                   <div className="text-gray-500 text-sm mt-0.5">{bucket.desc}</div>
                   {selected && multiChild && (
@@ -2212,11 +2259,11 @@ export default function Home() {
 
         {/* Sprint 3: PWA Install Banner */}
         {showInstallBanner && (
-          <div className="mb-5 bg-gradient-to-r from-kidgo-400 to-kidgo-300 text-white rounded-2xl px-5 py-4 shadow-md card-enter">
+          <div className="mb-5 bg-gradient-to-r from-kidgo-400 to-kidgo-300 preserve-gradient text-white rounded-2xl px-5 py-4 shadow-md card-enter">
             <div className="flex items-center gap-3">
-              <span className="text-3xl">📱</span>
+              <PhoneIcon size={28} color="white" />
               <div className="flex-1">
-                <p className="font-bold text-sm">📱 Als App installieren</p>
+                <p className="font-bold text-sm">Als App installieren</p>
                 <p className="text-kidgo-100 text-xs mt-0.5">Schneller Zugriff direkt vom Homescreen</p>
               </div>
               <div className="flex items-center gap-2">
@@ -2323,7 +2370,7 @@ export default function Home() {
         {/* Sprint 3: Offline Banner */}
         {isOffline && (
           <div className="mb-5 bg-gray-700 text-white rounded-2xl px-5 py-3.5 shadow-md flex items-center gap-3 card-enter">
-            <span className="text-2xl">📡</span>
+            <WifiOffIcon size={22} color="white" />
             <div>
               <p className="font-bold text-sm">Du bist offline</p>
               <p className="text-gray-300 text-xs mt-0.5">Zuletzt gesehene Events werden angezeigt</p>
@@ -2340,7 +2387,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               {weatherCode !== null && (
                 <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700">
-                  <span aria-hidden="true">{weatherIcon(weatherCode)}</span>
+                  <WeatherIcon code={weatherCode} size={16} />
                   {weatherTemp !== null && (
                     <span className="font-medium">{Math.round(weatherTemp)}°C</span>
                   )}
@@ -2552,7 +2599,7 @@ export default function Home() {
 
         {/* Sprint 3: Challenge der Woche */}
         {!loading && allEventsPool.length > 0 && (
-          <div className="mb-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-5 py-4 card-enter" style={{ borderLeft: "3px solid #7c3aed" }}>
+          <div className="mb-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-5 py-4 card-enter teal-gradient-left">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-1">Challenge der Woche</p>
@@ -2670,9 +2717,35 @@ export default function Home() {
           </div>
         )}
 
-        {/* Sprint 12: Card Stack — Tinder-style stacked cards */}
+        {/* Desktop 2-col grid (md+) */}
         {!loading && recommendations.length > 0 && (
-          <div className="relative select-none min-h-[420px] md:min-h-[520px]">
+          <div className="hidden md:grid md:grid-cols-2 gap-5 mb-8">
+            {recommendations.map((event, i) => {
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <RecommendationCard
+                  key={event.id}
+                  event={event}
+                  reasons={event.reasons}
+                  sources={sources}
+                  userLocation={userLocation}
+                  animIndex={i}
+                  selectedBuckets={selectedBuckets}
+                  isSeriesParent={seriesParentIds.has(event.id)}
+                  isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                  entdeckerScore={computeEntdeckerScore(cnt)}
+                  isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                  onBookmark={(e) => toggleBookmark(event, e)}
+                  bookmarkCount={bookmarkCounts.get(event.id)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Sprint 12: Card Stack — Tinder-style stacked cards (mobile only) */}
+        {!loading && recommendations.length > 0 && (
+          <div className="md:hidden relative select-none min-h-[420px]">
 
             {/* Background stacked cards (peek behind top card) */}
             {recommendations.slice(1).map((event, ri) => {
@@ -2800,8 +2873,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Spacer for card stack action buttons — 112px prevents overlap on all phone sizes */}
-        {!loading && recommendations.length > 0 && <div className="mt-28" />}
+        {/* Spacer for card stack buttons — mobile only */}
+        {!loading && recommendations.length > 0 && <div className="mt-28 md:hidden" />}
 
         {/* ===== SPRINT 11: QUICK ACTIONS ===== */}
         {!loading && (
@@ -3005,7 +3078,7 @@ export default function Home() {
 
         {/* ===== FEATURE A: FRAG KIDGO CHAT (collapsible) ===== */}
         {!loading && allEventsPool.length > 0 && (
-          <div id="kidgo-chat-section" className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div id="kidgo-chat-section" className="mt-8 bg-[var(--kidgo-cream)] dark:bg-[var(--bg-subtle)] rounded-2xl shadow-sm border border-kidgo-200/50 overflow-hidden">
             <button
               onClick={() => setChatOpen((o) => !o)}
               className="w-full flex items-center justify-between p-5 pb-4 text-left"

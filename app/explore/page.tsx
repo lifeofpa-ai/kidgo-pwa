@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
+import { getCategoryIcon } from "@/components/Icons";
 
 const PAGE_SIZE = 15;
 
@@ -25,19 +26,19 @@ const categoryColors: Record<string, string> = {
   "Feriencamp":    "bg-kidgo-50 text-kidgo-600 border-kidgo-100 dark:bg-kidgo-950/30 dark:text-kidgo-400 dark:border-kidgo-900",
 };
 
-const categoryFallback: Record<string, string> = {
-  "Kreativ":       "from-pink-100 to-rose-50",
-  "Natur":         "from-green-100 to-emerald-50",
-  "Tiere":         "from-kidgo-100 to-kidgo-50",
-  "Sport":         "from-blue-100 to-sky-50",
-  "Tanz":          "from-purple-100 to-kidgo-50",
-  "Theater":       "from-red-100 to-rose-50",
-  "Musik":         "from-kidgo-100 to-kidgo-50",
-  "Mode & Design": "from-rose-100 to-pink-50",
-  "Wissenschaft":  "from-cyan-100 to-sky-50",
-  "Bildung":       "from-kidgo-100 to-kidgo-50",
-  "Ausflug":       "from-teal-100 to-green-50",
-  "Feriencamp":    "from-kidgo-100 to-kidgo-50",
+const categoryBgColors: Record<string, string> = {
+  "Kreativ":       "#EC4899",
+  "Natur":         "#22C55E",
+  "Tiere":         "#22C55E",
+  "Sport":         "#3B82F6",
+  "Tanz":          "#8B5CF6",
+  "Theater":       "#EF4444",
+  "Musik":         "#8B5CF6",
+  "Mode & Design": "#F43F5E",
+  "Wissenschaft":  "#06B6D4",
+  "Bildung":       "#F59E0B",
+  "Ausflug":       "#14B8A6",
+  "Feriencamp":    "#06B6D4",
 };
 
 function EventCard({ event, source, serienCount, formatDate }: {
@@ -66,17 +67,21 @@ function EventCard({ event, source, serienCount, formatDate }: {
       className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] hover:shadow-md transition-all duration-200 ease-out overflow-hidden group flex flex-col hover:-translate-y-0.5 active:scale-[0.99]"
       style={{ borderLeft: `3px solid ${leftBorderColor}` }}
     >
-      <div className="h-48 overflow-hidden bg-[var(--bg-subtle)] flex-shrink-0 rounded-t-xl">
+      <div className="h-48 overflow-hidden bg-[var(--bg-subtle)] flex-shrink-0 rounded-t-xl photo-cell">
         {event.kategorie_bild_url && !imgErr ? (
           <img
             src={event.kategorie_bild_url}
             alt={event.titel}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 ease-out"
+            className="w-full h-full object-cover group-hover:scale-[1.03] group-hover:brightness-105 dark:brightness-90 transition-all duration-300 ease-out"
             loading="lazy"
             onError={() => setImgErr(true)}
           />
         ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${categoryFallback[cat] || "from-kidgo-100 to-kidgo-50"}`} />
+          <div className="w-full h-full bg-[var(--bg-subtle)] flex items-center justify-center">
+            <div className="opacity-20" style={{ color: categoryBgColors[cat] || "#5BBAA7" }}>
+              {getCategoryIcon(cat, { size: 56 })}
+            </div>
+          </div>
         )}
       </div>
 

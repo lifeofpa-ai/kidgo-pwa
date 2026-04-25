@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { BottomNav } from "@/components/BottomNav";
+import { DesktopSideNav } from "@/components/DesktopSideNav";
 import { KidgoFooter } from "@/components/KidgoFooter";
 import { PageTransitionWrapper } from "@/components/PageTransitionWrapper";
 import "./globals.css";
@@ -63,7 +64,10 @@ export default function RootLayout({
           Zum Inhalt springen
         </a>
         <AuthProvider>
-          <PageTransitionWrapper>{children}</PageTransitionWrapper>
+          <DesktopSideNav />
+          <div className="md:pl-56">
+            <PageTransitionWrapper>{children}</PageTransitionWrapper>
+          </div>
         </AuthProvider>
         <KidgoFooter />
         <BottomNav />

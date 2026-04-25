@@ -30,6 +30,9 @@ export const metadata: Metadata = {
     title: "Kidgo – Events für Kinder",
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich.",
   },
+  icons: {
+    icon: "/favicon.svg",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

@@ -30,7 +30,6 @@ import {
 } from "@/lib/preferences";
 import {
   getCategoryIcon,
-  WeatherIcon,
   GiftIcon,
   KreativIcon,
   TentIcon,
@@ -102,8 +101,8 @@ interface DayPlanResult {
 
 interface SmartCollection {
   id: string;
-  emoji: string;
   label: string;
+  emoji?: string;
   filter: (e: KidgoEvent, now: Date) => boolean;
 }
 
@@ -401,11 +400,11 @@ function getHeadline(now: Date): { title: string; subtitle: string } {
   const h = now.getHours();
   const holiday = getActiveHoliday(now);
   if (holiday)
-    return { title: "Ferientipp für euch 🏖️", subtitle: `${holiday} — Zeit für Abenteuer!` };
+    return { title: "Ferientipp für euch", subtitle: `${holiday} — Zeit für Abenteuer!` };
   if (dow === 6 || dow === 0 || (dow === 5 && h >= 15))
     return { title: "Dieses Wochenende für euch", subtitle: "Passend ausgewählt für dein Kind" };
   if (dow === 3 && h >= 11 && h <= 18)
-    return { title: "Mittwochnachmittag-Tipps 🎒", subtitle: "Heute Nachmittag was Tolles unternehmen" };
+    return { title: "Mittwochnachmittag-Tipps", subtitle: "Heute Nachmittag was Tolles unternehmen" };
   if (h >= 6 && h < 12)
     return { title: "Guten Morgen! Was unternehmt ihr heute?", subtitle: "Passend ausgewählt für dein Kind" };
   if (h >= 12 && h < 17)
@@ -415,7 +414,7 @@ function getHeadline(now: Date): { title: string; subtitle: string } {
   return { title: "Schlaf gut! Hier sind Ideen für morgen.", subtitle: "Schon mal für morgen planen" };
 }
 
-function WeatherIcon({ code }: { code: number }) {
+function WeatherIcon({ code }: { code: number; size?: number }) {
   if (code >= 80) return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 10a4 4 0 0 1 4-4 4 4 0 0 1 6 3.5A2.5 2.5 0 0 1 11 15H4.5A2.5 2.5 0 0 1 3 10z"/>
@@ -446,6 +445,16 @@ function WeatherIcon({ code }: { code: number }) {
       <circle cx="8" cy="8" r="3.5"/>
       <path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M12.6 3.4l-.7.7M4.1 11.9l-.7.7"/>
     </svg>
+  );
+}
+
+function HexDivider() {
+  return (
+    <div className="flex items-center justify-center my-3" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <polygon points="8,1 14,4.5 14,11.5 8,15 2,11.5 2,4.5" fill="rgba(91,186,167,0.3)" stroke="none"/>
+      </svg>
+    </div>
   );
 }
 
@@ -482,17 +491,17 @@ function scoreEvent(
     selectedBuckets.every((b) => event.alters_buckets!.includes(b))
   ) {
     score += 5;
-    reasons.push("👨‍👩‍👧‍👦 Passt für alle Kinder");
+    reasons.push("Passt für alle Kinder");
   }
 
   const isRain = weatherCode !== null && weatherCode >= 51;
   const isSun  = weatherCode !== null && weatherCode <= 2;
   if (isRain && event.indoor_outdoor === "indoor") {
     score += 8;
-    reasons.push("🌧️ Indoor-Tipp — heute regnet es");
+    reasons.push("Indoor-Tipp — heute regnet es");
   } else if (isSun && event.indoor_outdoor === "outdoor") {
     score += 8;
-    reasons.push("☀️ Perfekt bei diesem Wetter");
+    reasons.push("Perfekt bei diesem Wetter");
   } else if (isRain && event.indoor_outdoor === "beides") {
     score += 4;
   }
@@ -504,9 +513,9 @@ function scoreEvent(
     const diff = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (diff >= 0 && diff <= 3) {
       score += 5;
-      if (diff === 0) reasons.push("🔥 Heute!");
-      else if (diff === 1) reasons.push("⚡ Morgen!");
-      else reasons.push(`⏰ Nur noch ${diff} Tage!`);
+      if (diff === 0) reasons.push("Heute!");
+      else if (diff === 1) reasons.push("Morgen!");
+      else reasons.push(`Nur noch ${diff} Tage!`);
     }
   }
 
@@ -517,14 +526,14 @@ function scoreEvent(
     ["gratis", "kostenlos", "freier eintritt"].some(
       (kw) => descLow.includes(kw) || titleLow.includes(kw)
     );
-  if (isFree) { score += 3; reasons.push("🎉 Gratis!"); }
+  if (isFree) { score += 3; reasons.push("Gratis!"); }
 
   if (
     event.created_at &&
     new Date(event.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   ) {
     score += 3;
-    reasons.push("✨ Neu entdeckt");
+    reasons.push("Neu entdeckt");
   }
 
   const m = now.getMonth() + 1;
@@ -540,7 +549,7 @@ function scoreEvent(
       cats.includes("Feriencamp") ||
       descLow.includes("camp") ||
       descLow.includes("ferienlager");
-    if (isCamp) { score += 5; reasons.push("🏖️ Ferientipp!"); }
+    if (isCamp) { score += 5; reasons.push("Ferientipp!"); }
   }
 
   const hour = now.getHours();
@@ -888,8 +897,8 @@ function EventImage({
     );
   }
   return (
-    <div className={`${cls} bg-[var(--bg-subtle)] flex items-center justify-center`} aria-label={altText}>
-      <div className="opacity-20" style={{ color: iconColor }}>
+    <div className={`${cls} flex items-center justify-center`} style={{ backgroundColor: "#F5F0E8" }} aria-label={altText}>
+      <div className="opacity-30" style={{ color: iconColor }}>
         {getCategoryIcon(cat, { size: 60 })}
       </div>
     </div>
@@ -970,7 +979,7 @@ function RecommendationCard({
     >
       <div
         className="bg-[var(--bg-card)] rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ease-out overflow-hidden border border-[var(--border)] group-hover:border-kidgo-200 group-hover:scale-[1.01] relative"
-        style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
+        style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}`, boxShadow: "0 2px 12px rgba(91,186,167,0.08)" }}
       >
           {onBookmark && (
             <button
@@ -2058,7 +2067,7 @@ export default function Home() {
             Dein persönlicher Begleiter für die besten Kinder-Events in Zürich
           </p>
           <p className="text-white/60 text-sm mb-10">
-            Passend fürs Alter, Wetter und deine Ferien ✨
+            Passend fürs Alter, Wetter und deine Ferien
           </p>
           <button
             onClick={() => navigateForward("age-select")}
@@ -2085,7 +2094,9 @@ export default function Home() {
           </div>
           <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-gray-100">
             <p className="text-sm text-gray-600 flex items-start gap-2">
-              <span className="mt-0.5">🔒</span>
+              <span className="mt-0.5 text-[var(--kidgo-teal)]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
               <span>Dein Standort wird nur lokal auf deinem Gerät gespeichert — niemals weitergegeben.</span>
             </p>
           </div>
@@ -2110,7 +2121,10 @@ export default function Home() {
             }}
             className="w-full bg-white text-[#5BBAA7] py-4 rounded-2xl font-bold text-lg hover:bg-kidgo-50 transition shadow-lg active:scale-95 mb-3"
           >
-            📍 Standort erlauben
+            <span className="flex items-center justify-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              Standort erlauben
+            </span>
           </button>
           <button
             onClick={finishOnboarding}
@@ -2174,7 +2188,10 @@ export default function Home() {
               onClick={() => { setMultiChild(true); setSelectedBuckets([]); }}
               className="w-full py-3.5 border-2 border-dashed border-gray-300 rounded-2xl text-gray-500 font-medium hover:border-kidgo-300 hover:text-kidgo-500 transition text-sm"
             >
-              👨‍👩‍👧‍👦 Mehrere Kinder
+              <span className="flex items-center justify-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="8" r="2.5"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M17 14c2.5 0 5 1.5 5 5"/></svg>
+                Mehrere Kinder
+              </span>
             </button>
           ) : (
             <div className="space-y-2 mt-1">
@@ -2334,7 +2351,7 @@ export default function Home() {
         {/* Sprint 15: Notification permission prompt */}
         {showNotifPrompt && (
           <div className="mb-4 bg-[var(--bg-card)] border border-[var(--accent)]/30 rounded-2xl px-4 py-3.5 flex items-center gap-3 card-enter shadow-sm">
-            <span className="text-xl flex-shrink-0">🔔</span>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)] flex-shrink-0"><path d="M9 2a5 5 0 0 1 5 5v3l1 1.5H3L4 10V7a5 5 0 0 1 5-5z"/><path d="M7.5 14a1.5 1.5 0 0 0 3 0"/></svg>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Events nicht verpassen</p>
               <p className="text-xs text-[var(--text-muted)]">Erhalte Erinnerungen für gemerkten Events</p>
@@ -2658,7 +2675,7 @@ export default function Home() {
             </div>
             {challengeEvents.length === 0 ? (
               <div className="text-center py-8 bg-white rounded-2xl border border-gray-100">
-                <p className="text-4xl mb-2">🔍</p>
+  
                 <p className="text-gray-400 text-sm">Aktuell keine passenden Events</p>
               </div>
             ) : (
@@ -2876,6 +2893,162 @@ export default function Home() {
         {/* Spacer for card stack buttons — mobile only */}
         {!loading && recommendations.length > 0 && <div className="mt-28 md:hidden" />}
 
+        {/* ===== SPRINT 19-20: PERSONALISIERTES DASHBOARD ===== */}
+
+        {/* "Heute" — Events mit Datum=Heute */}
+        {!loading && allEventsPool.length > 0 && (user !== null || visitCount > 0) && (() => {
+          const todayStr = localDateStr(now);
+          const todayEvents = allEventsPool
+            .filter((e) => e.datum === todayStr)
+            .map((e) => {
+              const { score, reasons } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
+              return { ...e, score, reasons };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3);
+          if (todayEvents.length === 0) return null;
+          return (
+            <div className="mt-8">
+              <HexDivider />
+              <div className="flex items-center justify-between mb-3 px-0.5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Heute</p>
+                <span className="text-xs text-[#5BBAA7] font-semibold">{todayEvents.length} Events</span>
+              </div>
+              <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+                {todayEvents.map((event, i) => (
+                  <RecommendationCard
+                    key={event.id}
+                    event={event}
+                    reasons={event.reasons}
+                    sources={sources}
+                    userLocation={userLocation}
+                    animIndex={i}
+                    selectedBuckets={selectedBuckets}
+                    isSeriesParent={seriesParentIds.has(event.id)}
+                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                    onBookmark={(e) => toggleBookmark(event, e)}
+                    bookmarkCount={bookmarkCounts.get(event.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* "Dieses Wochenende" — Sa+So, horizontal scroll, max 5 */}
+        {!loading && allEventsPool.length > 0 && (user !== null || visitCount > 0) && (() => {
+          const dow = now.getDay();
+          const toSat = dow === 0 ? 6 : dow === 6 ? 0 : (6 - dow);
+          const sat = new Date(now); sat.setDate(sat.getDate() + toSat); sat.setHours(0, 0, 0, 0);
+          const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
+          const satStr = localDateStr(sat);
+          const sunStr = localDateStr(sun);
+          const weekendEvents = allEventsPool
+            .filter((e) => e.datum === satStr || e.datum === sunStr)
+            .map((e) => {
+              const { score } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
+              return { ...e, score };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5);
+          if (weekendEvents.length === 0) return null;
+          return (
+            <div className="mt-8">
+              <HexDivider />
+              <div className="flex items-center justify-between mb-3 px-0.5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dieses Wochenende</p>
+                <span className="text-xs text-[#5BBAA7] font-semibold">{weekendEvents.length} Events</span>
+              </div>
+              <div
+                className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+              >
+                {weekendEvents.map((event) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
+                    className="flex-shrink-0 w-44 group"
+                  >
+                    <div
+                      className="rounded-2xl overflow-hidden border border-gray-100 hover:border-[#5BBAA7]/40 transition-all hover:shadow-md"
+                      style={{ boxShadow: "0 2px 8px rgba(91,186,167,0.08)" }}
+                    >
+                      <div className="h-28 bg-gradient-to-br from-[#F5F0E8] to-kidgo-50 relative overflow-hidden">
+                        {event.kategorie_bild_url ? (
+                          <img src={event.kategorie_bild_url} alt={event.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                            </svg>
+                          </div>
+                        )}
+                        {event.datum && (
+                          <div className="absolute bottom-2 left-2">
+                            <span className="text-[10px] font-bold text-white bg-[#5BBAA7] rounded-full px-2 py-0.5">
+                              {new Date(event.datum + "T00:00:00").toLocaleDateString("de-CH", { weekday: "short", day: "numeric" })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 bg-white">
+                        <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
+                        {event.ort && <p className="text-[10px] text-gray-400 mt-1 truncate">{event.ort}</p>}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* "Community-Favoriten" — höchster bookmark_count, max 4 */}
+        {!loading && allEventsPool.length > 0 && (user !== null || visitCount > 0) && (() => {
+          const communityFavs = allEventsPool
+            .filter((e) => (bookmarkCounts.get(e.id) ?? 0) > 0)
+            .sort((a, b) => (bookmarkCounts.get(b.id) ?? 0) - (bookmarkCounts.get(a.id) ?? 0))
+            .slice(0, 4);
+          if (communityFavs.length === 0) return null;
+          return (
+            <div className="mt-8">
+              <HexDivider />
+              <div className="flex items-center justify-between mb-3 px-0.5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Community-Favoriten</p>
+              </div>
+              <div className="space-y-3">
+                {communityFavs.map((event, i) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
+                    className="flex items-center gap-3 bg-[#F5F0E8] dark:bg-[var(--bg-card)] rounded-2xl p-3.5 group hover:shadow-md transition-all"
+                    style={{ boxShadow: "0 2px 8px rgba(91,186,167,0.08)" }}
+                  >
+                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-kidgo-100">
+                      {event.kategorie_bild_url ? (
+                        <img src={event.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-800 leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
+                      {event.ort && <p className="text-xs text-gray-400 mt-0.5 truncate">{event.ort}</p>}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="text-[10px] font-bold bg-[#5BBAA7] text-white px-2 py-0.5 rounded-full">Beliebt</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ===== SPRINT 11: QUICK ACTIONS ===== */}
         {!loading && (
           <div className="mt-6">
@@ -2966,6 +3139,7 @@ export default function Home() {
         )}
 
         {/* ===== SPRINT 6A: WOCHENPLANER (collapsible) ===== */}
+        {!loading && allEventsPool.length > 0 && <HexDivider />}
         {!loading && allEventsPool.length > 0 && (() => {
           const todayNow = new Date();
           const dow = todayNow.getDay();
@@ -3077,6 +3251,7 @@ export default function Home() {
         })()}
 
         {/* ===== FEATURE A: FRAG KIDGO CHAT (collapsible) ===== */}
+        {!loading && allEventsPool.length > 0 && <HexDivider />}
         {!loading && allEventsPool.length > 0 && (
           <div id="kidgo-chat-section" className="mt-8 bg-[var(--kidgo-cream)] dark:bg-[var(--bg-subtle)] rounded-2xl shadow-sm border border-kidgo-200/50 overflow-hidden">
             <button
@@ -3362,7 +3537,7 @@ export default function Home() {
               </div>
               {filtered.length === 0 ? (
                 <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
-                  <p className="text-4xl mb-3">🔍</p>
+
                   <p className="text-gray-500">Gerade keine Events in dieser Sammlung</p>
                 </div>
               ) : (

@@ -144,11 +144,11 @@ export default function DatenschutzPage() {
               <div>
                 <h3 className="font-medium text-gray-700 mb-1">Google Analytics 4</h3>
                 <p className="mb-2">
-                  Für die Reichweitenmessung verwenden wir Google Analytics 4 (Google Ireland Ltd.).
-                  Dabei werden anonymisierte Nutzungsdaten (Seitenaufrufe, Gerätetyp, Browser,
-                  ungefährer Standort) erhoben. Die IP-Adresse wird mit der Funktion
-                  <code className="mx-1 bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">anonymize_ip</code>
-                  gekürzt, bevor sie verarbeitet wird. Google Analytics setzt Cookies
+                  Für die Reichweitenmessung verwenden wir Google Analytics 4 (Google Ireland Ltd.,
+                  Measurement-ID <code className="bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">G-LFZ63YFTRR</code>).
+                  Dabei werden Nutzungsdaten (Seitenaufrufe, Gerätetyp, Browser, ungefährer
+                  Standort) erhoben. IP-Adressen werden in GA4 standardmässig anonymisiert
+                  und nicht im Klartext gespeichert. Google Analytics setzt Cookies
                   (z.&nbsp;B. <code className="bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">_ga</code>,
                   <code className="ml-1 bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">_ga_*</code>),
                   die zur Wiedererkennung über Sitzungen hinweg dienen.

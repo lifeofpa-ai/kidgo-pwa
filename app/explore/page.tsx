@@ -326,6 +326,7 @@ export default function ExplorePage() {
               <circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>
             </svg>
             <input
+              id="kidgo-explore-search"
               type="text"
               placeholder="Event, Ort oder Aktivität suchen..."
               value={search}

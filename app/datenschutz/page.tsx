@@ -27,9 +27,10 @@ export default function DatenschutzPage() {
           <section aria-labelledby="grundsatz-heading">
             <h2 id="grundsatz-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Grundsatz</h2>
             <p>
-              kidgo erhebt keine personenbezogenen Daten und betreibt kein Tracking oder Analytics.
-              Es gibt keine Nutzerkonten, keine Registrierung und keine Cookies von Drittanbietern.
-              Alle Einstellungen werden ausschliesslich lokal auf deinem Gerät gespeichert.
+              kidgo erhebt nur die für den Betrieb notwendigen Daten. Persönliche Einstellungen
+              (Altersgruppe, Favoriten, Theme) werden ausschliesslich lokal auf deinem Gerät
+              gespeichert. Für die Reichweitenmessung setzen wir Google Analytics 4 mit
+              anonymisierter IP ein — Details siehe Abschnitt „Google Analytics 4“ unten.
             </p>
           </section>
 
@@ -136,6 +137,46 @@ export default function DatenschutzPage() {
                     className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
                   >
                     vercel.com/legal/privacy-policy
+                  </a>
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-medium text-gray-700 mb-1">Google Analytics 4</h3>
+                <p className="mb-2">
+                  Für die Reichweitenmessung verwenden wir Google Analytics 4 (Google Ireland Ltd.).
+                  Dabei werden anonymisierte Nutzungsdaten (Seitenaufrufe, Gerätetyp, Browser,
+                  ungefährer Standort) erhoben. Die IP-Adresse wird mit der Funktion
+                  <code className="mx-1 bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">anonymize_ip</code>
+                  gekürzt, bevor sie verarbeitet wird. Google Analytics setzt Cookies
+                  (z.&nbsp;B. <code className="bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">_ga</code>,
+                  <code className="ml-1 bg-gray-50 border border-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">_ga_*</code>),
+                  die zur Wiedererkennung über Sitzungen hinweg dienen.
+                </p>
+                <p className="mb-2">
+                  <strong>Opt-out:</strong>{" "}
+                  Du kannst die Erfassung durch Google Analytics dauerhaft verhindern, indem
+                  du das offizielle Browser-Add-on installierst:{" "}
+                  <a
+                    href="https://tools.google.com/dlpage/gaoptout"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
+                  >
+                    tools.google.com/dlpage/gaoptout
+                  </a>
+                  . Alternativ kannst du den Do-Not-Track-Modus deines Browsers oder einen
+                  Cookie-Blocker verwenden.
+                </p>
+                <p>
+                  Datenschutzerklärung von Google:{" "}
+                  <a
+                    href="https://policies.google.com/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
+                  >
+                    policies.google.com/privacy
                   </a>
                 </p>
               </div>

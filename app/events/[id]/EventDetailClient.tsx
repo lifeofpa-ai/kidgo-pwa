@@ -268,6 +268,14 @@ export default function EventDetailClient({ id }: { id: string }) {
     fetchReviews();
   }, [id, user]);
 
+  // Sprint 21: keyboard shortcut "b" toggles bookmark on the current event
+  useEffect(() => {
+    const onShortcut = () => toggleBookmarkDetail();
+    window.addEventListener("kidgo:shortcut:bookmark", onShortcut);
+    return () => window.removeEventListener("kidgo:shortcut:bookmark", onShortcut);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event]);
+
   useEffect(() => {
     try {
       const now = new Date();

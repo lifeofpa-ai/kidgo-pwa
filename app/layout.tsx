@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSideNav } from "@/components/DesktopSideNav";
 import { KidgoFooter } from "@/components/KidgoFooter";
 import { PageTransitionWrapper } from "@/components/PageTransitionWrapper";
+import { SwipeBackGate } from "@/components/SwipeBackGate";
+import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import "./globals.css";
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -63,6 +68,23 @@ export default function RootLayout({
         />
       </head>
       <body className={`${nunito.variable} ${nunito.className} antialiased`}>
+        {GA_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                window.gtag = gtag;
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}', { anonymize_ip: true });
+              `}
+            </Script>
+          </>
+        )}
         <a href="#main-content" className="skip-to-content">
           Zum Inhalt springen
         </a>
@@ -74,6 +96,8 @@ export default function RootLayout({
         </AuthProvider>
         <KidgoFooter />
         <BottomNav />
+        <SwipeBackGate />
+        <KeyboardShortcuts />
       </body>
     </html>
   );

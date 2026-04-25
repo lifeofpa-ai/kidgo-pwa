@@ -5,6 +5,23 @@ import { supabase } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
+import { QuickActionsPopup, QuickActionIcons, type QuickAction } from "@/components/QuickActionsPopup";
+import { HeartBurst } from "@/components/HeartBurst";
+import {
+  vibrate,
+  toggleLike,
+  isLiked,
+  saveScrollPosition,
+  restoreScrollPosition,
+  shareEvent,
+  downloadEventICS,
+  openRouteForEvent,
+  broadcastClosePopups,
+  isTouchDevice,
+  LONG_PRESS_MS,
+  DOUBLE_TAP_MS,
+  QUICK_ACTIONS_CLOSE_EVENT,
+} from "@/lib/interactions";
 import { AuthButton } from "@/components/AuthButton";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { useAuth } from "@/lib/auth-context";
@@ -971,16 +988,157 @@ function RecommendationCard({
       ? selectedBuckets.filter((b) => event.alters_buckets!.includes(b))
       : [];
 
+  // Sprint 21 — interaction state
+  const cardRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const lastTap = useRef(0);
+  const suppressClick = useRef(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [burstKey, setBurstKey] = useState(0);
+  const [liked, setLiked] = useState(false);
+
+  useEffect(() => { setLiked(isLiked(event.id)); }, [event.id]);
+
+  useEffect(() => {
+    const onClose = () => setPopupOpen(false);
+    window.addEventListener(QUICK_ACTIONS_CLOSE_EVENT, onClose);
+    return () => window.removeEventListener(QUICK_ACTIONS_CLOSE_EVENT, onClose);
+  }, []);
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const openPopup = () => {
+    broadcastClosePopups();
+    setPopupOpen(true);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartPos.current = { x: t.clientX, y: t.clientY };
+    longPressFired.current = false;
+    cancelLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      suppressClick.current = true;
+      vibrate(15);
+      openPopup();
+    }, LONG_PRESS_MS);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    const t = e.touches[0];
+    const dx = Math.abs(t.clientX - touchStartPos.current.x);
+    const dy = Math.abs(t.clientY - touchStartPos.current.y);
+    if (dx > 8 || dy > 8) cancelLongPress();
+  };
+
+  const onTouchEnd = () => {
+    cancelLongPress();
+    if (longPressFired.current) {
+      // The long-press already opened the popup; click is suppressed.
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTap.current < DOUBLE_TAP_MS) {
+      suppressClick.current = true;
+      const newLiked = toggleLike(event.id);
+      setLiked(newLiked);
+      setBurstKey((k) => k + 1);
+      vibrate(15);
+      lastTap.current = 0;
+    } else {
+      lastTap.current = now;
+    }
+  };
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    // Desktop right-click → show popup instead of native menu
+    if (isTouchDevice()) return;
+    e.preventDefault();
+    suppressClick.current = true;
+    openPopup();
+  };
+
+  const onLinkClick = (e: React.MouseEvent) => {
+    if (suppressClick.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClick.current = false;
+      return;
+    }
+    try { saveScrollPosition(window.location.pathname); } catch {}
+  };
+
+  const popupActions: QuickAction[] = [
+    {
+      key: "bookmark",
+      label: isBookmarked ? "Gemerkt" : "Merken",
+      icon: QuickActionIcons.bookmark(isBookmarked),
+      active: isBookmarked,
+      onClick: () => {
+        if (onBookmark) {
+          const fakeEvent = {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          } as unknown as React.MouseEvent;
+          onBookmark(fakeEvent);
+        }
+      },
+    },
+    {
+      key: "share",
+      label: "Teilen",
+      icon: QuickActionIcons.share,
+      onClick: () => shareEvent(event),
+    },
+    {
+      key: "calendar",
+      label: "Kalender",
+      icon: QuickActionIcons.calendar,
+      onClick: () => downloadEventICS(event),
+    },
+    {
+      key: "route",
+      label: "Route",
+      icon: QuickActionIcons.route,
+      onClick: () => openRouteForEvent(event),
+    },
+  ];
+
   return (
+    <>
     <Link
       href={`/events/${event.id}`}
       className="block group card-enter"
       style={{ animationDelay: `${animIndex * 80}ms` }}
+      onClick={onLinkClick}
+      onContextMenu={onContextMenu}
     >
       <div
-        className="bg-[var(--bg-card)] rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ease-out overflow-hidden border border-[var(--border)] group-hover:border-kidgo-200 group-hover:scale-[1.01] relative"
-        style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}`, boxShadow: "0 2px 12px rgba(91,186,167,0.08)" }}
+        ref={cardRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={cancelLongPress}
+        className="bg-[var(--bg-card)] rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ease-out overflow-hidden border border-[var(--border)] group-hover:border-kidgo-200 group-hover:scale-[1.01] relative select-none"
+        style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}`, boxShadow: "0 2px 12px rgba(91,186,167,0.08)", WebkitTouchCallout: "none" }}
       >
+        <HeartBurst trigger={burstKey} />
+        {liked && (
+          <div className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md" aria-label="Geliked">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 12 C 2.5 8.5, 1 5, 3 3.5 C 4.5 2.5, 6 3.5, 7 5 C 8 3.5, 9.5 2.5, 11 3.5 C 13 5, 11.5 8.5, 7 12 Z" />
+            </svg>
+          </div>
+        )}
           {onBookmark && (
             <button
               onClick={onBookmark}
@@ -1103,6 +1261,14 @@ function RecommendationCard({
         </div>
       </div>
     </Link>
+    {popupOpen && (
+      <QuickActionsPopup
+        actions={popupActions}
+        onClose={() => setPopupOpen(false)}
+        anchorRef={cardRef}
+      />
+    )}
+    </>
   );
 }
 
@@ -1297,6 +1463,30 @@ export default function Home() {
         });
       });
   }, [user]);
+
+  // Sprint 21: Restore scroll position when returning from detail page
+  const scrollRestored = useRef(false);
+  useEffect(() => {
+    if (!mounted) return;
+    if (loading) return;
+    if (recommendations.length === 0) return;
+    if (scrollRestored.current) return;
+    scrollRestored.current = true;
+    restoreScrollPosition(window.location.pathname);
+  }, [mounted, loading, recommendations.length]);
+
+  // Sprint 21: Listen for "/" keyboard shortcut to open + focus chat
+  useEffect(() => {
+    const onFocusSearch = () => {
+      setChatOpen(true);
+      setTimeout(() => {
+        document.getElementById("kidgo-chat-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => document.getElementById("kidgo-chat-input")?.focus(), 220);
+      }, 100);
+    };
+    window.addEventListener("kidgo:shortcut:focus-search", onFocusSearch);
+    return () => window.removeEventListener("kidgo:shortcut:focus-search", onFocusSearch);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -3054,7 +3244,13 @@ export default function Home() {
           <div className="mt-6">
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
               {/* Karte */}
-              <Link href="/map" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("kidgo-map-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+              >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 2a6 6 0 0 1 6 6c0 5.5-6 13-6 13S5 13.5 5 8a6 6 0 0 1 6-6z"/>
@@ -3062,7 +3258,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Karte</span>
-              </Link>
+              </button>
 
               {/* Gratis */}
               <button
@@ -3330,15 +3526,23 @@ export default function Home() {
               )}
 
               <div className="flex gap-2">
-                <input
-                  id="kidgo-chat-input"
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
-                  placeholder="Frag Kidgo..."
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
-                />
+                <div className="relative flex-1">
+                  <input
+                    id="kidgo-chat-input"
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
+                    placeholder="Frag Kidgo..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 pr-14 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
+                  />
+                  <span
+                    className="hidden md:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-1 text-[10px] font-medium text-gray-400 bg-white border border-gray-200 rounded-md px-1.5 py-0.5 pointer-events-none"
+                    title="Tastaturkürzel: drücke / zum Fokussieren"
+                  >
+                    <kbd className="font-semibold">/</kbd>
+                  </span>
+                </div>
                 <button
                   onClick={() => handleChatQuery(chatInput)}
                   disabled={!chatInput.trim()}
@@ -3405,7 +3609,7 @@ export default function Home() {
 
         {/* ===== SPRINT 11: KARTEN-KACHEL ===== */}
         {!loading && allEventsPool.length > 0 && (
-          <div className="mt-6 card-enter">
+          <div id="kidgo-map-section" className="mt-6 card-enter">
             <Link href="/map" className="block group">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-kidgo-200 transition-all">
                 <div className="relative h-24 bg-gradient-to-br from-kidgo-50 to-kidgo-100 overflow-hidden">

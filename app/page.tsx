@@ -2004,13 +2004,13 @@ export default function Home() {
   // ===== STEP: WELCOME (first-time only) =====
   if (step === "welcome") {
     return (
-      <main className={`min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
-        <div className="w-full max-w-md mx-auto text-center card-enter">
+      <main className={`min-h-screen bg-gradient-to-b from-[#6EC4B3] to-[#4A9E8E] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
+        <div className="w-full max-w-md mx-auto text-center fade-in">
           <div className="mb-8 flex justify-center">
-            <KidgoLogo size="lg" />
+            <KidgoLogo size="lg" animated />
           </div>
           <h1 className="text-4xl font-extrabold text-white mb-3 leading-tight">
-            Willkommen bei Kidgo!
+            Willkommen bei Kidgo
           </h1>
           <p className="text-white/80 text-lg mb-2 leading-relaxed">
             Dein persönlicher Begleiter für die besten Kinder-Events in Zürich
@@ -2020,9 +2020,9 @@ export default function Home() {
           </p>
           <button
             onClick={() => navigateForward("age-select")}
-            className="w-full bg-white text-[#5BBAA7] py-4 rounded-2xl font-bold text-xl hover:bg-kidgo-50 transition shadow-lg active:scale-95"
+            className="w-full bg-white text-[#5BBAA7] border-2 border-[#5BBAA7]/30 py-4 rounded-2xl font-bold text-xl hover:bg-kidgo-50 transition shadow-lg active:scale-95"
           >
-            Los geht&apos;s! 👋
+            Weiter
           </button>
         </div>
       </main>
@@ -2335,7 +2335,7 @@ export default function Home() {
         <div className="sticky top-0 z-30 -mx-4 px-4 py-2.5 mb-5 glass-header">
           <div className="flex items-center justify-between max-w-3xl mx-auto">
             <Link href="/" aria-label="Startseite">
-              <KidgoLogo size="sm" />
+              <KidgoLogo size="sm" animated />
             </Link>
             <div className="flex items-center gap-2">
               {weatherCode !== null && (
@@ -2638,9 +2638,11 @@ export default function Home() {
         {/* Loading state — skeleton cards */}
         {loading && (
           <div className="space-y-4" role="status" aria-label="Events werden geladen">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card-enter" style={{ animationDelay: `${i * 120}ms` }}>
+                <SkeletonCard />
+              </div>
+            ))}
           </div>
         )}
 
@@ -2653,8 +2655,8 @@ export default function Home() {
                 <rect x="16" y="20" width="36" height="40" rx="3" stroke="#5BBAA7" strokeWidth="2" fill="none"/>
                 <path d="M16 30h36" stroke="#5BBAA7" strokeWidth="2"/>
                 <path d="M24 24v-6M44 24v-6" stroke="#5BBAA7" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="56" cy="24" r="10" fill="var(--bg-page)" stroke="#b2bec3" strokeWidth="1.5"/>
-                <path d="M52 24h8M56 20v8" stroke="#b2bec3" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="56" cy="24" r="10" fill="var(--accent-light)" stroke="#5BBAA7" strokeWidth="1.5"/>
+                <path d="M52 24h8M56 20v8" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </div>
             <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
@@ -3605,20 +3607,6 @@ export default function Home() {
           );
         })()}
 
-        <footer className="mt-10 border-t border-gray-100 pt-6 pb-8 text-center">
-          <p className="text-xs text-gray-400 mb-2">© 2026 kidgo · Zürich</p>
-          <nav aria-label="Footer-Navigation" className="flex items-center justify-center gap-4 text-xs text-gray-400">
-            <Link href="/map"       className="hover:text-gray-600 transition">Karte</Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/badges"    className="hover:text-gray-600 transition">Abzeichen</Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/dashboard" className="hover:text-gray-600 transition">Dashboard</Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/impressum" className="hover:text-gray-600 transition">Impressum</Link>
-            <span aria-hidden="true">·</span>
-            <a href="/admin"        className="hover:text-gray-500 transition">Admin</a>
-          </nav>
-        </footer>
       </div>
 
       {/* Scroll to top */}

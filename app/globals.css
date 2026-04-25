@@ -178,13 +178,13 @@ body,
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #e8f4f1 25%, #d5ede9 50%, #e8f4f1 75%);
+  background: linear-gradient(90deg, #dff2ee 25%, #c4e8e2 50%, #dff2ee 75%);
   background-size: 800px 100%;
   animation: shimmer 1.6s ease-in-out infinite;
   border-radius: 0.5rem;
 }
 .dark .skeleton {
-  background: linear-gradient(90deg, #2d3330 25%, #3a4440 50%, #2d3330 75%);
+  background: linear-gradient(90deg, #1e2e2b 25%, #263530 50%, #1e2e2b 75%);
   background-size: 800px 100%;
 }
 
@@ -301,6 +301,35 @@ body,
   animation: cardReveal 0.4s ease-out both;
 }
 
+/* ── KidgoLogo: wink + smile (plays once on mount) ── */
+/* Timing: 1s idle → 300ms blink → 500ms smile → static forever */
+@keyframes kidgoLogoBlink {
+  0%, 100% { transform: scaleY(1); }
+  50%       { transform: scaleY(0.1); }
+}
+@keyframes kidgoLogoMouthCheck {
+  /* checkmark: visible at start/end, hidden while smile is shown */
+  0%, 100% { opacity: 1; }
+  20%, 80% { opacity: 0; }
+}
+@keyframes kidgoLogoMouthSmile {
+  /* smile: hidden at start/end, visible mid-animation */
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+}
+.kidgo-logo-animate .kidgo-logo-eye {
+  /* fill-box centers scaleY on each eye's own bounds */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kidgoLogoBlink 300ms ease-in-out 1s 1 both;
+}
+.kidgo-logo-animate .kidgo-logo-mouth-check {
+  animation: kidgoLogoMouthCheck 500ms ease-in-out 1.3s 1 both;
+}
+.kidgo-logo-animate .kidgo-logo-mouth-smile {
+  animation: kidgoLogoMouthSmile 500ms ease-in-out 1.3s 1 both;
+}
+
 /* ── Typography hierarchy ── */
 .kidgo-h1 {
   font-size: 1.5rem;       /* 24px */
@@ -349,7 +378,10 @@ body,
   .page-slide-back,
   .page-enter,
   .empty-float,
-  .logo-spin {
+  .logo-spin,
+  .kidgo-logo-animate .kidgo-logo-eye,
+  .kidgo-logo-animate .kidgo-logo-mouth-check,
+  .kidgo-logo-animate .kidgo-logo-mouth-smile {
     animation: none;
     transition: none;
   }
@@ -366,6 +398,15 @@ body,
   .card-reveal {
     animation: none;
   }
+}
+
+/* ── Unified teal focus for all form inputs ── */
+input[type]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgb(91 186 167 / 0.2) !important;
+  outline: none !important;
 }
 
 /* ── Button utilities ── */
@@ -425,7 +466,7 @@ body,
 }
 .card-hover:hover {
   box-shadow: var(--shadow-md);
-  transform: scale(1.01);
+  transform: translateY(-2px);
 }
 .card-hover:active { transform: scale(0.98); }
 

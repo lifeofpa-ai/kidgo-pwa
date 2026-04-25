@@ -63,7 +63,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
 
   return (
     <div
-      className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] hover:shadow-md transition-all duration-200 ease-out overflow-hidden group flex flex-col hover:scale-[1.01] active:scale-[0.99]"
+      className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] hover:shadow-md transition-all duration-200 ease-out overflow-hidden group flex flex-col hover:-translate-y-0.5 active:scale-[0.99]"
       style={{ borderLeft: `3px solid ${leftBorderColor}` }}
     >
       <div className="h-48 overflow-hidden bg-[var(--bg-subtle)] flex-shrink-0 rounded-t-xl">
@@ -71,7 +71,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
           <img
             src={event.kategorie_bild_url}
             alt={event.titel}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 ease-out"
             loading="lazy"
             onError={() => setImgErr(true)}
           />
@@ -454,18 +454,30 @@ export default function ExplorePage() {
         {/* Results */}
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="card-enter" style={{ animationDelay: `${i * 80}ms` }}>
+                <SkeletonCard />
+              </div>
+            ))}
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-[var(--text-secondary)] text-base mb-1">
+            <div className="empty-float mx-auto mb-5 w-20 h-20">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="80" height="80" rx="20" fill="var(--accent-light)"/>
+                <circle cx="36" cy="38" r="14" stroke="#5BBAA7" strokeWidth="2.2" fill="none"/>
+                <path d="M46 48l10 10" stroke="#5BBAA7" strokeWidth="2.2" strokeLinecap="round"/>
+                <path d="M30 38h12M36 32v12" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.5"/>
+              </svg>
+            </div>
+            <p className="text-[var(--text-primary)] font-semibold mb-1">
               {search || selectedCategories.length > 0 || activeFilters.length > 0
                 ? "Keine Events für diese Filter"
                 : "Suchbegriff eingeben oder Kategorie wählen"}
             </p>
-            <p className="text-[var(--text-muted)] text-sm">Passe die Filter oben an</p>
+            <p className="text-[var(--text-muted)] text-sm mb-4">Passe die Filter oben an</p>
             {activeFilters.length > 0 && (
-              <button onClick={clearAll} className="mt-3 text-sm text-kidgo-500 hover:text-kidgo-600 transition underline">
+              <button onClick={clearAll} className="text-sm text-kidgo-500 hover:text-kidgo-600 transition underline">
                 Filter zurücksetzen
               </button>
             )}
@@ -532,14 +544,6 @@ export default function ExplorePage() {
           );
         })()}
 
-        <footer className="mt-14 pt-6 border-t border-[var(--border)] text-center text-xs text-[var(--text-muted)]">
-          <p className="mb-2">© 2026 kidgo · Zürich</p>
-          <nav className="flex justify-center gap-4">
-            <Link href="/" className="hover:text-[var(--text-secondary)] transition">Empfehlungen</Link>
-            <Link href="/impressum" className="hover:text-[var(--text-secondary)] transition">Impressum</Link>
-            <Link href="/datenschutz" className="hover:text-[var(--text-secondary)] transition">Datenschutz</Link>
-          </nav>
-        </footer>
       </div>
 
       {showScrollTop && (

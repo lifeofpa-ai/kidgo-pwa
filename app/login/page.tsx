@@ -33,30 +33,30 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 w-full max-w-sm">
+    <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
+      <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border)] p-8 w-full max-w-sm">
         <div className="mb-6 flex justify-center">
           <Link href="/" aria-label="Startseite">
-            <KidgoLogo size="sm" />
+            <KidgoLogo size="sm" animated />
           </Link>
         </div>
 
         {sent ? (
           <div className="text-center">
             <div className="text-4xl mb-3">📬</div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">
               E-Mail gesendet!
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-[var(--text-muted)]">
               Prüfe dein Postfach und klicke auf den Link um dich anzumelden.
             </p>
           </div>
         ) : (
           <>
-            <h1 className="text-xl font-bold text-gray-800 dark:text-white mb-1">
+            <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">
               Anmelden
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-sm text-[var(--text-muted)] mb-6">
               Gib deine E-Mail ein — wir schicken dir einen Login-Link.
             </p>
 
@@ -67,7 +67,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="deine@email.ch"
                 required
-                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-kidgo-300 bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400"
+                className="w-full border border-[var(--border)] rounded-xl px-4 py-3 text-sm mb-3 bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)]"
               />
               {error && (
                 <p className="text-red-500 text-xs mb-3">{error}</p>

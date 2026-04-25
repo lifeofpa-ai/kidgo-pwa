@@ -177,7 +177,7 @@ export default function DashboardPage() {
 
           {/* Header */}
           <header className="flex items-center justify-between mb-8">
-            <Link href="/" aria-label="Startseite"><KidgoLogo size="sm" /></Link>
+            <Link href="/" aria-label="Startseite"><KidgoLogo size="sm" animated /></Link>
             <div className="flex items-center gap-2">
               <Link href="/" className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition">Zurück</Link>
               <button

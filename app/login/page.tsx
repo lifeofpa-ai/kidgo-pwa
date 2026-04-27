@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
 
-export default function LoginPage() {
+function LoginInner() {
+  const searchParams = useSearchParams();
+  const callbackError = searchParams.get("error");
+
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(callbackError ? decodeURIComponent(callbackError) : "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +79,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-kidgo-500 text-white rounded-xl py-3 font-semibold text-sm hover:bg-kidgo-600 transition disabled:opacity-50"
+                className="w-full bg-[var(--accent)] text-white rounded-xl py-3 font-semibold text-sm hover:opacity-90 transition disabled:opacity-50"
               >
                 {loading ? "Wird gesendet…" : "Magic Link senden ✉️"}
               </button>
@@ -86,12 +90,22 @@ export default function LoginPage() {
         <div className="mt-4 text-center">
           <Link
             href="/"
-            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
           >
             ← Zurück zur Startseite
           </Link>
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" />
+    }>
+      <LoginInner />
+    </Suspense>
   );
 }

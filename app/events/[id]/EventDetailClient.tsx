@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { createClient } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { trackVisit } from "@/lib/gamification";
@@ -349,8 +348,7 @@ export default function EventDetailClient({ id }: { id: string }) {
   const submitReview = async () => {
     if (!user || userRating === 0) return;
     setSubmittingReview(true);
-    const supabaseBrowser = createClient();
-    await supabaseBrowser.from("event_reviews").upsert({
+    await supabase.from("event_reviews").upsert({
       user_id: user.id,
       event_id: id,
       rating: userRating,

@@ -15,7 +15,11 @@ const AGE_BUCKETS = [
 interface Child {
   name: string;
   age_bucket: string;
+  _key: string;
 }
+
+let _childKeyCounter = 0;
+const newChildKey = () => `c${++_childKeyCounter}_${Date.now().toString(36)}`;
 
 interface Props {
   onComplete: () => void;
@@ -132,13 +136,13 @@ export function ProfileSetupModal({ onComplete }: Props) {
   const { user, refreshProfile } = useAuth();
   const [step, setStep]                 = useState<"profile" | "interests">("profile");
   const [displayName, setDisplayName]   = useState("");
-  const [children, setChildren]         = useState<Child[]>([{ name: "", age_bucket: "4-6" }]);
+  const [children, setChildren]         = useState<Child[]>([{ name: "", age_bucket: "4-6", _key: newChildKey() }]);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [saving, setSaving]             = useState(false);
 
-  const addChild = () => setChildren((prev) => [...prev, { name: "", age_bucket: "4-6" }]);
+  const addChild = () => setChildren((prev) => [...prev, { name: "", age_bucket: "4-6", _key: newChildKey() }]);
   const removeChild = (i: number) => setChildren((prev) => prev.filter((_, idx) => idx !== i));
-  const updateChild = (i: number, field: keyof Child, value: string) =>
+  const updateChild = (i: number, field: "name" | "age_bucket", value: string) =>
     setChildren((prev) => prev.map((c, idx) => (idx === i ? { ...c, [field]: value } : c)));
 
   const toggleInterest = (id: string) => {
@@ -151,7 +155,9 @@ export function ProfileSetupModal({ onComplete }: Props) {
     if (!user) return;
     setSaving(true);
     const supabase = createClient();
-    const validChildren = children.filter((c) => c.name.trim().length > 0);
+    const validChildren = children
+      .filter((c) => c.name.trim().length > 0)
+      .map(({ name, age_bucket }) => ({ name, age_bucket }));
     const { error } = await supabase.from("user_profiles").upsert({
       user_id: user.id,
       display_name: displayName.trim() || null,
@@ -216,7 +222,7 @@ export function ProfileSetupModal({ onComplete }: Props) {
               </label>
               <div className="space-y-2">
                 {children.map((child, i) => (
-                  <div key={i} className="flex gap-2 items-center">
+                  <div key={child._key} className="flex gap-2 items-center">
                     <input
                       type="text"
                       value={child.name}

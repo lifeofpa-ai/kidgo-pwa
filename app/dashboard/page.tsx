@@ -327,7 +327,7 @@ export default function DashboardPage() {
               </p>
               <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] divide-y divide-[var(--border)]">
                 {children.map((child, i) => (
-                  <div key={i} className="flex items-center justify-between px-5 py-3.5">
+                  <div key={`${child.name}-${child.age_bucket}-${i}`} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-[var(--accent-light)] rounded-full flex items-center justify-center">
                         <span className="text-xs font-bold text-[var(--accent)]">{child.name.slice(0, 1).toUpperCase()}</span>

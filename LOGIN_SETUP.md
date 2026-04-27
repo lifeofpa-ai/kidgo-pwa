@@ -41,16 +41,23 @@ Im Supabase Dashboard → **Authentication → URL Configuration**:
 
 **Site URL:**
 ```
-https://deine-vercel-url.vercel.app
+https://kidgo-app.vercel.app
 ```
 
 **Redirect URLs (Allowlist):**
 ```
-https://deine-vercel-url.vercel.app/auth/callback
+https://kidgo-app.vercel.app/auth/callback
 http://localhost:3000/auth/callback
 ```
 
 > Ohne diese Einträge landen Magic-Link-Klicks auf einem Fehler.
+> Wichtig: Die **Site URL** muss exakt mit der Production-Domain übereinstimmen — `signInWithOtp()` setzt `emailRedirectTo` zwar auf `window.location.origin/auth/callback`, aber Supabase verifiziert gegen die Allowlist und fällt sonst auf die Site URL zurück.
+
+### Email Template (Magic Link) prüfen
+
+Im Dashboard → **Authentication → Email Templates → Magic Link**:
+
+Der Template-Body muss `{{ .ConfirmationURL }}` benutzen (nicht den älteren `{{ .Token }}`/`{{ .TokenHash }}`-Stil), damit die PKCE-Flow `?code=…`-Param am Callback ankommt. Standard-Template ist OK.
 
 ---
 

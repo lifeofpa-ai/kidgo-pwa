@@ -32,3 +32,15 @@ export function createClient() {
 
   return createBrowserClient(url, key!);
 }
+
+let _singleton: ReturnType<typeof createClient> | null = null;
+
+export const supabase: ReturnType<typeof createClient> = new Proxy(
+  {} as ReturnType<typeof createClient>,
+  {
+    get(_target, prop, receiver) {
+      if (!_singleton) _singleton = createClient();
+      return Reflect.get(_singleton as object, prop, receiver);
+    },
+  }
+);

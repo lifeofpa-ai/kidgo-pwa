@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
-import { createClient } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
 import { QuickActionsPopup, QuickActionIcons, type QuickAction } from "@/components/QuickActionsPopup";
@@ -1159,9 +1158,9 @@ function RecommendationCard({
                 Geheimtipp
               </span>
             )}
-            {shownReasons.map((r, i) => (
+            {shownReasons.map((r) => (
               <span
-                key={i}
+                key={r}
                 className="bg-kidgo-50 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-kidgo-100"
               >
                 {r}
@@ -1185,8 +1184,8 @@ function RecommendationCard({
             if (badges.length === 0) return null;
             return (
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {badges.map((b, i) => (
-                  <span key={i} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${b.cls}`}>{b.label}</span>
+                {badges.map((b) => (
+                  <span key={b.label} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${b.cls}`}>{b.label}</span>
                 ))}
               </div>
             );
@@ -1432,8 +1431,8 @@ export default function Home() {
   // Sprint 10: Sync bookmarks from Supabase when user logs in
   useEffect(() => {
     if (!user) return;
-    const supabaseBrowser = createClient();
-    supabaseBrowser
+    
+    supabase
       .from("user_bookmarks")
       .select("event_id, events(id, titel, datum, ort, kategorie_bild_url, kategorien)")
       .eq("user_id", user.id)
@@ -1828,8 +1827,8 @@ export default function Home() {
 
       // Sprint 11: Social proof — aggregate bookmark counts
       try {
-        const supabaseBrowser = createClient();
-        const { data: bkData } = await supabaseBrowser.rpc("get_event_bookmark_counts");
+        
+        const { data: bkData } = await supabase.rpc("get_event_bookmark_counts");
         if (bkData) {
           const bkMap = new Map<string, number>();
           for (const row of bkData as { event_id: string; bookmark_count: number }[]) {
@@ -1927,7 +1926,7 @@ export default function Home() {
     const likedCats = preferenceProfile?.preferredCategories?.slice(0, 5) ?? [];
 
     try {
-      const supabaseBrowser = createClient();
+      
 
       // 8-second timeout with fallback to client-side
       const controller = new AbortController();
@@ -1935,7 +1934,7 @@ export default function Home() {
 
       let succeeded = false;
       try {
-        const { data, error } = await supabaseBrowser.functions.invoke("ask-kidgo", {
+        const { data, error } = await supabase.functions.invoke("ask-kidgo", {
           body: {
             question: q,
             context: {
@@ -2181,11 +2180,11 @@ export default function Home() {
       try { localStorage.setItem("kidgo_bookmarks", JSON.stringify(next)); } catch {}
       // Sync to Supabase if logged in
       if (user) {
-        const supabaseBrowser = createClient();
+        
         if (exists) {
-          supabaseBrowser.from("user_bookmarks").delete().eq("user_id", user.id).eq("event_id", event.id);
+          supabase.from("user_bookmarks").delete().eq("user_id", user.id).eq("event_id", event.id);
         } else {
-          supabaseBrowser.from("user_bookmarks").upsert({ user_id: user.id, event_id: event.id });
+          supabase.from("user_bookmarks").upsert({ user_id: user.id, event_id: event.id });
         }
       }
       return next;
@@ -2197,8 +2196,8 @@ export default function Home() {
       const next = prev.filter((b) => b.id !== id);
       try { localStorage.setItem("kidgo_bookmarks", JSON.stringify(next)); } catch {}
       if (user) {
-        const supabaseBrowser = createClient();
-        supabaseBrowser.from("user_bookmarks").delete().eq("user_id", user.id).eq("event_id", id);
+        
+        supabase.from("user_bookmarks").delete().eq("user_id", user.id).eq("event_id", id);
       }
       return next;
     });

@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { trackMapOpened } from "@/lib/gamification";
@@ -210,7 +210,7 @@ function MapPageInner() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)] flex flex-col">
+    <main className="min-h-screen pb-14 md:pb-0 bg-[var(--bg-page)] flex flex-col">
       {/* Header */}
       <div className="border-b border-[var(--border)] bg-[var(--bg-card)] z-10">
         <div className="flex items-center gap-3 px-4 py-3">

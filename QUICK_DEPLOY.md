@@ -82,7 +82,7 @@ These must be set in Vercel project settings (not in the code):
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://wfkzxqscskppfivqsgno.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indma3p4cXNjc2twcGZpdnFzZ25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjcxMjUsImV4cCI6MjA5MDA0MzEyNX0.lvuYvSzbZ-SfU2IEFiFBWSKmo6eBAqNez4tSIptjxnI
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key-from-supabase-dashboard...
 ```
 
 ---

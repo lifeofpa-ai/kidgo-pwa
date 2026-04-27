@@ -15,7 +15,7 @@ Datei `.env.local` (wird nicht committed):
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://wfkzxqscskppfivqsgno.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...deinen-echten-key-hier...
-ADMIN_PW=kidgo-admin-2026
+ADMIN_PW=dein-admin-passwort
 ```
 
 ---

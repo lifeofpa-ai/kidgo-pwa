@@ -10,6 +10,12 @@ import {
   setEventRating,
   type EventRating,
 } from "@/lib/preferences";
+import {
+  fetchNextConnection,
+  formatDuration,
+  formatDepartureTime,
+  type TransitConnection,
+} from "@/lib/transport";
 
 interface Review {
   id: string;
@@ -192,6 +198,98 @@ function IconBell() {
       <path d="M7.5 1.5a5 5 0 0 1 5 5v3l1 1.5H1.5L2.5 9.5v-3a5 5 0 0 1 5-5z"/>
       <path d="M6 12.5a1.5 1.5 0 0 0 3 0"/>
     </svg>
+  );
+}
+
+function TransitInfo({ ort, sbbUrl }: { ort: string; sbbUrl: string | null }) {
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [conn, setConn]   = useState<TransitConnection | null>(null);
+  const [error, setError] = useState<string>("");
+
+  // Read user location from the same localStorage key used by the home page.
+  // We prefer a labelled city ("Zürich", "Winterthur", ...) over raw coords —
+  // transport.opendata.ch resolves station names but not arbitrary lat/lng.
+  function readUserLabel(): string | null {
+    try {
+      const raw = localStorage.getItem("kidgo_location");
+      if (!raw) return null;
+      const loc = JSON.parse(raw);
+      if (loc.label && loc.label !== "Dein Standort") return String(loc.label);
+      if (loc.label === "Dein Standort" && loc.lat && loc.lon) return `${loc.lat},${loc.lon}`;
+      return null;
+    } catch { return null; }
+  }
+
+  const compute = async () => {
+    setState("loading");
+    setError("");
+    const from = readUserLabel();
+    if (!from) {
+      setState("error");
+      setError("Kein Standort gespeichert. Auf der Startseite Standort freigeben.");
+      return;
+    }
+    try {
+      const result = await fetchNextConnection(from, ort);
+      if (!result) { setState("error"); setError("Keine Verbindung gefunden."); return; }
+      setConn(result);
+      setState("ready");
+    } catch (e) {
+      setState("error");
+      setError(String(e));
+    }
+  };
+
+  if (state === "ready" && conn) {
+    return (
+      <div className="bg-kidgo-50 border border-kidgo-100 rounded-xl px-3 py-2 text-xs">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="font-semibold text-kidgo-700">{formatDuration(conn.durationMinutes)}</span>
+          <span className="text-kidgo-600">ab {formatDepartureTime(conn.departure)}</span>
+        </div>
+        <div className="text-[var(--text-muted)]">
+          {conn.transfers} Umstieg{conn.transfers === 1 ? "" : "e"}
+          {conn.products.length > 0 && ` · ${conn.products.join(", ")}`}
+        </div>
+        {sbbUrl && (
+          <a
+            href={sbbUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mt-1.5 text-kidgo-600 hover:text-kidgo-700 underline"
+          >
+            Auf SBB.ch öffnen
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <div className="text-xs text-[var(--text-muted)] px-3 py-2 border border-[var(--border)] rounded-xl">
+        {error}
+        {sbbUrl && (
+          <>
+            {" "}
+            <a href={sbbUrl} target="_blank" rel="noopener noreferrer" className="text-kidgo-600 underline">
+              SBB.ch
+            </a>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={compute}
+      disabled={state === "loading"}
+      className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500 px-3 py-1.5 rounded-full transition disabled:opacity-50"
+    >
+      {state === "loading" ? "Lade…" : "ÖV-Verbindung"}
+    </button>
   );
 }
 
@@ -662,7 +760,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                 <div className="flex-1">
                   <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Ort</p>
                   <p className="font-semibold text-[var(--text-primary)] text-sm mb-2">{event.ort}</p>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap items-start">
                     {mapsUrl && (
                       <a
                         href={mapsUrl}
@@ -673,16 +771,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                         Route
                       </a>
                     )}
-                    {sbbUrl && (
-                      <a
-                        href={sbbUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-red-300 hover:text-red-600 px-3 py-1.5 rounded-full transition"
-                      >
-                        ÖV
-                      </a>
-                    )}
+                    {event.ort && <TransitInfo ort={event.ort} sbbUrl={sbbUrl} />}
                   </div>
                 </div>
               </div>

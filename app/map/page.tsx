@@ -32,6 +32,15 @@ const CITY_SEARCH = Object.entries(ZH_CITIES).reduce(
   {} as Record<string, [number, number]>
 );
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function findCityCoords(query: string): [number, number] | null {
   const q = query.toLowerCase().trim();
   for (const [name, coords] of Object.entries(CITY_SEARCH)) {
@@ -140,12 +149,15 @@ function MapPageInner() {
             })
           : "";
 
+        const safeTitel = escapeHtml(ev.titel ?? "");
+        const safeOrt = ev.ort ? escapeHtml(ev.ort) : "";
+        const safeId = encodeURIComponent(ev.id);
         const popup = `
           <div style="font-family:system-ui,-apple-system,sans-serif;max-width:220px;line-height:1.4">
-            <p style="font-weight:700;font-size:13px;margin:0 0 5px;color:#111">${ev.titel}</p>
+            <p style="font-weight:700;font-size:13px;margin:0 0 5px;color:#111">${safeTitel}</p>
             ${dateStr ? `<p style="font-size:11px;color:#6b7280;margin:0 0 2px">${dateStr}</p>` : ""}
-            ${ev.ort ? `<p style="font-size:11px;color:#6b7280;margin:0 0 8px">${ev.ort}</p>` : ""}
-            <a href="/events/${ev.id}" style="font-size:12px;color:#f97316;font-weight:600;text-decoration:none">Details ansehen →</a>
+            ${safeOrt ? `<p style="font-size:11px;color:#6b7280;margin:0 0 8px">${safeOrt}</p>` : ""}
+            <a href="/events/${safeId}" style="font-size:12px;color:#f97316;font-weight:600;text-decoration:none">Details ansehen →</a>
           </div>
         `;
 

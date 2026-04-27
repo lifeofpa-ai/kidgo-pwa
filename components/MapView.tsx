@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
 
-// Dynamically import Leaflet to avoid SSR issues
 const L = typeof window !== "undefined" ? require("leaflet") : null;
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 interface Source {
   id: string;
@@ -66,8 +73,8 @@ export default function MapView({ sources, onSourceClick }: MapViewProps) {
         .addTo(map)
         .bindPopup(
           `<div class="p-2">
-            <strong>${source.name}</strong><br/>
-            <span class="text-sm text-gray-600">${source.kategorie}</span>
+            <strong>${escapeHtml(source.name ?? "")}</strong><br/>
+            <span class="text-sm text-gray-600">${escapeHtml(source.kategorie ?? "")}</span>
           </div>`
         );
 

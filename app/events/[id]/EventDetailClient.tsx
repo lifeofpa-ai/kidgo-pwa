@@ -15,6 +15,7 @@ import {
   formatDepartureTime,
   type TransitConnection,
 } from "@/lib/transport";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 interface Review {
   id: string;
@@ -588,7 +589,7 @@ export default function EventDetailClient({ id }: { id: string }) {
       : event.datum
         ? toICSDate(new Date(new Date(event.datum + "T12:00:00").getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0])
         : startDate;
-    const ctaUrlVal = event.anmelde_link || source?.url || "";
+    const ctaUrlVal = safeExternalUrl(event.anmelde_link || source?.url) ?? "";
     const lines = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
@@ -640,7 +641,7 @@ export default function EventDetailClient({ id }: { id: string }) {
   }
 
   const isNew = event.created_at && new Date(event.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const ctaUrl = event.anmelde_link || source?.url;
+  const ctaUrl = safeExternalUrl(event.anmelde_link || source?.url);
   const mapsUrl = event.ort
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.ort)}`
     : null;

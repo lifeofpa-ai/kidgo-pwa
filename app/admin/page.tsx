@@ -1,9 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-browser";
+import { safeExternalUrl } from "@/lib/safe-url";
+
+const TAG_FN_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tag-events-intelligently`
+  : "";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
@@ -92,6 +98,14 @@ export default function AdminPage() {
 
   useEffect(() => { if (authed) loadData(); }, [authed]);
 
+  useEffect(() => {
+    fetch("/api/admin-auth", { method: "GET" })
+      .then((r) => r.json())
+      .then((d) => { if (d?.ok) setAuthed(true); })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  }, []);
+
   const approveEvent = async (id: string) => {
     const { error } = await supabase.from("events").update({ status: "approved" }).eq("id", id);
     if (error) { alert("Fehler beim Freischalten: " + error.message); return; }
@@ -99,7 +113,8 @@ export default function AdminPage() {
     setTaggingId(id);
     setMsg("Event freigeschaltet — KI taggt...");
     try {
-      const res = await fetch("https://wfkzxqscskppfivqsgno.supabase.co/functions/v1/tag-events-intelligently", {
+      if (!TAG_FN_URL) throw new Error("supabase url missing");
+      const res = await fetch(TAG_FN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: [id] }),
@@ -166,7 +181,8 @@ export default function AdminPage() {
     await supabase.from("events").update({ status: "approved" }).in("serie_id", ids);
 
     try {
-      const res = await fetch("https://wfkzxqscskppfivqsgno.supabase.co/functions/v1/tag-events-intelligently", {
+      if (!TAG_FN_URL) throw new Error("supabase url missing");
+      const res = await fetch(TAG_FN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -265,6 +281,14 @@ export default function AdminPage() {
     await loadData();
     setTimeout(() => setMsg(""), 3000);
   };
+
+  if (!authChecked) {
+    return (
+      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
 
   if (!authed) {
     return (
@@ -409,8 +433,8 @@ export default function AdminPage() {
                       {ev.kontakt_email && <span>✉️ {ev.kontakt_email}</span>}
                     </div>
                     {ev.beschreibung && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{ev.beschreibung}</p>}
-                    {ev.anmelde_link && (
-                      <a href={ev.anmelde_link} target="_blank" rel="noopener noreferrer"
+                    {ev.anmelde_link && safeExternalUrl(ev.anmelde_link) && (
+                      <a href={safeExternalUrl(ev.anmelde_link)!} target="_blank" rel="noopener noreferrer"
                         className="mt-1 text-xs text-kidgo-400 hover:underline break-all block">
                         🔗 {ev.anmelde_link}
                       </a>
@@ -503,8 +527,10 @@ export default function AdminPage() {
                 <div className="flex gap-4">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 text-base">{qu.name}</h3>
-                    <a href={qu.url} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-kidgo-400 hover:underline break-all block mt-0.5">{qu.url}</a>
+                    {safeExternalUrl(qu.url) && (
+                      <a href={safeExternalUrl(qu.url)!} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-kidgo-400 hover:underline break-all block mt-0.5">{qu.url}</a>
+                    )}
                     {qu.notizen && <p className="mt-2 text-sm text-gray-600">{qu.notizen}</p>}
                     {qu.kontakt_email && <p className="mt-1 text-xs text-gray-400">✉️ {qu.kontakt_email}</p>}
                   </div>

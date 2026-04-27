@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
 import { getCategoryIcon } from "@/components/Icons";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 const PAGE_SIZE = 15;
 
@@ -52,7 +53,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
   const isNew = event.created_at && new Date(event.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const isFree = event.preis_chf === 0;
   const isCamp = event.event_typ === "camp" || event.kategorien?.includes("Feriencamp");
-  const ctaUrl = event.anmelde_link || source?.url;
+  const ctaUrl = safeExternalUrl(event.anmelde_link || source?.url);
 
   const catBorderColors: Record<string, string> = {
     "Sport": "#3B82F6", "Kreativ": "#EC4899", "Musik": "#8B5CF6",
@@ -205,7 +206,10 @@ export default function ExplorePage() {
       let q = supabase.from("events").select("*").eq("status", "approved");
 
       if (selectedCategories.length > 0) q = q.overlaps("kategorien", selectedCategories);
-      if (search.trim()) q = q.or(`titel.ilike.%${search}%,ort.ilike.%${search}%`);
+      if (search.trim()) {
+        const escaped = search.replace(/[\\%_,()*]/g, (m) => `\\${m}`);
+        q = q.or(`titel.ilike.%${escaped}%,ort.ilike.%${escaped}%`);
+      }
       if (selectedAgeBuckets.length > 0) q = q.overlaps("alters_buckets", selectedAgeBuckets);
       if (indoorOutdoor !== "all") q = q.or(`indoor_outdoor.eq.${indoorOutdoor},indoor_outdoor.eq.beides`);
       if (gratisOnly) q = q.eq("preis_chf", 0);

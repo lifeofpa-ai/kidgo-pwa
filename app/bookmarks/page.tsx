@@ -110,6 +110,7 @@ export default function BookmarksPage() {
                         <img
                           src={bm.kategorie_bild_url}
                           alt={bm.titel}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                         />
                       ) : (

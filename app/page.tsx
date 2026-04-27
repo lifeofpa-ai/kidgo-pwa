@@ -3157,7 +3157,7 @@ export default function Home() {
                     >
                       <div className="h-28 bg-gradient-to-br from-[#F5F0E8] to-kidgo-50 relative overflow-hidden">
                         {event.kategorie_bild_url ? (
-                          <img src={event.kategorie_bild_url} alt={event.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          <img src={event.kategorie_bild_url} alt={event.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -3208,7 +3208,7 @@ export default function Home() {
                   >
                     <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-kidgo-100">
                       {event.kategorie_bild_url ? (
-                        <img src={event.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
+                        <img src={event.kategorie_bild_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -3410,7 +3410,7 @@ export default function Home() {
                           >
                             <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-kidgo-100">
                               {ev.kategorie_bild_url ? (
-                                <img src={ev.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
+                                <img src={ev.kategorie_bild_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-kidgo-300 text-xs font-bold">
                                   {(ev.kategorien?.[0] || "K").slice(0, 1)}
@@ -3877,7 +3877,7 @@ export default function Home() {
                 >
                   <div className="w-full h-24 rounded-xl overflow-hidden bg-gray-100 mb-2">
                     {visit.kategorie_bild_url ? (
-                      <img src={visit.kategorie_bild_url} alt={visit.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img src={visit.kategorie_bild_url} alt={visit.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-kidgo-100 to-kidgo-50 flex items-center justify-center">
                         <span className="text-kidgo-300 text-xs font-bold">{(visit.kategorien?.[0] || "K").slice(0, 1)}</span>
@@ -3966,7 +3966,7 @@ export default function Home() {
                 >
                   <div className="relative w-full h-24 rounded-xl overflow-hidden bg-gray-100 mb-2">
                     {bm.kategorie_bild_url ? (
-                      <img src={bm.kategorie_bild_url} alt={bm.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img src={bm.kategorie_bild_url} alt={bm.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-kidgo-100 to-kidgo-50" />
                     )}

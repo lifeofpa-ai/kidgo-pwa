@@ -100,6 +100,7 @@ export default function HistoryPage() {
                     <img
                       src={visit.kategorie_bild_url}
                       alt={visit.titel}
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (

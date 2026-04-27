@@ -924,7 +924,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                   >
                     <div className="w-full h-28 rounded-xl overflow-hidden bg-[var(--bg-subtle)] mb-2">
                       {sim.kategorie_bild_url ? (
-                        <img src={sim.kategorie_bild_url} alt={sim.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <img src={sim.kategorie_bild_url} alt={sim.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
                         <div className={`w-full h-full bg-gradient-to-br ${categoryFallbackColors[sim.kategorien?.[0] || ""] || "from-kidgo-100 to-kidgo-50"}`} />
                       )}

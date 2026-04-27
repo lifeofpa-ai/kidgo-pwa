@@ -354,7 +354,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[var(--bg-subtle)]">
                       {nextEvent.kategorie_bild_url ? (
-                        <img src={nextEvent.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
+                        <img src={nextEvent.kategorie_bild_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                   <Link key={bm.id} href={`/events/${bm.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-[var(--bg-subtle)] transition group">
                     <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-[var(--bg-subtle)]">
                       {bm.kategorie_bild_url ? (
-                        <img src={bm.kategorie_bild_url} alt="" className="w-full h-full object-cover" />
+                        <img src={bm.kategorie_bild_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] text-xs font-bold">
                           {(bm.kategorien?.[0] || "K").slice(0, 1)}

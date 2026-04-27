@@ -36,6 +36,7 @@ import {
   type BadgeDef,
 } from "@/lib/gamification";
 import { BadgePopup } from "@/components/BadgePopup";
+import { HexIcon } from "@/components/HexIcon";
 import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { InterestsModal } from "@/components/InterestsModal";
 import { eventMatchesInterests } from "@/lib/interests";
@@ -431,37 +432,28 @@ function getHeadline(now: Date): { title: string; subtitle: string } {
   return { title: "Schlaf gut! Hier sind Ideen für morgen.", subtitle: "Schon mal für morgen planen" };
 }
 
-function WeatherIcon({ code }: { code: number; size?: number }) {
-  if (code >= 80) return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 10a4 4 0 0 1 4-4 4 4 0 0 1 6 3.5A2.5 2.5 0 0 1 11 15H4.5A2.5 2.5 0 0 1 3 10z"/>
-      <path d="M6 15l-1 2M9 15l-0.5 2M12 15l-1 2"/>
-    </svg>
-  );
-  if (code >= 61) return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 10a4 4 0 0 1 4-4 4 4 0 0 1 6 3.5A2.5 2.5 0 0 1 11 15H4.5A2.5 2.5 0 0 1 3 10z"/>
-      <path d="M6 15l-0.5 1.5M9 15l-0.5 1.5"/>
-    </svg>
-  );
+function WeatherIcon({ code, size = 24 }: { code: number; size?: number }) {
+  // Regen / Schauer (Drizzle, Rain, Showers)
   if (code >= 51) return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="11" cy="4.5" r="2.5"/>
-      <path d="M3.5 12a3.5 3.5 0 0 1 3.5-3.5h4A2.5 2.5 0 0 1 13 11a2.5 2.5 0 0 1-2.5 2.5H5A2 2 0 0 1 3.5 12z"/>
-      <path d="M7 14.5l-0.5 1.5"/>
-    </svg>
+    <HexIcon size={size}>
+      <path d="M7 13.5a2.4 2.4 0 0 1 .5-4.7 3.4 3.4 0 0 1 6.5-1A2.9 2.9 0 1 1 14 14H7.5z"/>
+      <circle cx="9" cy="16.5" r="0.7"/>
+      <circle cx="12" cy="17.2" r="0.7"/>
+      <circle cx="15" cy="16.5" r="0.7"/>
+    </HexIcon>
   );
+  // Wolke (Cloudy / Overcast)
   if (code >= 3) return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="11" cy="4.5" r="2.5"/>
-      <path d="M3.5 12a3.5 3.5 0 0 1 3.5-3.5h4A2.5 2.5 0 0 1 13 11a2.5 2.5 0 0 1-2.5 2.5H5A2 2 0 0 1 3.5 12z"/>
-    </svg>
+    <HexIcon size={size}>
+      <path d="M7 16a2.6 2.6 0 0 1 .5-5 3.6 3.6 0 0 1 6.9-1A3 3 0 1 1 14.4 17H7.5z"/>
+    </HexIcon>
   );
+  // Sonne (Clear / Mostly clear)
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="8" cy="8" r="3.5"/>
-      <path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M12.6 3.4l-.7.7M4.1 11.9l-.7.7"/>
-    </svg>
+    <HexIcon size={size}>
+      <circle cx="12" cy="12" r="2.8"/>
+      <path d="M12 6.5v1.6M12 15.9v1.6M6.5 12h1.6M15.9 12h1.6M8 8l1.1 1.1M14.9 14.9L16 16M16 8l-1.1 1.1M9.1 14.9L8 16" stroke="#5BBAA7" strokeWidth="1.4" strokeLinecap="round"/>
+    </HexIcon>
   );
 }
 
@@ -2593,8 +2585,8 @@ export default function Home() {
             </Link>
             <div className="flex items-center gap-2">
               {weatherCode !== null && (
-                <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700">
-                  <WeatherIcon code={weatherCode} size={16} />
+                <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl pl-1 pr-3 py-1 text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700">
+                  <WeatherIcon code={weatherCode} size={26} />
                   {weatherTemp !== null && (
                     <span className="font-medium">{Math.round(weatherTemp)}°C</span>
                   )}
@@ -2903,15 +2895,15 @@ export default function Home() {
         {/* Sprint 12: Animated empty state */}
         {!loading && recommendations.length === 0 && !isOffline && (
           <div className="text-center py-14 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="empty-float mx-auto mb-5 w-20 h-20">
-              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="80" height="80" rx="20" fill="var(--bg-subtle)"/>
-                <rect x="16" y="20" width="36" height="40" rx="3" stroke="#5BBAA7" strokeWidth="2" fill="none"/>
-                <path d="M16 30h36" stroke="#5BBAA7" strokeWidth="2"/>
-                <path d="M24 24v-6M44 24v-6" stroke="#5BBAA7" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="56" cy="24" r="10" fill="var(--accent-light)" stroke="#5BBAA7" strokeWidth="1.5"/>
-                <path d="M52 24h8M56 20v8" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
+            <div className="empty-float mx-auto mb-5 w-20 h-20 flex items-center justify-center">
+              <HexIcon size={80}>
+                <rect x="6.5" y="8.5" width="11" height="9" rx="1.2"/>
+                <rect x="6.5" y="8.5" width="11" height="2.4"/>
+                <rect x="8.5" y="6.8" width="1.2" height="3.2" rx="0.4"/>
+                <rect x="14.3" y="6.8" width="1.2" height="3.2" rx="0.4"/>
+                <rect x="11.4" y="12" width="1.2" height="4" rx="0.3" fill="#F5F0E8"/>
+                <rect x="10" y="13.4" width="4" height="1.2" rx="0.3" fill="#F5F0E8"/>
+              </HexIcon>
             </div>
             <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
             <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
@@ -3252,10 +3244,10 @@ export default function Home() {
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 2a6 6 0 0 1 6 6c0 5.5-6 13-6 13S5 13.5 5 8a6 6 0 0 1 6-6z"/>
-                    <circle cx="11" cy="8" r="2"/>
-                  </svg>
+                  <HexIcon size={36}>
+                    <path d="M12 6.5c2.2 0 4 1.8 4 4 0 3.2-4 7-4 7s-4-3.8-4-7c0-2.2 1.8-4 4-4z"/>
+                    <circle cx="12" cy="10.5" r="1.4" fill="#F5F0E8"/>
+                  </HexIcon>
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Karte</span>
               </button>
@@ -3272,10 +3264,11 @@ export default function Home() {
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M8 11h6M11 8v6"/>
-                  </svg>
+                  <HexIcon size={36}>
+                    <circle cx="12" cy="12" r="4.8"/>
+                    <rect x="11.4" y="9" width="1.2" height="6" rx="0.4" fill="#F5F0E8"/>
+                    <rect x="9" y="11.4" width="6" height="1.2" rx="0.4" fill="#F5F0E8"/>
+                  </HexIcon>
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Gratis</span>
               </button>
@@ -3292,10 +3285,10 @@ export default function Home() {
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 18L11 4l7 14H4z"/>
-                    <path d="M11 4v6M8.5 12h5"/>
-                  </svg>
+                  <HexIcon size={36}>
+                    <path d="M12 7l5 10H7z"/>
+                    <path d="M11.4 14h1.2v3h-1.2z" fill="#F5F0E8"/>
+                  </HexIcon>
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Camps</span>
               </button>
@@ -3312,10 +3305,11 @@ export default function Home() {
                 className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
               >
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 18V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7L4 18z"/>
-                    <path d="M8 9h6M8 12h4"/>
-                  </svg>
+                  <HexIcon size={36}>
+                    <path d="M6.5 8.5h11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-3.5l-2.2 2.2v-2.2H6.5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1z"/>
+                    <rect x="8" y="11" width="6" height="0.9" rx="0.4" fill="#F5F0E8"/>
+                    <rect x="8" y="12.6" width="4" height="0.9" rx="0.4" fill="#F5F0E8"/>
+                  </HexIcon>
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Frag Kidgo</span>
               </button>
@@ -3323,10 +3317,11 @@ export default function Home() {
               {/* Verlauf */}
               <Link href="/history" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
                 <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#5BBAA7" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M11 7v4l3 2"/>
-                  </svg>
+                  <HexIcon size={36}>
+                    <circle cx="12" cy="12" r="4.8"/>
+                    <rect x="11.5" y="8.6" width="1" height="3.6" rx="0.3" fill="#F5F0E8"/>
+                    <rect x="11.5" y="11.5" width="2.8" height="1" rx="0.3" fill="#F5F0E8"/>
+                  </HexIcon>
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Verlauf</span>
               </Link>

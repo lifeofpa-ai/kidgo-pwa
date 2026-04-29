@@ -2398,14 +2398,22 @@ export default function Home() {
 
   // ===== STEP 2: RECOMMENDATIONS =====
 
-  // Sprint 3: Compute current challenge
-  const weekNum = Math.floor(Date.now() / 604800000) % 6;
-  const currentChallenge = WEEKLY_CHALLENGES[weekNum];
-  const challengeEvents = allEventsPool.filter(currentChallenge.filter);
+  // Weekend events for Layer 2
+  const weekendEventsForLayer2 = (() => {
+    const dow2 = now.getDay();
+    const toSat = dow2 === 0 ? 6 : dow2 === 6 ? 0 : (6 - dow2);
+    const sat = new Date(now); sat.setDate(sat.getDate() + toSat); sat.setHours(0, 0, 0, 0);
+    const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
+    const satStr = localDateStr(sat);
+    const sunStr = localDateStr(sun);
+    return allEventsPool
+      .filter((e) => e.datum === satStr || e.datum === sunStr)
+      .map((e) => { const { score } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile); return { ...e, score }; })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+  })();
 
-  // Sprint 3: Season countdown
-  const holidayRemaining = getRemainingHolidayDays(now);
-  const holidayUpcoming = !holidayRemaining ? getUpcomingHoliday(now) : null;
+  // Seasonal config for Layer 2
   const campCount = allEventsPool.filter((e) => {
     const desc = (e.beschreibung || "").toLowerCase();
     const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
@@ -2664,7 +2672,373 @@ export default function Home() {
           )}
         </header>
 
-        {/* ===== SPRINT 16: SAISONALE LANDING ===== */}
+        {/* ===== LAYER 1: HERO SECTION (above the fold) ===== */}
+
+        {/* Loading state */}
+        {loading && (
+          <div className="space-y-4" role="status" aria-label="Events werden geladen">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card-enter" style={{ animationDelay: `${i * 120}ms` }}>
+                <SkeletonCard />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && recommendations.length === 0 && !isOffline && (
+          <div className="text-center py-14 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="empty-float mx-auto mb-5 w-20 h-20 flex items-center justify-center">
+              <HexIcon size={80}>
+                <rect x="6.5" y="8.5" width="11" height="9" rx="1.2"/>
+                <rect x="6.5" y="8.5" width="11" height="2.4"/>
+                <rect x="8.5" y="6.8" width="1.2" height="3.2" rx="0.4"/>
+                <rect x="14.3" y="6.8" width="1.2" height="3.2" rx="0.4"/>
+                <rect x="11.4" y="12" width="1.2" height="4" rx="0.3" fill="#F5F0E8"/>
+                <rect x="10" y="13.4" width="4" height="1.2" rx="0.3" fill="#F5F0E8"/>
+              </HexIcon>
+            </div>
+            <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
+            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
+            <Link href="/explore" className="bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
+              Alle Events entdecken
+            </Link>
+          </div>
+        )}
+
+        {/* Hero + 2 sub-cards */}
+        {!loading && recommendations.length > 0 && (
+          <div className="mb-8">
+            {/* Hero card — first recommendation, large */}
+            {(() => {
+              const event = recommendations[0];
+              const isBookmarkedHero = bookmarks.some((b) => b.id === event.id);
+              return (
+                <div className="relative mb-3">
+                  <Link
+                    href={`/events/${event.id}`}
+                    className="block group"
+                    onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                  >
+                    <div className="relative rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(91,186,167,0.2)" }}>
+                      <EventImage
+                        url={event.kategorie_bild_url}
+                        kategorien={event.kategorien}
+                        className="h-64 sm:h-72 w-full overflow-hidden"
+                        title={event.titel}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                      {/* Reason badges top-left */}
+                      <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                        {event.reasons.slice(0, 2).map((r) => (
+                          <span key={r} className="bg-white/90 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm">
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                      {/* Bookmark button top-right */}
+                      <button
+                        onClick={(e) => toggleBookmark(event, e)}
+                        aria-label={isBookmarkedHero ? "Aus Merkliste entfernen" : "Event merken"}
+                        className={`absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full shadow-md transition-all active:scale-90 ${
+                          isBookmarkedHero
+                            ? "bg-kidgo-400 text-white"
+                            : "bg-white/90 text-gray-400 hover:text-kidgo-500"
+                        }`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill={isBookmarkedHero ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 2h10v11L7 10 2 13V2z"/>
+                        </svg>
+                      </button>
+                      {/* Text overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
+                        <h2 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-sm line-clamp-2 group-hover:text-kidgo-100 transition-colors">
+                          {event.titel}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80 text-sm mb-3">
+                          {event.datum && (() => {
+                            const { label, urgent } = getCountdownLabel(event.datum, now);
+                            return (
+                              <span className={`flex items-center gap-1 ${urgent ? "text-kidgo-200 font-semibold" : ""}`}>
+                                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/></svg>
+                                {label}
+                              </span>
+                            );
+                          })()}
+                          {!event.datum && <span className="text-green-300 font-semibold">Ganzjährig</span>}
+                          {event.ort && (
+                            <span className="flex items-center gap-1 truncate max-w-[200px]">
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/></svg>
+                              {event.ort.split(",")[0].trim()}
+                            </span>
+                          )}
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 bg-white text-kidgo-600 text-xs font-bold px-3.5 py-2 rounded-full group-hover:bg-kidgo-50 transition shadow-sm">
+                          Details ansehen
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l4-4-4-4"/></svg>
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              );
+            })()}
+
+            {/* Sub-cards — recs 2 + 3 */}
+            {recommendations.length > 1 && (
+              <div className="grid grid-cols-2 gap-3">
+                {recommendations.slice(1, 3).map((event) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
+                    className="group block"
+                    onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                  >
+                    <div
+                      className="rounded-xl overflow-hidden border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all bg-[var(--bg-card)]"
+                      style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
+                    >
+                      <EventImage
+                        url={event.kategorie_bild_url}
+                        kategorien={event.kategorien}
+                        className="h-28 w-full overflow-hidden"
+                        title={event.titel}
+                      />
+                      <div className="p-3">
+                        <h3 className="font-bold text-[var(--text-primary)] text-xs leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1.5">
+                          {event.titel}
+                        </h3>
+                        <div className="flex items-center gap-1 text-[10px]">
+                          {event.datum ? (
+                            <span className={`font-semibold ${getCountdownLabel(event.datum, now).urgent ? "text-kidgo-500" : "text-[var(--text-muted)]"}`}>
+                              {getCountdownLabel(event.datum, now).label}
+                            </span>
+                          ) : (
+                            <span className="text-green-600 font-semibold">Ganzjährig</span>
+                          )}
+                        </div>
+                        {event.reasons.length > 0 && (
+                          <span className="mt-1.5 inline-block text-[10px] font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
+                            {event.reasons[0]}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== LAYER 2: MEHR ENTDECKEN (below the fold) ===== */}
+
+        {!loading && recommendations.length > 0 && (
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider flex-shrink-0">Mehr entdecken</p>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+        )}
+
+        {/* Card Stack — Tinder-style (mobile only) */}
+        {!loading && recommendations.length > 0 && (
+          <div className="md:hidden relative select-none min-h-[420px] mb-4">
+            {/* Background stacked cards */}
+            {recommendations.slice(1).map((event, ri) => {
+              const stackPos = ri + 1;
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <div
+                  key={`stack-${event.id}`}
+                  className="absolute inset-x-0 top-0 pointer-events-none"
+                  aria-hidden="true"
+                  style={{
+                    zIndex: recommendations.length - stackPos,
+                    transform: `scale(${1 - stackPos * 0.035}) translateY(${stackPos * 13}px)`,
+                    transformOrigin: "center top",
+                    opacity: 1 - stackPos * 0.07,
+                  }}
+                >
+                  <RecommendationCard
+                    event={event}
+                    reasons={event.reasons}
+                    sources={sources}
+                    userLocation={userLocation}
+                    animIndex={0}
+                    selectedBuckets={selectedBuckets}
+                    isSeriesParent={seriesParentIds.has(event.id)}
+                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                    entdeckerScore={computeEntdeckerScore(sourceCountMap.get(event.quelle_id || "") ?? 0)}
+                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                    bookmarkCount={bookmarkCounts.get(event.id)}
+                  />
+                </div>
+              );
+            })}
+
+            {/* Top card */}
+            {(() => {
+              const event = recommendations[0];
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <div
+                  className="absolute inset-x-0 top-0 card-stack-top"
+                  style={{
+                    zIndex: recommendations.length + 1,
+                    transform: cardExiting
+                      ? `translateX(${exitDirection === "left" ? "-130%" : "130%"}) rotate(${exitDirection === "left" ? -13 : 13}deg)`
+                      : `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.024}deg)`,
+                    transition: cardExiting
+                      ? "transform 0.34s cubic-bezier(0.4,0,0.2,1)"
+                      : swipeOffset === 0 ? "transform 0.2s ease" : "none",
+                  }}
+                  onTouchStart={handleRecTouchStart}
+                  onTouchMove={handleRecTouchMove}
+                  onTouchEnd={handleRecTouchEnd}
+                >
+                  <RecommendationCard
+                    key={event.id}
+                    event={event}
+                    reasons={event.reasons}
+                    sources={sources}
+                    userLocation={userLocation}
+                    animIndex={0}
+                    selectedBuckets={selectedBuckets}
+                    isSeriesParent={seriesParentIds.has(event.id)}
+                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                    entdeckerScore={computeEntdeckerScore(cnt)}
+                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                    onBookmark={(e) => toggleBookmark(event, e)}
+                    bookmarkCount={bookmarkCounts.get(event.id)}
+                  />
+                </div>
+              );
+            })()}
+
+            {/* Swipe hint */}
+            {swipeHint && (
+              <div
+                className={`absolute top-0 left-0 right-0 rounded-2xl pointer-events-none flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"}`}
+                style={{ height: "200px", zIndex: recommendations.length + 2 }}
+              >
+                <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-kidgo-500" : "bg-green-500"}`}>
+                  {swipeHint === "left" ? "Weiter" : "Gemerkt"}
+                </div>
+              </div>
+            )}
+
+            {/* Counter + action buttons */}
+            <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-56px" }}>
+              <button
+                onClick={handleSwipeLeft}
+                aria-label="Nächste Karte"
+                className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg transition-all active:scale-90"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 9H4M4 9l5-5M4 9l5 5"/>
+                </svg>
+              </button>
+              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 min-w-[36px] text-center tabular-nums">
+                {(cardIndex % recommendations.length) + 1}/{recommendations.length}
+              </span>
+              <button
+                onClick={handleSwipeRight}
+                aria-label={bookmarks.some((b) => b.id === recommendations[0].id) ? "Event bereits gemerkt" : "Event merken"}
+                className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all active:scale-90 ${
+                  bookmarks.some((b) => b.id === recommendations[0].id)
+                    ? "bg-kidgo-400 text-white border border-kidgo-300"
+                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg"
+                }`}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill={bookmarks.some((b) => b.id === recommendations[0].id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3h12v13.5L9 13.5 3 16.5V3z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop grid */}
+        {!loading && recommendations.length > 0 && (
+          <div className="hidden md:grid md:grid-cols-2 gap-5 mb-8">
+            {recommendations.map((event, i) => {
+              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              return (
+                <RecommendationCard
+                  key={event.id}
+                  event={event}
+                  reasons={event.reasons}
+                  sources={sources}
+                  userLocation={userLocation}
+                  animIndex={i}
+                  selectedBuckets={selectedBuckets}
+                  isSeriesParent={seriesParentIds.has(event.id)}
+                  isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                  entdeckerScore={computeEntdeckerScore(cnt)}
+                  isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                  onBookmark={(e) => toggleBookmark(event, e)}
+                  bookmarkCount={bookmarkCounts.get(event.id)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Spacer for card stack action buttons — mobile only */}
+        {!loading && recommendations.length > 0 && <div className="mt-28 md:hidden" />}
+
+        {/* ===== DIESES WOCHENENDE ===== */}
+        {!loading && weekendEventsForLayer2.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-3 px-0.5">
+              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Dieses Wochenende</p>
+              <Link href="/explore" className="text-xs font-semibold text-kidgo-500 hover:text-kidgo-600 transition">
+                Alle →
+              </Link>
+            </div>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+            >
+              {weekendEventsForLayer2.map((event) => (
+                <Link
+                  key={event.id}
+                  href={`/events/${event.id}`}
+                  className="flex-shrink-0 w-44 group"
+                  onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                >
+                  <div className="rounded-2xl overflow-hidden border border-[var(--border)] hover:border-[#5BBAA7]/40 transition-all hover:shadow-md" style={{ boxShadow: "0 2px 8px rgba(91,186,167,0.08)" }}>
+                    <div className="h-28 bg-gradient-to-br from-[#F5F0E8] to-kidgo-50 relative overflow-hidden">
+                      {event.kategorie_bild_url ? (
+                        <img src={event.kategorie_bild_url} alt={event.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                          </svg>
+                        </div>
+                      )}
+                      {event.datum && (
+                        <div className="absolute bottom-2 left-2">
+                          <span className="text-[10px] font-bold text-white bg-[#5BBAA7] rounded-full px-2 py-0.5">
+                            {new Date(event.datum + "T00:00:00").toLocaleDateString("de-CH", { weekday: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 bg-[var(--bg-card)]">
+                      <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
+                      {event.ort && <p className="text-[10px] text-[var(--text-muted)] mt-1 truncate">{event.ort.split(",")[0].trim()}</p>}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ===== SAISONALE LANDING ===== */}
         {!loading && allEventsPool.length > 0 && (() => {
           const month = now.getMonth();
           type SeasonCfg = { title: string; subtitle: string; gradFrom: string; gradTo: string; cats: string[]; io: string | null };
@@ -2695,7 +3069,7 @@ export default function Home() {
           if (seasonEvents.length === 0) return null;
 
           return (
-            <div className="mb-6 card-enter">
+            <div className="mt-8 card-enter">
               <div className={`bg-gradient-to-r ${cfg.gradFrom} ${cfg.gradTo} rounded-2xl px-5 pt-5 pb-4 mb-3`}>
                 <p className="text-xs font-semibold text-white/70 uppercase tracking-wider mb-1">
                   Saisontipp · {monthNames[month]}
@@ -2745,834 +3119,159 @@ export default function Home() {
           );
         })()}
 
-        {/* Holiday banner */}
-        {isSchoolHoliday(now) && (
-          <div className="mb-5 bg-gradient-to-r from-kidgo-50 to-kidgo-50 border border-kidgo-100 text-kidgo-800 rounded-2xl px-5 py-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-kidgo-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-kidgo-500">
-                <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM8 5v3l2 2"/>
-              </svg>
-            </div>
+        {/* Link to explore */}
+        <div className="mt-10 text-center">
+          <Link
+            href="/explore"
+            className="text-[var(--text-muted)] hover:text-kidgo-500 text-sm transition underline decoration-dotted underline-offset-4"
+          >
+            Alle Events entdecken →
+          </Link>
+        </div>
+
+      </div>
+
+      {/* Scroll to top */}
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Nach oben scrollen"
+          className="fixed bottom-24 right-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md rounded-full w-11 h-11 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:shadow-lg transition-all card-enter"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
+
+      {/* Chat FAB */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          aria-label="Frag Kidgo"
+          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-90 hover:scale-105 hover:shadow-xl"
+          style={{ background: "linear-gradient(135deg, #5BBAA7 0%, #4A9E8E 100%)", boxShadow: "0 4px 20px rgba(91,186,167,0.45)" }}
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 5h14a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1z"/>
+          </svg>
+        </button>
+      )}
+    </main>
+
+    {/* Chat bottom sheet */}
+    {chatOpen && (
+      <div
+        className="fixed inset-0 z-50 flex flex-col justify-end"
+        style={{ background: "rgba(0,0,0,0.4)" }}
+        onClick={(e) => { if (e.target === e.currentTarget) setChatOpen(false); }}
+      >
+        <div className="bg-white dark:bg-[#1e2221] rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl">
+          {/* Sheet header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[var(--border)] flex-shrink-0">
             <div>
-              <p className="font-semibold text-sm">Ferienzeit — Entdecke Camps und Ausflüge</p>
-              <p className="text-kidgo-500 text-xs mt-0.5">{getActiveHoliday(now)} · Zürich</p>
+              <h2 className="font-bold text-[var(--text-primary)] text-lg">Frag Kidgo</h2>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">Beschreib was du suchst</p>
             </div>
-          </div>
-        )}
-
-        {/* Sprint 3: Saison-Countdown */}
-        {!loading && allEventsPool.length > 0 && holidayRemaining && (
-          <div className="mb-5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-2xl px-5 py-4 flex items-center gap-3 card-enter">
-            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-500">
-                <path d="M7 1v6l3 3M7 13A6 6 0 1 0 7 1a6 6 0 0 0 0 12z"/>
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-sm text-[var(--text-primary)]">
-                Noch {holidayRemaining.daysLeft} {holidayRemaining.daysLeft === 1 ? "Ferientag" : "Ferientage"}!
-              </p>
-              <p className="text-[var(--text-muted)] text-xs mt-0.5">{holidayRemaining.name}</p>
-            </div>
-          </div>
-        )}
-        {!loading && allEventsPool.length > 0 && holidayUpcoming && (
-          <div className="mb-5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-2xl px-5 py-4 flex items-center gap-3 card-enter">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
-                <rect x="1" y="2" width="12" height="11" rx="1.5"/>
-                <path d="M1 6h12M5 1v3M9 1v3"/>
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-sm text-[var(--text-primary)]">
-                Noch {holidayUpcoming.daysUntil} {holidayUpcoming.daysUntil === 1 ? "Tag" : "Tage"} bis {holidayUpcoming.name}
-              </p>
-              {campCount > 0 && (
-                <p className="text-[var(--text-muted)] text-xs mt-0.5">{campCount} Camp-Ideen</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Sprint 3: Challenge der Woche */}
-        {!loading && allEventsPool.length > 0 && (
-          <div className="mb-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-5 py-4 card-enter teal-gradient-left">
-            <div className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-1">Challenge der Woche</p>
-                <p className="font-semibold text-[var(--text-primary)] text-sm leading-snug">{currentChallenge.title}</p>
-                {challengeEvents.length > 0 && (
-                  <p className="text-[var(--text-muted)] text-xs mt-0.5">{challengeEvents.length} passende Events</p>
-                )}
-              </div>
-              {challengeAccepted ? (
-                <div className="flex-shrink-0 bg-purple-100 rounded-full w-8 h-8 flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600">
-                    <path d="M2 7l4 4 6-7"/>
-                  </svg>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setChallengeAccepted(true);
-                    setShowChallengeEvents(true);
-                    try {
-                      localStorage.setItem("kidgo_challenge_accepted", "true");
-                    } catch {}
-                    setTimeout(() => document.getElementById("challenge-events")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
-                  }}
-                  className="flex-shrink-0 bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-purple-600 transition active:scale-95"
-                >
-                  Annehmen
-                </button>
-              )}
-            </div>
-            {challengeAccepted && (
-              <button
-                onClick={() => setShowChallengeEvents((v) => !v)}
-                className="mt-3 text-xs text-purple-500 hover:text-purple-700 transition underline underline-offset-2"
-              >
-                {showChallengeEvents ? "Events ausblenden" : "Passende Events anzeigen →"}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Challenge events */}
-        {showChallengeEvents && (
-          <div id="challenge-events" className="mb-5 card-enter">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <span>Challenge-Events</span>
-                <span className="text-sm font-normal text-gray-400">({challengeEvents.length})</span>
-              </h3>
-              <button
-                onClick={() => setShowChallengeEvents(false)}
-                className="text-gray-400 text-sm w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition"
-              >
-                ✕
-              </button>
-            </div>
-            {challengeEvents.length === 0 ? (
-              <div className="text-center py-8 bg-white rounded-2xl border border-gray-100">
-  
-                <p className="text-gray-400 text-sm">Aktuell keine passenden Events</p>
-              </div>
-            ) : (
-              <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-                {challengeEvents.slice(0, 5).map((event, i) => (
-                  <RecommendationCard
-                    key={event.id}
-                    event={event}
-                    reasons={[]}
-                    sources={sources}
-                    userLocation={userLocation}
-                    animIndex={i}
-                    selectedBuckets={selectedBuckets}
-                    isSeriesParent={seriesParentIds.has(event.id)}
-                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                    onBookmark={(e) => toggleBookmark(event, e)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Loading state — skeleton cards */}
-        {loading && (
-          <div className="space-y-4" role="status" aria-label="Events werden geladen">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="card-enter" style={{ animationDelay: `${i * 120}ms` }}>
-                <SkeletonCard />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Sprint 12: Animated empty state */}
-        {!loading && recommendations.length === 0 && !isOffline && (
-          <div className="text-center py-14 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="empty-float mx-auto mb-5 w-20 h-20 flex items-center justify-center">
-              <HexIcon size={80}>
-                <rect x="6.5" y="8.5" width="11" height="9" rx="1.2"/>
-                <rect x="6.5" y="8.5" width="11" height="2.4"/>
-                <rect x="8.5" y="6.8" width="1.2" height="3.2" rx="0.4"/>
-                <rect x="14.3" y="6.8" width="1.2" height="3.2" rx="0.4"/>
-                <rect x="11.4" y="12" width="1.2" height="4" rx="0.3" fill="#F5F0E8"/>
-                <rect x="10" y="13.4" width="4" height="1.2" rx="0.3" fill="#F5F0E8"/>
-              </HexIcon>
-            </div>
-            <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
-            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
-            <Link
-              href="/explore"
-              className="bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition"
-            >
-              Alle Events entdecken
-            </Link>
-          </div>
-        )}
-
-        {/* Desktop 2-col grid (md+) */}
-        {!loading && recommendations.length > 0 && (
-          <div className="hidden md:grid md:grid-cols-2 gap-5 mb-8">
-            {recommendations.map((event, i) => {
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              return (
-                <RecommendationCard
-                  key={event.id}
-                  event={event}
-                  reasons={event.reasons}
-                  sources={sources}
-                  userLocation={userLocation}
-                  animIndex={i}
-                  selectedBuckets={selectedBuckets}
-                  isSeriesParent={seriesParentIds.has(event.id)}
-                  isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                  entdeckerScore={computeEntdeckerScore(cnt)}
-                  isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                  onBookmark={(e) => toggleBookmark(event, e)}
-                  bookmarkCount={bookmarkCounts.get(event.id)}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* Sprint 12: Card Stack — Tinder-style stacked cards (mobile only) */}
-        {!loading && recommendations.length > 0 && (
-          <div className="md:hidden relative select-none min-h-[420px]">
-
-            {/* Background stacked cards (peek behind top card) */}
-            {recommendations.slice(1).map((event, ri) => {
-              const stackPos = ri + 1;
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              return (
-                <div
-                  key={`stack-${event.id}`}
-                  className="absolute inset-x-0 top-0 pointer-events-none"
-                  aria-hidden="true"
-                  style={{
-                    zIndex: recommendations.length - stackPos,
-                    transform: `scale(${1 - stackPos * 0.035}) translateY(${stackPos * 13}px)`,
-                    transformOrigin: "center top",
-                    opacity: 1 - stackPos * 0.07,
-                  }}
-                >
-                  <RecommendationCard
-                    event={event}
-                    reasons={event.reasons}
-                    sources={sources}
-                    userLocation={userLocation}
-                    animIndex={0}
-                    selectedBuckets={selectedBuckets}
-                    isSeriesParent={seriesParentIds.has(event.id)}
-                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                    entdeckerScore={computeEntdeckerScore(cnt)}
-                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                    bookmarkCount={bookmarkCounts.get(event.id)}
-                  />
-                </div>
-              );
-            })}
-
-            {/* Top card — interactive, draggable */}
-            {(() => {
-              const event = recommendations[0];
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              return (
-                <div
-                  className="absolute inset-x-0 top-0 card-stack-top"
-                  style={{
-                    zIndex: recommendations.length + 1,
-                    transform: cardExiting
-                      ? `translateX(${exitDirection === "left" ? "-130%" : "130%"}) rotate(${exitDirection === "left" ? -13 : 13}deg)`
-                      : `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.024}deg)`,
-                    transition: cardExiting
-                      ? "transform 0.34s cubic-bezier(0.4,0,0.2,1)"
-                      : swipeOffset === 0 ? "transform 0.2s ease" : "none",
-                  }}
-                  onTouchStart={handleRecTouchStart}
-                  onTouchMove={handleRecTouchMove}
-                  onTouchEnd={handleRecTouchEnd}
-                >
-                  <RecommendationCard
-                    key={event.id}
-                    event={event}
-                    reasons={event.reasons}
-                    sources={sources}
-                    userLocation={userLocation}
-                    animIndex={0}
-                    selectedBuckets={selectedBuckets}
-                    isSeriesParent={seriesParentIds.has(event.id)}
-                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                    entdeckerScore={computeEntdeckerScore(cnt)}
-                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                    onBookmark={(e) => toggleBookmark(event, e)}
-                    bookmarkCount={bookmarkCounts.get(event.id)}
-                  />
-                </div>
-              );
-            })()}
-
-            {/* Swipe hint badge */}
-            {swipeHint && (
-              <div
-                className={`absolute top-0 left-0 right-0 rounded-2xl pointer-events-none flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"}`}
-                style={{ height: "200px", zIndex: recommendations.length + 2 }}
-              >
-                <div
-                  className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-kidgo-500" : "bg-green-500"}`}
-                >
-                  {swipeHint === "left" ? "Weiter" : "Gemerkt"}
-                </div>
-              </div>
-            )}
-
-            {/* Counter + action buttons */}
-            <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-56px" }}>
-              <button
-                onClick={handleSwipeLeft}
-                aria-label="Nächste Karte"
-                className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg transition-all active:scale-90"
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 9H4M4 9l5-5M4 9l5 5"/>
-                </svg>
-              </button>
-              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 min-w-[36px] text-center tabular-nums">
-                {(cardIndex % recommendations.length) + 1}/{recommendations.length}
-              </span>
-              <button
-                onClick={handleSwipeRight}
-                aria-label={bookmarks.some((b) => b.id === recommendations[0].id) ? "Event bereits gemerkt" : "Event merken"}
-                className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all active:scale-90 ${
-                  bookmarks.some((b) => b.id === recommendations[0].id)
-                    ? "bg-kidgo-400 text-white border border-kidgo-300"
-                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg"
-                }`}
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 18 18"
-                  fill={bookmarks.some((b) => b.id === recommendations[0].id) ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 3h12v13.5L9 13.5 3 16.5V3z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Spacer for card stack buttons — mobile only */}
-        {!loading && recommendations.length > 0 && <div className="mt-28 md:hidden" />}
-
-        {/* ===== SPRINT 19-20: PERSONALISIERTES DASHBOARD ===== */}
-
-        {/* "Heute" — Events mit Datum=Heute */}
-        {!loading && allEventsPool.length > 0 && (user !== null || visitCount > 0) && (() => {
-          const todayStr = localDateStr(now);
-          const todayEvents = allEventsPool
-            .filter((e) => e.datum === todayStr)
-            .map((e) => {
-              const { score, reasons } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
-              return { ...e, score, reasons };
-            })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 3);
-          if (todayEvents.length === 0) return null;
-          return (
-            <div className="mt-8">
-              <HexDivider />
-              <div className="flex items-center justify-between mb-3 px-0.5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Heute</p>
-                <span className="text-xs text-[#5BBAA7] font-semibold">{todayEvents.length} Events</span>
-              </div>
-              <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-                {todayEvents.map((event, i) => (
-                  <RecommendationCard
-                    key={event.id}
-                    event={event}
-                    reasons={event.reasons}
-                    sources={sources}
-                    userLocation={userLocation}
-                    animIndex={i}
-                    selectedBuckets={selectedBuckets}
-                    isSeriesParent={seriesParentIds.has(event.id)}
-                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                    onBookmark={(e) => toggleBookmark(event, e)}
-                    bookmarkCount={bookmarkCounts.get(event.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* "Dieses Wochenende" — Sa+So, horizontal scroll, max 5 */}
-        {!loading && allEventsPool.length > 0 && (user !== null || visitCount > 0) && (() => {
-          const dow = now.getDay();
-          const toSat = dow === 0 ? 6 : dow === 6 ? 0 : (6 - dow);
-          const sat = new Date(now); sat.setDate(sat.getDate() + toSat); sat.setHours(0, 0, 0, 0);
-          const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
-          const satStr = localDateStr(sat);
-          const sunStr = localDateStr(sun);
-          const weekendEvents = allEventsPool
-            .filter((e) => e.datum === satStr || e.datum === sunStr)
-            .map((e) => {
-              const { score } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
-              return { ...e, score };
-            })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 5);
-          if (weekendEvents.length === 0) return null;
-          return (
-            <div className="mt-8">
-              <HexDivider />
-              <div className="flex items-center justify-between mb-3 px-0.5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dieses Wochenende</p>
-                <span className="text-xs text-[#5BBAA7] font-semibold">{weekendEvents.length} Events</span>
-              </div>
-              <div
-                className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-              >
-                {weekendEvents.map((event) => (
-                  <Link
-                    key={event.id}
-                    href={`/events/${event.id}`}
-                    className="flex-shrink-0 w-44 group"
-                  >
-                    <div
-                      className="rounded-2xl overflow-hidden border border-gray-100 hover:border-[#5BBAA7]/40 transition-all hover:shadow-md"
-                      style={{ boxShadow: "0 2px 8px rgba(91,186,167,0.08)" }}
-                    >
-                      <div className="h-28 bg-gradient-to-br from-[#F5F0E8] to-kidgo-50 relative overflow-hidden">
-                        {event.kategorie_bild_url ? (
-                          <img src={event.kategorie_bild_url} alt={event.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-                            </svg>
-                          </div>
-                        )}
-                        {event.datum && (
-                          <div className="absolute bottom-2 left-2">
-                            <span className="text-[10px] font-bold text-white bg-[#5BBAA7] rounded-full px-2 py-0.5">
-                              {new Date(event.datum + "T00:00:00").toLocaleDateString("de-CH", { weekday: "short", day: "numeric" })}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3 bg-white">
-                        <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
-                        {event.ort && <p className="text-[10px] text-gray-400 mt-1 truncate">{event.ort}</p>}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* "Community-Favoriten" — höchster bookmark_count, max 4 */}
-        {!loading && allEventsPool.length > 0 && (user !== null || visitCount > 0) && (() => {
-          const communityFavs = allEventsPool
-            .filter((e) => (bookmarkCounts.get(e.id) ?? 0) > 0)
-            .sort((a, b) => (bookmarkCounts.get(b.id) ?? 0) - (bookmarkCounts.get(a.id) ?? 0))
-            .slice(0, 4);
-          if (communityFavs.length === 0) return null;
-          return (
-            <div className="mt-8">
-              <HexDivider />
-              <div className="flex items-center justify-between mb-3 px-0.5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Community-Favoriten</p>
-              </div>
-              <div className="space-y-3">
-                {communityFavs.map((event, i) => (
-                  <Link
-                    key={event.id}
-                    href={`/events/${event.id}`}
-                    className="flex items-center gap-3 bg-[#F5F0E8] dark:bg-[var(--bg-card)] rounded-2xl p-3.5 group hover:shadow-md transition-all"
-                    style={{ boxShadow: "0 2px 8px rgba(91,186,167,0.08)" }}
-                  >
-                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-kidgo-100">
-                      {event.kategorie_bild_url ? (
-                        <img src={event.kategorie_bild_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-800 leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
-                      {event.ort && <p className="text-xs text-gray-400 mt-0.5 truncate">{event.ort}</p>}
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="text-[10px] font-bold bg-[#5BBAA7] text-white px-2 py-0.5 rounded-full">Beliebt</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ===== SPRINT 11: QUICK ACTIONS ===== */}
-        {!loading && (
-          <div className="mt-6">
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
-              {/* Karte */}
-              <button
-                type="button"
-                onClick={() => {
-                  document.getElementById("kidgo-map-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
-              >
-                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <HexIcon size={36}>
-                    <path d="M12 6.5c2.2 0 4 1.8 4 4 0 3.2-4 7-4 7s-4-3.8-4-7c0-2.2 1.8-4 4-4z"/>
-                    <circle cx="12" cy="10.5" r="1.4" fill="#F5F0E8"/>
-                  </HexIcon>
-                </div>
-                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Karte</span>
-              </button>
-
-              {/* Gratis */}
-              <button
-                onClick={() => {
-                  setCollectionsOpen(true);
-                  setActiveCollection("gratis");
-                  setTimeout(() => {
-                    document.getElementById("smart-collections")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 50);
-                }}
-                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
-              >
-                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <HexIcon size={36}>
-                    <circle cx="12" cy="12" r="4.8"/>
-                    <rect x="11.4" y="9" width="1.2" height="6" rx="0.4" fill="#F5F0E8"/>
-                    <rect x="9" y="11.4" width="6" height="1.2" rx="0.4" fill="#F5F0E8"/>
-                  </HexIcon>
-                </div>
-                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Gratis</span>
-              </button>
-
-              {/* Camps */}
-              <button
-                onClick={() => {
-                  setCollectionsOpen(true);
-                  setActiveCollection("camps");
-                  setTimeout(() => {
-                    document.getElementById("smart-collections")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 50);
-                }}
-                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
-              >
-                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <HexIcon size={36}>
-                    <path d="M12 7l5 10H7z"/>
-                    <path d="M11.4 14h1.2v3h-1.2z" fill="#F5F0E8"/>
-                  </HexIcon>
-                </div>
-                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Camps</span>
-              </button>
-
-              {/* Frag Kidgo */}
-              <button
-                onClick={() => {
-                  setChatOpen(true);
-                  setTimeout(() => {
-                    document.getElementById("kidgo-chat-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    setTimeout(() => document.getElementById("kidgo-chat-input")?.focus(), 200);
-                  }, 400);
-                }}
-                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
-              >
-                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <HexIcon size={36}>
-                    <path d="M6.5 8.5h11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-3.5l-2.2 2.2v-2.2H6.5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1z"/>
-                    <rect x="8" y="11" width="6" height="0.9" rx="0.4" fill="#F5F0E8"/>
-                    <rect x="8" y="12.6" width="4" height="0.9" rx="0.4" fill="#F5F0E8"/>
-                  </HexIcon>
-                </div>
-                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Frag Kidgo</span>
-              </button>
-
-              {/* Verlauf */}
-              <Link href="/history" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
-                <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center group-hover:border-[#5BBAA7]/40 group-hover:shadow-md transition-all active:scale-95">
-                  <HexIcon size={36}>
-                    <circle cx="12" cy="12" r="4.8"/>
-                    <rect x="11.5" y="8.6" width="1" height="3.6" rx="0.3" fill="#F5F0E8"/>
-                    <rect x="11.5" y="11.5" width="2.8" height="1" rx="0.3" fill="#F5F0E8"/>
-                  </HexIcon>
-                </div>
-                <span className="text-[10px] font-medium text-gray-500 group-hover:text-[#5BBAA7] transition-colors">Verlauf</span>
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* ===== SPRINT 6A: WOCHENPLANER (collapsible) ===== */}
-        {!loading && allEventsPool.length > 0 && <HexDivider />}
-        {!loading && allEventsPool.length > 0 && (() => {
-          const todayNow = new Date();
-          const dow = todayNow.getDay();
-          const mondayOffset = dow === 0 ? -6 : 1 - dow;
-          const weekDays = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(todayNow);
-            d.setDate(d.getDate() + mondayOffset + i);
-            d.setHours(0, 0, 0, 0);
-            return d;
-          });
-          const dayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-          const eventsByDay = weekDays.map((day) => {
-            const dayStr = localDateStr(day);
-            return allEventsPool.filter((e) => e.datum === dayStr);
-          });
-          const selectedDayEvents = selectedWeekDay !== null ? eventsByDay[selectedWeekDay] : [];
-          const todayStr = localDateStr(todayNow);
-
-          return (
-            <div className="mt-8">
-              <button
-                onClick={() => setWochenplanerOpen((o) => !o)}
-                className="w-full flex items-center justify-between mb-3 px-0.5"
-              >
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Deine Woche</p>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 transition-transform duration-200 ${wochenplanerOpen ? "rotate-180" : ""}`}>
-                  <path d="M3 5l4 4 4-4"/>
-                </svg>
-              </button>
-              <div style={{ maxHeight: wochenplanerOpen ? "600px" : "0", overflow: "hidden", transition: "max-height 0.35s ease" }}>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex">
-                  {weekDays.map((day, i) => {
-                    const isToday = localDateStr(day) === todayStr;
-                    const hasEvents = eventsByDay[i].length > 0;
-                    const selected = selectedWeekDay === i;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedWeekDay(selected ? null : i)}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors ${
-                          selected ? "bg-kidgo-50" : "hover:bg-gray-50"
-                        } ${isToday ? "border-b-2 border-kidgo-400" : "border-b-2 border-transparent"}`}
-                      >
-                        <span className={`text-xs font-semibold ${
-                          isToday ? "text-kidgo-500" : selected ? "text-kidgo-500" : "text-gray-400"
-                        }`}>
-                          {dayLabels[i]}
-                        </span>
-                        <span className={`text-sm font-bold ${
-                          isToday ? "text-kidgo-500" : selected ? "text-gray-800" : "text-gray-600"
-                        }`}>
-                          {day.getDate()}
-                        </span>
-                        <div className="h-1.5 flex items-center">
-                          {hasEvents ? (
-                            <span className={`w-1.5 h-1.5 rounded-full ${isToday ? "bg-kidgo-400" : "bg-gray-300"}`} />
-                          ) : (
-                            <span className="w-1.5 h-1.5" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedWeekDay !== null && (
-                  <div className="border-t border-gray-100 p-4">
-                    {selectedDayEvents.length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-3">Keine Events an diesem Tag</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {selectedDayEvents.slice(0, 5).map((ev) => (
-                          <Link
-                            key={ev.id}
-                            href={`/events/${ev.id}`}
-                            className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-kidgo-50 transition group"
-                          >
-                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-kidgo-100">
-                              {ev.kategorie_bild_url ? (
-                                <img src={ev.kategorie_bild_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-kidgo-300 text-xs font-bold">
-                                  {(ev.kategorien?.[0] || "K").slice(0, 1)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-kidgo-500 transition-colors">{ev.titel}</p>
-                              {ev.ort && <p className="text-xs text-gray-400 truncate">{ev.ort}</p>}
-                            </div>
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 group-hover:text-kidgo-400 flex-shrink-0 transition">
-                              <path d="M4 9l3-3-3-3"/>
-                            </svg>
-                          </Link>
-                        ))}
-                        {selectedDayEvents.length > 5 && (
-                          <Link href="/explore" className="block text-center text-xs text-kidgo-500 hover:text-kidgo-500 pt-2 transition">
-                            +{selectedDayEvents.length - 5} weitere Events
-                          </Link>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ===== FEATURE A: FRAG KIDGO CHAT (collapsible) ===== */}
-        {!loading && allEventsPool.length > 0 && <HexDivider />}
-        {!loading && allEventsPool.length > 0 && (
-          <div id="kidgo-chat-section" className="mt-8 bg-[var(--kidgo-cream)] dark:bg-[var(--bg-subtle)] rounded-2xl shadow-sm border border-kidgo-200/50 overflow-hidden">
             <button
-              onClick={() => setChatOpen((o) => !o)}
-              className="w-full flex items-center justify-between p-5 pb-4 text-left"
+              onClick={() => setChatOpen(false)}
+              aria-label="Schliessen"
+              className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
             >
-              <div>
-                <h2 className="font-bold text-gray-800 text-lg">Frag Kidgo</h2>
-                <p className="text-gray-400 text-sm">Beschreib was du suchst</p>
-              </div>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 flex-shrink-0 ml-3 transition-transform duration-200 ${chatOpen ? "rotate-180" : ""}`}>
-                <path d="M3 5l4 4 4-4"/>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M2 2l8 8M10 2l-8 8"/>
               </svg>
             </button>
-            <div style={{ maxHeight: chatOpen ? "800px" : "0", overflow: "hidden", transition: "max-height 0.35s ease" }}>
-            <div className="px-5 pb-5">
-              <p className="text-gray-400 text-sm mb-4">
-                Beschreib was du suchst — ich filtere passende Events für dich
-              </p>
+          </div>
 
-              <div className="flex flex-wrap gap-2 mb-3">
-                {CHAT_CHIPS.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => handleChatQuery(chip)}
-                    className="text-xs font-medium bg-kidgo-50 text-kidgo-500 border border-kidgo-200 px-3 py-1.5 rounded-full hover:bg-kidgo-100 hover:border-kidgo-300 transition active:scale-95"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search history — shown when input is empty */}
-              {chatInput.trim() === "" && searchHistory.length > 0 && (
-                <div className="mb-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-gray-400 font-medium">Letzte Suchen:</span>
-                    <button
-                      onClick={() => {
-                        setSearchHistory([]);
-                        try { localStorage.removeItem("kidgo_search_history"); } catch {}
-                      }}
-                      className="text-xs text-gray-300 hover:text-gray-400 transition ml-auto"
-                    >
-                      Verlauf löschen
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {searchHistory.map((h) => (
-                      <div key={h} className="inline-flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1">
-                        <button
-                          onClick={() => handleChatQuery(h)}
-                          className="text-xs text-gray-600 hover:text-kidgo-500 transition"
-                        >
-                          {h}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSearchHistory((prev) => {
-                              const next = prev.filter((x) => x !== h);
-                              try { localStorage.setItem("kidgo_search_history", JSON.stringify(next)); } catch {}
-                              return next;
-                            });
-                          }}
-                          className="text-gray-300 hover:text-gray-500 transition leading-none"
-                          aria-label="Entfernen"
-                        >
-                          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                            <path d="M2 2l6 6M8 2l-6 6"/>
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    id="kidgo-chat-input"
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
-                    placeholder="Frag Kidgo..."
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 pr-14 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
-                  />
-                  <span
-                    className="hidden md:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-1 text-[10px] font-medium text-gray-400 bg-white border border-gray-200 rounded-md px-1.5 py-0.5 pointer-events-none"
-                    title="Tastaturkürzel: drücke / zum Fokussieren"
-                  >
-                    <kbd className="font-semibold">/</kbd>
-                  </span>
-                </div>
+          {/* Sheet body — scrollable */}
+          <div className="overflow-y-auto flex-1 px-5 pt-4 pb-6">
+            {/* Quick chips */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {CHAT_CHIPS.map((chip) => (
                 <button
-                  onClick={() => handleChatQuery(chatInput)}
-                  disabled={!chatInput.trim()}
-                  aria-label="Suchen"
-                  className="bg-kidgo-400 text-white rounded-xl px-4 py-2.5 font-bold text-sm hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
+                  key={chip}
+                  onClick={() => handleChatQuery(chip)}
+                  className="text-xs font-medium bg-kidgo-50 text-kidgo-500 border border-kidgo-200 px-3 py-1.5 rounded-full hover:bg-kidgo-100 hover:border-kidgo-300 transition active:scale-95"
                 >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 7h8M7 3l4 4-4 4"/>
-                  </svg>
+                  {chip}
                 </button>
-                <button
-                  onClick={handleAiQuery}
-                  disabled={!chatInput.trim() || aiLoading}
-                  aria-label="AI-Empfehlung von Kidgo"
-                  title="AI-Empfehlung"
-                  className="bg-[var(--bg-subtle)] border border-kidgo-200 text-kidgo-600 rounded-xl px-3 py-2.5 text-xs font-bold hover:bg-kidgo-50 hover:border-kidgo-300 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0 flex items-center gap-1.5"
-                >
-                  {aiLoading ? (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="animate-spin">
-                      <path d="M7 1.5A5.5 5.5 0 1 1 1.5 7"/>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 1l1.5 3 3.3.5-2.4 2.3.6 3.2L7 8.5l-3 1.5.6-3.2-2.4-2.3 3.3-.5z"/>
-                    </svg>
-                  )}
-                  <span className="hidden sm:inline">AI</span>
-                </button>
-              </div>
+              ))}
             </div>
 
+            {/* Search history */}
+            {chatInput.trim() === "" && searchHistory.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs text-[var(--text-muted)] font-medium">Letzte Suchen:</span>
+                  <button
+                    onClick={() => { setSearchHistory([]); try { localStorage.removeItem("kidgo_search_history"); } catch {} }}
+                    className="text-xs text-gray-300 hover:text-gray-400 transition ml-auto"
+                  >
+                    Löschen
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {searchHistory.map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => handleChatQuery(h)}
+                      className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1 hover:text-kidgo-500 hover:border-kidgo-200 transition"
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Input row */}
+            <div className="flex gap-2 mb-4">
+              <input
+                id="kidgo-chat-input"
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
+                placeholder="Frag Kidgo..."
+                autoFocus
+                className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
+              />
+              <button
+                onClick={() => handleChatQuery(chatInput)}
+                disabled={!chatInput.trim()}
+                aria-label="Suchen"
+                className="bg-kidgo-400 text-white rounded-xl px-4 py-2.5 font-bold hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7h8M7 3l4 4-4 4"/>
+                </svg>
+              </button>
+              <button
+                onClick={handleAiQuery}
+                disabled={!chatInput.trim() || aiLoading}
+                aria-label="AI-Empfehlung"
+                className="bg-[var(--bg-subtle)] border border-kidgo-200 text-kidgo-600 rounded-xl px-3 py-2.5 text-xs font-bold hover:bg-kidgo-50 hover:border-kidgo-300 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0 flex items-center gap-1.5"
+              >
+                {aiLoading ? (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="animate-spin">
+                    <path d="M7 1.5A5.5 5.5 0 1 1 1.5 7"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 1l1.5 3 3.3.5-2.4 2.3.6 3.2L7 8.5l-3 1.5.6-3.2-2.4-2.3 3.3-.5z"/>
+                  </svg>
+                )}
+                <span>AI</span>
+              </button>
+            </div>
+
+            {/* Chat results */}
             {chatResult && (
-              <div ref={chatResultRef} className="border-t border-gray-100 p-5 bg-kidgo-50/40">
-                <p className="text-sm font-semibold text-gray-700 mb-4">{chatResult.message}</p>
+              <div className="border-t border-[var(--border)] pt-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)] mb-4">{chatResult.message}</p>
                 {chatResult.events.length > 0 ? (
-                  <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+                  <div className="space-y-3">
                     {chatResult.events.map((event, i) => (
                       <RecommendationCard
                         key={event.id}
@@ -3588,486 +3287,16 @@ export default function Home() {
                     ))}
                   </div>
                 ) : (
-                  <Link
-                    href="/explore"
-                    className="inline-block text-sm text-kidgo-500 underline underline-offset-2 hover:text-kidgo-500 transition"
-                  >
+                  <Link href="/explore" className="inline-block text-sm text-kidgo-500 underline underline-offset-2 hover:text-kidgo-600 transition">
                     Alle Events durchsuchen →
                   </Link>
                 )}
               </div>
             )}
-            </div>{/* end collapsible */}
           </div>
-        )}
-
-        {/* ===== SPRINT 11: KARTEN-KACHEL ===== */}
-        {!loading && allEventsPool.length > 0 && (
-          <div id="kidgo-map-section" className="mt-6 card-enter">
-            <Link href="/map" className="block group">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-kidgo-200 transition-all">
-                <div className="relative h-24 bg-gradient-to-br from-kidgo-50 to-kidgo-100 overflow-hidden">
-                  {/* Decorative map grid lines */}
-                  <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 400 96" preserveAspectRatio="xMidYMid slice">
-                    <line x1="0" y1="32" x2="400" y2="32" stroke="#5BBAA7" strokeWidth="1"/>
-                    <line x1="0" y1="64" x2="400" y2="64" stroke="#5BBAA7" strokeWidth="1"/>
-                    <line x1="80" y1="0" x2="80" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
-                    <line x1="160" y1="0" x2="160" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
-                    <line x1="240" y1="0" x2="240" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
-                    <line x1="320" y1="0" x2="320" y2="96" stroke="#5BBAA7" strokeWidth="1"/>
-                    <circle cx="160" cy="48" r="6" fill="#5BBAA7" opacity="0.5"/>
-                    <circle cx="240" cy="32" r="4" fill="#5BBAA7" opacity="0.4"/>
-                    <circle cx="200" cy="64" r="5" fill="#5BBAA7" opacity="0.4"/>
-                    <circle cx="120" cy="24" r="3" fill="#5BBAA7" opacity="0.3"/>
-                    <circle cx="300" cy="56" r="4" fill="#5BBAA7" opacity="0.35"/>
-                  </svg>
-                  {/* Pin icon */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-10 h-10 bg-white/90 rounded-full shadow-md flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M9 1.5a5 5 0 0 1 5 5c0 4.2-5 10-5 10S4 10.7 4 6.5a5 5 0 0 1 5-5z"/>
-                        <circle cx="9" cy="6.5" r="2"/>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="font-bold text-gray-900 text-sm group-hover:text-kidgo-500 transition-colors">
-                      Events auf der Karte
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {allEventsPool.length} Events in der Region Zürich
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-kidgo-500 group-hover:gap-2.5 transition-all">
-                    <span>Karte öffnen</span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l3-3-3-3M6 9l3-3-3-3" opacity="0.5"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* ===== ACTION BUTTONS: SURPRISE + DAY PLAN ===== */}
-        {!loading && allEvents.length > 0 && (
-          <div className="mt-6 flex gap-3 justify-center flex-wrap">
-            <button
-              onClick={handleSurprise}
-              aria-label="Zufälliges Event entdecken"
-              className="bg-white border-2 border-kidgo-200 text-kidgo-500 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-kidgo-50 hover:border-kidgo-400 transition shadow-sm hover:shadow-md active:scale-95"
-            >
-              {showSurprise ? "Nochmal" : "Zufällige Empfehlung"}
-            </button>
-
-            <button
-              onClick={handleGenerateDayPlan}
-              aria-label="Tagesplan für Kinder generieren"
-              className="bg-white border-2 border-kidgo-200 text-kidgo-500 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-kidgo-50 hover:border-kidgo-400 transition shadow-sm hover:shadow-md active:scale-95"
-            >
-              Plan meinen Tag
-            </button>
-          </div>
-        )}
-
-        {/* ===== FEATURE 1: SMART COLLECTIONS (collapsible) ===== */}
-        {!loading && allEventsPool.length > 0 && (
-          <div id="smart-collections" className="mt-6">
-            <button
-              onClick={() => setCollectionsOpen((o) => !o)}
-              className="w-full flex items-center justify-between mb-3 px-0.5"
-            >
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sammlungen</p>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 transition-transform duration-200 ${collectionsOpen ? "rotate-180" : ""}`}>
-                <path d="M3 5l4 4 4-4"/>
-              </svg>
-            </button>
-            <div style={{ maxHeight: collectionsOpen ? "400px" : "0", overflow: "hidden", transition: "max-height 0.35s ease" }}>
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
-              {SMART_COLLECTIONS.map((col) => {
-                const colNow = new Date();
-                const count = allEventsPool.filter((e) => col.filter(e, colNow)).length;
-                const active = activeCollection === col.id;
-                return (
-                  <button
-                    key={col.id}
-                    onClick={() => setActiveCollection(active ? null : col.id)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border-2 font-semibold text-sm transition-all whitespace-nowrap active:scale-95 ${
-                      active
-                        ? "bg-kidgo-400 text-white border-kidgo-400 shadow-md"
-                        : "bg-white text-gray-700 border-gray-200 hover:border-kidgo-300 hover:bg-kidgo-50"
-                    }`}
-                  >
-                    <span>{col.label}</span>
-                    {count > 0 && (
-                      <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center ${active ? "bg-white/25 text-white" : "bg-kidgo-100 text-kidgo-500"}`}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            </div>{/* end collapsible */}
-          </div>
-        )}
-
-        {activeCollection && collectionsOpen && (() => {
-          const col = SMART_COLLECTIONS.find((c) => c.id === activeCollection)!;
-          const colNow = new Date();
-          const filtered = allEventsPool.filter((e) => col.filter(e, colNow));
-          return (
-            <div className="mt-4 card-enter">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                  <span>{col.label}</span>
-                  <span className="text-sm font-normal text-gray-400">({filtered.length})</span>
-                </h3>
-                <button
-                  onClick={() => setActiveCollection(null)}
-                  className="text-sm text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full w-7 h-7 flex items-center justify-center transition"
-                >
-                  ✕
-                </button>
-              </div>
-              {filtered.length === 0 ? (
-                <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
-
-                  <p className="text-gray-500">Gerade keine Events in dieser Sammlung</p>
-                </div>
-              ) : (
-                <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-                  {filtered.map((event, i) => (
-                    <RecommendationCard
-                      key={event.id}
-                      event={event}
-                      reasons={[]}
-                      sources={sources}
-                      userLocation={userLocation}
-                      animIndex={i}
-                      selectedBuckets={selectedBuckets}
-                      isSeriesParent={seriesParentIds.has(event.id)}
-                      isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                      onBookmark={(e) => toggleBookmark(event, e)}
-                      bookmarkCount={bookmarkCounts.get(event.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Surprise card */}
-        {showSurprise && surpriseEvent && (
-          <div key={surpriseAnimKey} id="surprise-card" className="mt-5 flip-in">
-            <p className="text-center text-sm font-semibold text-kidgo-500 mb-3">
-              Zufällige Entdeckung
-            </p>
-            <RecommendationCard
-              event={surpriseEvent}
-              reasons={["Zufällig für euch ausgewählt"]}
-              sources={sources}
-              userLocation={userLocation}
-              animIndex={0}
-              selectedBuckets={selectedBuckets}
-              isBookmarked={bookmarks.some((b) => b.id === surpriseEvent.id)}
-              onBookmark={(e) => toggleBookmark(surpriseEvent, e)}
-            />
-          </div>
-        )}
-
-        {/* ===== FEATURE C: DAY PLAN ===== */}
-        {showDayPlan && dayPlan && (dayPlan.morning || dayPlan.afternoon) && (
-          <div id="day-plan" className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden card-enter">
-            <div className="p-5 border-b border-gray-100">
-              <h2 className="font-bold text-gray-800 text-lg">Dein Tagesplan</h2>
-              <p className="text-gray-400 text-xs mt-0.5">Zwei abwechslungsreiche Events für euren Tag</p>
-            </div>
-
-            <div className="p-5">
-              <div className="relative pl-7">
-                <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-kidgo-300 via-kidgo-200 to-kidgo-300 rounded-full" />
-
-                {dayPlan.morning && (
-                  <div className="relative mb-6">
-                    <div className="absolute -left-4 top-1 w-4 h-4 bg-kidgo-400 rounded-full border-2 border-white shadow-sm" />
-                    <div className="text-xs font-bold text-kidgo-500 mb-1.5 tracking-wide">
-                      10:00 – 12:00 Uhr · Vormittag
-                    </div>
-                    <Link
-                      href={`/events/${dayPlan.morning.id}`}
-                      className="block bg-kidgo-50 border border-kidgo-100 rounded-xl p-3.5 hover:bg-kidgo-100 hover:border-kidgo-200 transition group"
-                    >
-                      <div className="font-bold text-gray-800 text-sm group-hover:text-kidgo-600 transition leading-snug">
-                        {dayPlan.morning.titel}
-                      </div>
-                      {dayPlan.morning.ort && (
-                        <div className="text-gray-500 text-xs mt-1">{dayPlan.morning.ort}</div>
-                      )}
-                      {dayPlan.morning.datum && (
-                        <div className="text-gray-400 text-xs mt-0.5">{formatDateShort(dayPlan.morning.datum)}</div>
-                      )}
-                    </Link>
-                  </div>
-                )}
-
-                <div className="relative mb-6">
-                  <div className="absolute -left-4 top-1 w-4 h-4 bg-kidgo-200 rounded-full border-2 border-white" />
-                  <div className="text-xs font-bold text-kidgo-400 mb-1.5 tracking-wide">
-                    12:00 – 14:00 Uhr · Mittagspause
-                  </div>
-                  <div className="bg-kidgo-50 border border-kidgo-100 rounded-xl p-3.5">
-                    <div className="text-gray-500 text-sm">Mittagessen & Erholung</div>
-                    <div className="text-gray-400 text-xs mt-0.5">Zeit zum Entspannen und Auftanken</div>
-                  </div>
-                </div>
-
-                {dayPlan.afternoon && (
-                  <div className="relative">
-                    <div className="absolute -left-4 top-1 w-4 h-4 bg-kidgo-400 rounded-full border-2 border-white shadow-sm" />
-                    <div className="text-xs font-bold text-kidgo-400 mb-1.5 tracking-wide">
-                      14:00 – 16:00 Uhr · Nachmittag
-                    </div>
-                    <Link
-                      href={`/events/${dayPlan.afternoon.id}`}
-                      className="block bg-kidgo-50 border border-kidgo-100 rounded-xl p-3.5 hover:bg-kidgo-100 hover:border-kidgo-200 transition group"
-                    >
-                      <div className="font-bold text-gray-800 text-sm group-hover:text-kidgo-600 transition leading-snug">
-                        {dayPlan.afternoon.titel}
-                      </div>
-                      {dayPlan.afternoon.ort && (
-                        <div className="text-gray-500 text-xs mt-1">{dayPlan.afternoon.ort}</div>
-                      )}
-                      {dayPlan.afternoon.datum && (
-                        <div className="text-gray-400 text-xs mt-0.5">{formatDateShort(dayPlan.afternoon.datum)}</div>
-                      )}
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleGenerateDayPlan}
-                className="mt-5 w-full py-2.5 text-sm text-kidgo-400 font-semibold border border-kidgo-200 rounded-xl hover:bg-kidgo-50 transition"
-              >
-                Anderen Plan generieren
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ===== SPRINT 6B: KÜRZLICH ANGESCHAUT ===== */}
-        {recentVisits.length > 0 && !loading && (
-          <div className="mt-8">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Kürzlich angeschaut</p>
-            <div
-              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-            >
-              {recentVisits.slice(0, 3).map((visit) => (
-                <Link
-                  key={visit.id}
-                  href={`/events/${visit.id}`}
-                  className="flex-shrink-0 w-36 sm:w-44 group"
-                >
-                  <div className="w-full h-24 rounded-xl overflow-hidden bg-gray-100 mb-2">
-                    {visit.kategorie_bild_url ? (
-                      <img src={visit.kategorie_bild_url} alt={visit.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-kidgo-100 to-kidgo-50 flex items-center justify-center">
-                        <span className="text-kidgo-300 text-xs font-bold">{(visit.kategorien?.[0] || "K").slice(0, 1)}</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors">{visit.titel}</p>
-                  {visit.datum && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(visit.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
-                    </p>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ===== SPRINT 11: NÄCHSTES EVENT COUNTDOWN ===== */}
-        {bookmarks.length > 0 && !loading && (() => {
-          void countdownTick; // re-render every minute
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const nextBm = bookmarks
-            .filter((bm) => bm.datum)
-            .map((bm) => ({ ...bm, dateObj: new Date(bm.datum! + "T00:00:00") }))
-            .filter((bm) => bm.dateObj >= today)
-            .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())[0];
-          if (!nextBm) return null;
-          const diffMs   = nextBm.dateObj.getTime() - now.getTime();
-          const diffDays  = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          let countdownLabel: string;
-          if (diffDays === 0 && diffHours <= 0) countdownLabel = "Heute";
-          else if (diffDays === 0) countdownLabel = `Heute in ${diffHours} Std.`;
-          else if (diffDays === 1 && diffHours === 0) countdownLabel = "Morgen";
-          else if (diffDays === 1) countdownLabel = `In 1 Tag, ${diffHours} Std.`;
-          else countdownLabel = `In ${diffDays} Tagen${diffHours > 0 ? `, ${diffHours} Std.` : ""}`;
-          return (
-            <div className="mt-8 card-enter">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">
-                Nächstes Event
-              </p>
-              <Link href={`/events/${nextBm.id}`} className="block group">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-kidgo-200 transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-base leading-snug truncate group-hover:text-kidgo-500 transition-colors">
-                        {nextBm.titel}
-                      </p>
-                      {nextBm.ort && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">{nextBm.ort}</p>
-                      )}
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-lg font-extrabold text-kidgo-500 leading-tight">{countdownLabel}</p>
-                      {nextBm.datum && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(nextBm.datum + "T00:00:00").toLocaleDateString("de-CH", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          );
-        })()}
-
-        {/* ===== SPRINT 6E: GEMERKTE EVENTS ===== */}
-        {bookmarks.length > 0 && !loading && (
-          <div className="mt-8">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-0.5">Gemerkte Events</p>
-            <div
-              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-            >
-              {bookmarks.map((bm) => (
-                <Link
-                  key={bm.id}
-                  href={`/events/${bm.id}`}
-                  className="flex-shrink-0 w-36 sm:w-44 group"
-                >
-                  <div className="relative w-full h-24 rounded-xl overflow-hidden bg-gray-100 mb-2">
-                    {bm.kategorie_bild_url ? (
-                      <img src={bm.kategorie_bild_url} alt={bm.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-kidgo-100 to-kidgo-50" />
-                    )}
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeBookmark(bm.id); }}
-                      aria-label="Merker entfernen"
-                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 transition"
-                    >
-                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M2 2l6 6M8 2l-6 6"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors">{bm.titel}</p>
-                  {bm.datum && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(bm.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
-                    </p>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mt-10 text-center">
-          <Link
-            href="/explore"
-            className="text-gray-400 hover:text-gray-600 text-sm transition underline decoration-dotted underline-offset-4"
-          >
-            Alle Events entdecken →
-          </Link>
         </div>
-
-        {visitCount > 0 && (
-          <div className="mt-4 text-center">
-            {visitCount >= 3 ? (
-              <span className="text-sm text-kidgo-500 font-semibold">
-                Kidgo-Entdecker — {visitCount} Events diese Woche angeschaut
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400">
-                {visitCount} {visitCount === 1 ? "Event" : "Events"} diese Woche angeschaut
-                {" — "}noch {3 - visitCount} bis zum Wochenend-Entdecker!
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Kidgo in Zahlen — only show when events are loaded */}
-        {!loading && allEventsPool.length > 0 && (() => {
-          const now = new Date();
-          const dayOfWeek = now.getDay();
-          const startOfWeek = new Date(now);
-          startOfWeek.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-          startOfWeek.setHours(0, 0, 0, 0);
-          const endOfWeek = new Date(startOfWeek);
-          endOfWeek.setDate(startOfWeek.getDate() + 6);
-          const ws = startOfWeek.toISOString().split("T")[0];
-          const we = endOfWeek.toISOString().split("T")[0];
-          const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-          const eventsThisWeek = allEventsPool.filter((e) => e.datum && e.datum >= ws && e.datum <= we).length;
-          const newEvents = allEventsPool.filter((e) => e.created_at > oneWeekAgo).length;
-          const uniqueSources = new Set(allEventsPool.map((e) => e.quelle_id).filter(Boolean)).size;
-          return (
-            <div className="mt-8 border-t border-gray-100 pt-6">
-              <p className="text-xs text-gray-400 uppercase tracking-wider text-center mb-4 font-semibold">
-                Kidgo in Zahlen
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-gray-700">{eventsThisWeek}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">Events<br/>diese Woche</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-700">{newEvents}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">Neue<br/>Events</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-700">{uniqueSources}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">Quellen<br/>verknüpft</p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
       </div>
-
-      {/* Scroll to top */}
-      {showScrollTop && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="Nach oben scrollen"
-          className="fixed bottom-6 right-4 z-50 bg-white border border-gray-200 shadow-md rounded-full w-11 h-11 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:shadow-lg transition-all card-enter"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      )}
-    </main>
+    )}
     </>
   );
 }

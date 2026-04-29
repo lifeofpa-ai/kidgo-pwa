@@ -11,17 +11,16 @@ export function BottomNav() {
   const tabs = [
     {
       href: "/",
-      label: "Entdecken",
+      label: "Für dich",
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M3 10L11 3l8 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9z"/>
-          <path d="M8 21V13h6v8"/>
+          <path d="M11 2L3 9v10a1 1 0 0 0 1 1h4v-6h6v6h4a1 1 0 0 0 1-1V9L11 2z"/>
         </svg>
       ),
     },
     {
       href: "/explore",
-      label: "Suchen",
+      label: "Entdecken",
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="10" cy="10" r="7"/>
@@ -30,27 +29,18 @@ export function BottomNav() {
       ),
     },
     {
-      href: "/bookmarks",
-      label: "Merkliste",
+      href: "/planer",
+      label: "Planer",
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M5 3h12a1 1 0 0 1 1 1v15.5l-7-4-7 4V4a1 1 0 0 1 1-1z"/>
+          <rect x="3" y="4" width="16" height="16" rx="2"/>
+          <path d="M3 9h16M8 2v4M14 2v4"/>
         </svg>
       ),
     },
     {
-      href: "/badges",
-      label: "Erfolge",
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="11" cy="9" r="5"/>
-          <path d="M7.5 14.5L11 20l3.5-5.5"/>
-        </svg>
-      ),
-    },
-    {
-      href: "/dashboard",
-      label: "Profil",
+      href: "/ich",
+      label: "Ich",
       icon: (
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="11" cy="8" r="3.5"/>

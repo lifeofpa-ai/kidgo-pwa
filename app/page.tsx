@@ -43,8 +43,21 @@ import {
   getRatedEvents,
   buildPreferenceProfile,
   scoreWithPreferences,
+  buildDismissProfile,
+  dismissPenalty,
   type PreferenceProfile,
+  type DismissProfile,
 } from "@/lib/preferences";
+import { DismissOverlay } from "@/components/home/DismissOverlay";
+import {
+  type DismissReason,
+  type EventMeta,
+  generateDismissReasons,
+  getPastDismissals,
+  getDismissedEventIds,
+  saveDismissalLocally,
+  saveDismissalToSupabase,
+} from "@/lib/dismiss-reasons";
 import {
   getCategoryIcon,
   GiftIcon,
@@ -484,7 +497,8 @@ function scoreEvent(
   weatherCode: number | null,
   now: Date,
   interests: string[] = [],
-  profile: PreferenceProfile | null = null
+  profile: PreferenceProfile | null = null,
+  dProfile: DismissProfile | null = null
 ): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];
@@ -577,6 +591,10 @@ function scoreEvent(
 
   if (profile) {
     score += scoreWithPreferences(event, profile);
+  }
+
+  if (dProfile) {
+    score += dismissPenalty(event, dProfile);
   }
 
   return { score, reasons };
@@ -1375,6 +1393,12 @@ export default function Home() {
   // Sprint 11: Preference profile from liked events
   const [preferenceProfile, setPreferenceProfile] = useState<PreferenceProfile | null>(null);
 
+  // Dismiss feature: dismissed event IDs (session + persisted), overlay state, dismiss profile
+  const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(new Set());
+  const [dismissingEventId, setDismissingEventId] = useState<string | null>(null);
+  const [dismissReasons, setDismissReasons] = useState<DismissReason[]>([]);
+  const [dismissProfile, setDismissProfile] = useState<DismissProfile | null>(null);
+
   // Sprint 11: Collapsible sections (all closed by default)
   const [wochenplanerOpen, setWochenplanerOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -1529,6 +1553,12 @@ export default function Home() {
       const rated = getRatedEvents();
       const profile = buildPreferenceProfile(rated);
       setPreferenceProfile(profile);
+    } catch {}
+    try {
+      const ids = getDismissedEventIds();
+      if (ids.length > 0) setDismissedEventIds(new Set(ids));
+      const pastDismissals = getPastDismissals();
+      if (pastDismissals.length > 0) setDismissProfile(buildDismissProfile(pastDismissals));
     } catch {}
 
     // Register service worker
@@ -1739,6 +1769,9 @@ export default function Home() {
     setDayPlan(null);
     setShowDayPlan(false);
 
+    // Dismissed IDs — read fresh from storage so fetch is always consistent
+    const currentDismissedIds = new Set([...getDismissedEventIds(), ...dismissedEventIds]);
+
     // Sprint 3: Offline — serve cached events
     if (isOffline) {
       try {
@@ -1751,10 +1784,12 @@ export default function Home() {
           );
           setAllEvents(ageFiltered);
           const now = new Date();
-          const scored: ScoredEvent[] = ageFiltered.map((event) => {
-            const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
-            return { ...event, score, reasons };
-          });
+          const scored: ScoredEvent[] = ageFiltered
+            .filter((e) => !currentDismissedIds.has(e.id))
+            .map((event) => {
+              const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile);
+              return { ...event, score, reasons };
+            });
           scored.sort((a, b) => b.score - a.score);
           setRecommendations(scored.slice(0, 3));
         }
@@ -1772,10 +1807,12 @@ export default function Home() {
       );
       setAllEvents(ageFiltered);
       const now = new Date();
-      const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
-        return { ...event, score, reasons };
-      });
+      const scored: ScoredEvent[] = ageFiltered
+        .filter((e) => !currentDismissedIds.has(e.id))
+        .map((event) => {
+          const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile);
+          return { ...event, score, reasons };
+        });
       scored.sort((a, b) => b.score - a.score);
       setRecommendations(scored.slice(0, 3));
       setLoading(false);
@@ -1858,10 +1895,12 @@ export default function Home() {
       setAllEvents(ageFiltered);
 
       const now = new Date();
-      const scored: ScoredEvent[] = ageFiltered.map((event) => {
-        const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile);
-        return { ...event, score, reasons };
-      });
+      const scored: ScoredEvent[] = ageFiltered
+        .filter((e) => !currentDismissedIds.has(e.id))
+        .map((event) => {
+          const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile);
+          return { ...event, score, reasons };
+        });
 
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
       shuffled.sort((a, b) => b.score - a.score);
@@ -2071,8 +2110,72 @@ export default function Home() {
     }, 100);
   };
 
+  // ---- Dismiss handlers ----
+  const handleDismissOpen = (event: KidgoEvent) => {
+    const past = getPastDismissals();
+    let distanceKm: number | null = null;
+    if (userLocation) {
+      const src = sources.find((s) => s.id === event.quelle_id);
+      if (src?.latitude && src?.longitude) {
+        distanceKm = haversine(userLocation.lat, userLocation.lon, src.latitude, src.longitude);
+      }
+    }
+    const reasons = generateDismissReasons(event, {
+      distanceKm,
+      weatherCode,
+      selectedBuckets,
+      pastDismissals: past,
+    });
+    setDismissReasons(reasons);
+    setDismissingEventId(event.id);
+  };
+
+  const handleDismissSubmit = (eventId: string, selectedReasonIds: string[]) => {
+    const event =
+      allEventsPool.find((e) => e.id === eventId) ??
+      recommendations.find((e) => e.id === eventId);
+
+    const src = event?.quelle_id ? sources.find((s) => s.id === event.quelle_id) : undefined;
+    let distanceKm: number | null = null;
+    if (userLocation && src?.latitude && src?.longitude) {
+      distanceKm = haversine(userLocation.lat, userLocation.lon, src.latitude, src.longitude);
+    }
+
+    const eventMeta: EventMeta = {
+      kategorien: event?.kategorien ?? null,
+      preis_chf: event?.preis_chf ?? null,
+      indoor_outdoor: event?.indoor_outdoor ?? null,
+      alter_von: event?.alter_von ?? null,
+      alter_bis: event?.alter_bis ?? null,
+      distanceKm,
+    };
+
+    saveDismissalLocally(eventId, selectedReasonIds, eventMeta);
+
+    if (user) {
+      saveDismissalToSupabase(supabase, user.id, eventId, selectedReasonIds, eventMeta);
+    }
+
+    setDismissedEventIds((prev) => new Set([...prev, eventId]));
+    setRecommendations((prev) => prev.filter((e) => e.id !== eventId));
+
+    const updated = getPastDismissals();
+    if (updated.length > 0) setDismissProfile(buildDismissProfile(updated));
+
+    setDismissingEventId(null);
+  };
+
   // Sprint 12: Card stack — animated swipe handlers
   const handleSwipeLeft = () => {
+    if (recommendations.length === 0 || cardExiting || dismissingEventId) return;
+    setSwipeOffset(0);
+    setSwipeHint(null);
+    // Open dismiss overlay instead of silently cycling
+    handleDismissOpen(recommendations[0]);
+  };
+
+  // Cycle card without dismiss (used by explicit "next" button when overlay is not wanted)
+  const handleCycleCard = () => {
     if (recommendations.length < 2 || cardExiting) return;
     setExitDirection("left");
     setCardExiting(true);
@@ -2713,73 +2816,97 @@ export default function Home() {
             {(() => {
               const event = recommendations[0];
               const isBookmarkedHero = bookmarks.some((b) => b.id === event.id);
+              const isDismissingHero = dismissingEventId === event.id;
               return (
                 <div className="relative mb-3">
-                  <Link
-                    href={`/events/${event.id}`}
-                    className="block group"
-                    onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
-                  >
-                    <div className="relative rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(91,186,167,0.2)" }}>
-                      <EventImage
-                        url={event.kategorie_bild_url}
-                        kategorien={event.kategorien}
-                        className="h-64 sm:h-72 w-full overflow-hidden"
-                        title={event.titel}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                      {/* Reason badges top-left */}
-                      <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                        {event.reasons.slice(0, 2).map((r) => (
-                          <span key={r} className="bg-white/90 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm">
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                      {/* Bookmark button top-right */}
-                      <button
-                        onClick={(e) => toggleBookmark(event, e)}
-                        aria-label={isBookmarkedHero ? "Aus Merkliste entfernen" : "Event merken"}
-                        className={`absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full shadow-md transition-all active:scale-90 ${
-                          isBookmarkedHero
-                            ? "bg-kidgo-400 text-white"
-                            : "bg-white/90 text-gray-400 hover:text-kidgo-500"
-                        }`}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill={isBookmarkedHero ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M2 2h10v11L7 10 2 13V2z"/>
-                        </svg>
-                      </button>
-                      {/* Text overlay */}
-                      <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
-                        <h2 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-sm line-clamp-2 group-hover:text-kidgo-100 transition-colors">
-                          {event.titel}
-                        </h2>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80 text-sm mb-3">
-                          {event.datum && (() => {
-                            const { label, urgent } = getCountdownLabel(event.datum, now);
-                            return (
-                              <span className={`flex items-center gap-1 ${urgent ? "text-kidgo-200 font-semibold" : ""}`}>
-                                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/></svg>
-                                {label}
-                              </span>
-                            );
-                          })()}
-                          {!event.datum && <span className="text-green-300 font-semibold">Ganzjährig</span>}
-                          {event.ort && (
-                            <span className="flex items-center gap-1 truncate max-w-[200px]">
-                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/></svg>
-                              {event.ort.split(",")[0].trim()}
+                  {/* Dimmed wrapper — card dims when dismiss overlay is open */}
+                  <div className={isDismissingHero ? "card-dimmed" : undefined}>
+                    <Link
+                      href={`/events/${event.id}`}
+                      className="block group"
+                      onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                    >
+                      <div className="relative rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(91,186,167,0.2)" }}>
+                        <EventImage
+                          url={event.kategorie_bild_url}
+                          kategorien={event.kategorien}
+                          className="h-64 sm:h-72 w-full overflow-hidden"
+                          title={event.titel}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                        {/* Reason badges top-left */}
+                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                          {event.reasons.slice(0, 2).map((r) => (
+                            <span key={r} className="bg-white/90 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm">
+                              {r}
                             </span>
-                          )}
+                          ))}
                         </div>
-                        <span className="inline-flex items-center gap-1.5 bg-white text-kidgo-600 text-xs font-bold px-3.5 py-2 rounded-full group-hover:bg-kidgo-50 transition shadow-sm">
-                          Details ansehen
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l4-4-4-4"/></svg>
-                        </span>
+                        {/* Bookmark button top-right */}
+                        <button
+                          onClick={(e) => toggleBookmark(event, e)}
+                          aria-label={isBookmarkedHero ? "Aus Merkliste entfernen" : "Event merken"}
+                          className={`absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full shadow-md transition-all active:scale-90 ${
+                            isBookmarkedHero
+                              ? "bg-kidgo-400 text-white"
+                              : "bg-white/90 text-gray-400 hover:text-kidgo-500"
+                          }`}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill={isBookmarkedHero ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 2h10v11L7 10 2 13V2z"/>
+                          </svg>
+                        </button>
+                        {/* Text overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
+                          <h2 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-sm line-clamp-2 group-hover:text-kidgo-100 transition-colors">
+                            {event.titel}
+                          </h2>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80 text-sm mb-3">
+                            {event.datum && (() => {
+                              const { label, urgent } = getCountdownLabel(event.datum, now);
+                              return (
+                                <span className={`flex items-center gap-1 ${urgent ? "text-kidgo-200 font-semibold" : ""}`}>
+                                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/></svg>
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                            {!event.datum && <span className="text-green-300 font-semibold">Ganzjährig</span>}
+                            {event.ort && (
+                              <span className="flex items-center gap-1 truncate max-w-[200px]">
+                                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/></svg>
+                                {event.ort.split(",")[0].trim()}
+                              </span>
+                            )}
+                          </div>
+                          <span className="inline-flex items-center gap-1.5 bg-white text-kidgo-600 text-xs font-bold px-3.5 py-2 rounded-full group-hover:bg-kidgo-50 transition shadow-sm">
+                            Details ansehen
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l4-4-4-4"/></svg>
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  </div>
+                  {/* Dismiss button — outside Link so it doesn't navigate */}
+                  {!isDismissingHero && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDismissOpen(event); }}
+                      aria-label="Nicht interessiert"
+                      className="absolute top-3 right-14 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/50 backdrop-blur-sm transition-all active:scale-90"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M2 2l8 8M10 2l-8 8"/>
+                      </svg>
+                    </button>
+                  )}
+                  {/* Dismiss overlay */}
+                  {isDismissingHero && (
+                    <DismissOverlay
+                      reasons={dismissReasons}
+                      onSubmit={(ids) => handleDismissSubmit(event.id, ids)}
+                      onCancel={() => setDismissingEventId(null)}
+                    />
+                  )}
                 </div>
               );
             })()}
@@ -2787,45 +2914,70 @@ export default function Home() {
             {/* Sub-cards — recs 2 + 3 */}
             {recommendations.length > 1 && (
               <div className="grid grid-cols-2 gap-3">
-                {recommendations.slice(1, 3).map((event) => (
-                  <Link
-                    key={event.id}
-                    href={`/events/${event.id}`}
-                    className="group block"
-                    onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
-                  >
-                    <div
-                      className="rounded-xl overflow-hidden border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all bg-[var(--bg-card)]"
-                      style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
-                    >
-                      <EventImage
-                        url={event.kategorie_bild_url}
-                        kategorien={event.kategorien}
-                        className="h-28 w-full overflow-hidden"
-                        title={event.titel}
-                      />
-                      <div className="p-3">
-                        <h3 className="font-bold text-[var(--text-primary)] text-xs leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1.5">
-                          {event.titel}
-                        </h3>
-                        <div className="flex items-center gap-1 text-[10px]">
-                          {event.datum ? (
-                            <span className={`font-semibold ${getCountdownLabel(event.datum, now).urgent ? "text-kidgo-500" : "text-[var(--text-muted)]"}`}>
-                              {getCountdownLabel(event.datum, now).label}
-                            </span>
-                          ) : (
-                            <span className="text-green-600 font-semibold">Ganzjährig</span>
-                          )}
-                        </div>
-                        {event.reasons.length > 0 && (
-                          <span className="mt-1.5 inline-block text-[10px] font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
-                            {event.reasons[0]}
-                          </span>
-                        )}
+                {recommendations.slice(1, 3).map((event) => {
+                  const isDismissingSub = dismissingEventId === event.id;
+                  return (
+                    <div key={event.id} className="relative">
+                      <div className={isDismissingSub ? "card-dimmed" : undefined}>
+                        <Link
+                          href={`/events/${event.id}`}
+                          className="group block"
+                          onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                        >
+                          <div
+                            className="rounded-xl overflow-hidden border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all bg-[var(--bg-card)]"
+                            style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
+                          >
+                            <EventImage
+                              url={event.kategorie_bild_url}
+                              kategorien={event.kategorien}
+                              className="h-28 w-full overflow-hidden"
+                              title={event.titel}
+                            />
+                            <div className="p-3">
+                              <h3 className="font-bold text-[var(--text-primary)] text-xs leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1.5">
+                                {event.titel}
+                              </h3>
+                              <div className="flex items-center gap-1 text-[10px]">
+                                {event.datum ? (
+                                  <span className={`font-semibold ${getCountdownLabel(event.datum, now).urgent ? "text-kidgo-500" : "text-[var(--text-muted)]"}`}>
+                                    {getCountdownLabel(event.datum, now).label}
+                                  </span>
+                                ) : (
+                                  <span className="text-green-600 font-semibold">Ganzjährig</span>
+                                )}
+                              </div>
+                              {event.reasons.length > 0 && (
+                                <span className="mt-1.5 inline-block text-[10px] font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
+                                  {event.reasons[0]}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
                       </div>
+                      {/* Sub-card dismiss button */}
+                      {!isDismissingSub && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDismissOpen(event); }}
+                          aria-label="Nicht interessiert"
+                          className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/25 text-white hover:bg-black/45 backdrop-blur-sm transition-all active:scale-90"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M2 2l6 6M8 2l-6 6"/>
+                          </svg>
+                        </button>
+                      )}
+                      {isDismissingSub && (
+                        <DismissOverlay
+                          reasons={dismissReasons}
+                          onSubmit={(ids) => handleDismissSubmit(event.id, ids)}
+                          onCancel={() => setDismissingEventId(null)}
+                        />
+                      )}
                     </div>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2881,6 +3033,7 @@ export default function Home() {
             {(() => {
               const event = recommendations[0];
               const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
+              const isDismissingStack = dismissingEventId === event.id;
               return (
                 <div
                   className="absolute inset-x-0 top-0 card-stack-top"
@@ -2893,25 +3046,36 @@ export default function Home() {
                       ? "transform 0.34s cubic-bezier(0.4,0,0.2,1)"
                       : swipeOffset === 0 ? "transform 0.2s ease" : "none",
                   }}
-                  onTouchStart={handleRecTouchStart}
-                  onTouchMove={handleRecTouchMove}
-                  onTouchEnd={handleRecTouchEnd}
+                  onTouchStart={isDismissingStack ? undefined : handleRecTouchStart}
+                  onTouchMove={isDismissingStack ? undefined : handleRecTouchMove}
+                  onTouchEnd={isDismissingStack ? undefined : handleRecTouchEnd}
                 >
-                  <RecommendationCard
-                    key={event.id}
-                    event={event}
-                    reasons={event.reasons}
-                    sources={sources}
-                    userLocation={userLocation}
-                    animIndex={0}
-                    selectedBuckets={selectedBuckets}
-                    isSeriesParent={seriesParentIds.has(event.id)}
-                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                    entdeckerScore={computeEntdeckerScore(cnt)}
-                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                    onBookmark={(e) => toggleBookmark(event, e)}
-                    bookmarkCount={bookmarkCounts.get(event.id)}
-                  />
+                  <div className="relative">
+                    <div className={isDismissingStack ? "card-dimmed" : undefined}>
+                      <RecommendationCard
+                        key={event.id}
+                        event={event}
+                        reasons={event.reasons}
+                        sources={sources}
+                        userLocation={userLocation}
+                        animIndex={0}
+                        selectedBuckets={selectedBuckets}
+                        isSeriesParent={seriesParentIds.has(event.id)}
+                        isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
+                        entdeckerScore={computeEntdeckerScore(cnt)}
+                        isBookmarked={bookmarks.some((b) => b.id === event.id)}
+                        onBookmark={(e) => toggleBookmark(event, e)}
+                        bookmarkCount={bookmarkCounts.get(event.id)}
+                      />
+                    </div>
+                    {isDismissingStack && (
+                      <DismissOverlay
+                        reasons={dismissReasons}
+                        onSubmit={(ids) => handleDismissSubmit(event.id, ids)}
+                        onCancel={() => setDismissingEventId(null)}
+                      />
+                    )}
+                  </div>
                 </div>
               );
             })()}
@@ -2922,8 +3086,8 @@ export default function Home() {
                 className={`absolute top-0 left-0 right-0 rounded-2xl pointer-events-none flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"}`}
                 style={{ height: "200px", zIndex: recommendations.length + 2 }}
               >
-                <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-kidgo-500" : "bg-green-500"}`}>
-                  {swipeHint === "left" ? "Weiter" : "Gemerkt"}
+                <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-red-400" : "bg-green-500"}`}>
+                  {swipeHint === "left" ? "Nicht interessiert" : "Gemerkt"}
                 </div>
               </div>
             )}
@@ -2931,7 +3095,7 @@ export default function Home() {
             {/* Counter + action buttons */}
             <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-56px" }}>
               <button
-                onClick={handleSwipeLeft}
+                onClick={handleCycleCard}
                 aria-label="Nächste Karte"
                 className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg transition-all active:scale-90"
               >

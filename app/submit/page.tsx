@@ -134,7 +134,7 @@ export default function SubmitPage() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
+      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
         <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md p-8 max-w-md w-full text-center">
           <div className="w-14 h-14 bg-kidgo-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -169,7 +169,7 @@ export default function SubmitPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)]">
+    <main id="main-content" className="min-h-screen bg-[var(--bg-page)]">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 pb-24 md:pb-10">
 
         {/* Header */}

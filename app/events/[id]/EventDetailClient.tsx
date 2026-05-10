@@ -618,7 +618,7 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
+      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-kidgo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--text-muted)] text-sm">Lädt...</p>
@@ -629,7 +629,7 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   if (!event) {
     return (
-      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
+      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center p-8">
           <p className="text-[var(--text-secondary)] text-lg mb-6">Event nicht gefunden</p>
           <Link href="/" className="bg-kidgo-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
@@ -654,7 +654,7 @@ export default function EventDetailClient({ id }: { id: string }) {
   const canRemind = !!event.datum;
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)]">
+    <main id="main-content" className="min-h-screen bg-[var(--bg-page)]">
       <div className="max-w-3xl mx-auto">
 
         {/* Hero */}

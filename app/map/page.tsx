@@ -222,7 +222,7 @@ function MapPageInner() {
   };
 
   return (
-    <main className="min-h-screen pb-14 md:pb-0 bg-[var(--bg-page)] flex flex-col">
+    <main id="main-content" className="min-h-screen pb-14 md:pb-0 bg-[var(--bg-page)] flex flex-col">
       {/* Header */}
       <div className="border-b border-[var(--border)] bg-[var(--bg-card)] z-10">
         <div className="flex items-center gap-3 px-4 py-3">

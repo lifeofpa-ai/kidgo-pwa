@@ -76,7 +76,7 @@ export default function BadgesPage() {
   const earnedCount = earnedIds.length;
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)]">
+    <main id="main-content" className="min-h-screen bg-[var(--bg-page)]">
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10 pb-24 md:pb-10">
 
         {/* Badge popup */}

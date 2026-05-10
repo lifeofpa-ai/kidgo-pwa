@@ -302,7 +302,7 @@ export default function ExplorePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)]">
+    <main id="main-content" className="min-h-screen bg-[var(--bg-page)]">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 pb-24 md:pb-10">
 
         {/* Header */}

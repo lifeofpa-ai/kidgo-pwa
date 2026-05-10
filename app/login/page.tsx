@@ -37,7 +37,7 @@ function LoginInner() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
+    <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
       <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border)] p-8 w-full max-w-sm">
         <div className="mb-6 flex justify-center">
           <Link href="/" aria-label="Startseite">
@@ -103,7 +103,7 @@ function LoginInner() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" />
+      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" />
     }>
       <LoginInner />
     </Suspense>

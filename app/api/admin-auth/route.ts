@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const COOKIE_NAME = "kidgo_admin";
 const COOKIE_TTL_SECONDS = 60 * 60 * 4;
@@ -15,6 +16,16 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+  const limit = rateLimit(`admin-auth:${ip}`, { limit: 5, windowMs: 60_000 });
+  if (!limit.allowed) {
+    const retryAfter = Math.ceil(limit.retryAfterMs / 1000);
+    return NextResponse.json(
+      { ok: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } },
+    );
+  }
+
   const { password } = await req.json().catch(() => ({ password: "" }));
   const adminPw = process.env.ADMIN_PW;
   if (!adminPw || typeof password !== "string" || !constantTimeEquals(password, adminPw)) {

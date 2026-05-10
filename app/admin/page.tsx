@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import { safeExternalUrl } from "@/lib/safe-url";
+import { adminMutate } from "@/lib/admin-mutations";
 
 const TAG_FN_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tag-events-intelligently`
@@ -107,9 +108,8 @@ export default function AdminPage() {
   }, []);
 
   const approveEvent = async (id: string) => {
-    const { error } = await supabase.from("events").update({ status: "approved" }).eq("id", id);
-    if (error) { alert("Fehler beim Freischalten: " + error.message); return; }
-    await supabase.from("events").update({ status: "approved" }).eq("serie_id", id);
+    const result = await adminMutate({ action: "approveEvent", id });
+    if (!result.ok) { alert("Fehler beim Freischalten: " + result.error); return; }
     setTaggingId(id);
     setMsg("Event freigeschaltet — KI taggt...");
     try {
@@ -129,23 +129,23 @@ export default function AdminPage() {
   };
 
   const rejectEvent = async (id: string) => {
-    const { error: childError } = await supabase.from("events").delete().eq("serie_id", id);
-    if (childError) { alert("Fehler beim Löschen der Serien-Kinder: " + childError.message); return; }
-    const { error } = await supabase.from("events").delete().eq("id", id);
-    if (error) { alert("Fehler beim Löschen: " + error.message); return; }
+    const result = await adminMutate({ action: "rejectEvent", id });
+    if (!result.ok) { alert("Fehler beim Löschen: " + result.error); return; }
     setPendingEvents((p) => p.filter((e) => e.id !== id));
     setReviewEvents((p) => p.filter((e) => e.id !== id));
     setMsg("❌ Event gelöscht"); setTimeout(() => setMsg(""), 2000);
   };
 
   const approveQuelle = async (id: string) => {
-    await supabase.from("quellen").update({ status: "approved" }).eq("id", id);
+    const result = await adminMutate({ action: "approveQuelle", id });
+    if (!result.ok) { alert("Fehler beim Freischalten: " + result.error); return; }
     setPendingQuellen((p) => p.filter((q) => q.id !== id));
     setMsg("✅ Quelle freigeschaltet"); setTimeout(() => setMsg(""), 2000);
   };
 
   const rejectQuelle = async (id: string) => {
-    await supabase.from("quellen").update({ status: "rejected" }).eq("id", id);
+    const result = await adminMutate({ action: "rejectQuelle", id });
+    if (!result.ok) { alert("Fehler beim Ablehnen: " + result.error); return; }
     setPendingQuellen((p) => p.filter((q) => q.id !== id));
     setMsg("❌ Quelle abgelehnt"); setTimeout(() => setMsg(""), 2000);
   };
@@ -176,9 +176,8 @@ export default function AdminPage() {
     setMsg("Batch-Freigabe läuft...");
     const ids = Array.from(selectedIds);
 
-    const { error: batchErr } = await supabase.from("events").update({ status: "approved" }).in("id", ids);
-    if (batchErr) { alert("Fehler bei Batch-Freigabe: " + batchErr.message); setBatchLoading(false); return; }
-    await supabase.from("events").update({ status: "approved" }).in("serie_id", ids);
+    const batchResult = await adminMutate({ action: "batchApprove", ids });
+    if (!batchResult.ok) { alert("Fehler bei Batch-Freigabe: " + batchResult.error); setBatchLoading(false); return; }
 
     try {
       if (!TAG_FN_URL) throw new Error("supabase url missing");
@@ -204,10 +203,8 @@ export default function AdminPage() {
     setMsg("Batch-Ablehnung läuft...");
     const ids = Array.from(selectedIds);
 
-    const { error: childErr } = await supabase.from("events").delete().in("serie_id", ids);
-    if (childErr) { alert("Fehler beim Löschen der Serien-Kinder: " + childErr.message); setBatchLoading(false); return; }
-    const { error: deleteErr } = await supabase.from("events").delete().in("id", ids);
-    if (deleteErr) { alert("Fehler beim Löschen: " + deleteErr.message); setBatchLoading(false); return; }
+    const result = await adminMutate({ action: "batchReject", ids });
+    if (!result.ok) { alert("Fehler beim Löschen: " + result.error); setBatchLoading(false); return; }
 
     setMsg(`❌ ${ids.length} Events abgelehnt & gelöscht`);
     setBatchLoading(false);
@@ -242,8 +239,8 @@ export default function AdminPage() {
     if (typeof updates.altersgruppen === "string") {
       updates.altersgruppen = updates.altersgruppen.split(",").map((s: string) => s.trim()).filter(Boolean);
     }
-    const { error } = await supabase.from("events").update(updates).eq("id", id);
-    if (error) { alert("Fehler beim Speichern: " + error.message); return; }
+    const result = await adminMutate({ action: "saveEdit", id, updates });
+    if (!result.ok) { alert("Fehler beim Speichern: " + result.error); return; }
     setEditingId(null);
     setEditModalOpen(false);
     setMsg("✅ Event gespeichert");
@@ -253,8 +250,8 @@ export default function AdminPage() {
 
   const deleteLiveEvent = async (id: string) => {
     if (!window.confirm("Live-Event wirklich löschen?")) return;
-    await supabase.from("events").delete().eq("serie_id", id);
-    await supabase.from("events").delete().eq("id", id);
+    const result = await adminMutate({ action: "deleteLiveEvent", id });
+    if (!result.ok) { alert("Fehler beim Löschen: " + result.error); return; }
     setLiveEvents((prev) => prev.filter((e) => e.id !== id));
     setMsg("🗑️ Event gelöscht"); setTimeout(() => setMsg(""), 2000);
   };
@@ -270,11 +267,8 @@ export default function AdminPage() {
   const sendToReview = async (id: string) => {
     setReviewSending(id);
     const comment = reviewComments[id] || "";
-    await supabase.from("events").update({
-      status: "review",
-      review_comment: comment,
-      review_requested_at: new Date().toISOString(),
-    }).eq("id", id);
+    const result = await adminMutate({ action: "sendToReview", id, comment });
+    if (!result.ok) { alert("Fehler beim Review senden: " + result.error); setReviewSending(null); return; }
     setMsg("📋 An PO zum Review gesendet");
     setReviewSending(null);
     setOpenReviewInputs((prev) => { const next = new Set(prev); next.delete(id); return next; });
@@ -284,7 +278,7 @@ export default function AdminPage() {
 
   if (!authChecked) {
     return (
-      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <main id="main-content" className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
         <div className="w-8 h-8 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
       </main>
     );
@@ -292,7 +286,7 @@ export default function AdminPage() {
 
   if (!authed) {
     return (
-      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <main id="main-content" className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl">
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">🛠️</div>
@@ -314,7 +308,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main id="main-content" className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-28">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 pt-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
@@ -71,6 +71,14 @@ import {
   PhoneIcon,
   WifiOffIcon,
 } from "@/components/Icons";
+import {
+  getContextMode,
+  getContextBadge,
+  getContextLabel,
+  applyContextSort,
+  type ContextMode,
+} from "@/lib/context-mode";
+import { LazySection } from "@/components/home/LazySection";
 
 // ============================================================
 // TYPES
@@ -1362,6 +1370,7 @@ export default function Home() {
 
   const [weatherCode, setWeatherCode] = useState<number | null>(null);
   const [weatherTemp, setWeatherTemp] = useState<number | null>(null);
+  const [contextMode, setContextMode] = useState<ContextMode>("normal");
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lon: number;
@@ -1622,10 +1631,15 @@ export default function Home() {
     )
       .then((r) => r.json())
       .then((d) => {
-        if (typeof d?.current?.weather_code === "number") setWeatherCode(d.current.weather_code);
+        if (typeof d?.current?.weather_code === "number") {
+          setWeatherCode(d.current.weather_code);
+          setContextMode(getContextMode(d.current.weather_code));
+        } else {
+          setContextMode(getContextMode(null));
+        }
         if (typeof d?.current?.temperature_2m === "number") setWeatherTemp(d.current.temperature_2m);
       })
-      .catch(() => {});
+      .catch(() => { setContextMode(getContextMode(null)); });
   }, []);
 
   // Sprint 3: Offline detection
@@ -2523,6 +2537,14 @@ export default function Home() {
     return e.event_typ === "camp" || cats.includes("Feriencamp") || desc.includes("camp") || desc.includes("ferienlager");
   }).length;
 
+  // Context-sorted recommendations: rain → indoor first, holiday → camps first
+  const contextRecs = useMemo(
+    () => applyContextSort([...recommendations], contextMode) as ScoredEvent[],
+    [recommendations, contextMode]
+  );
+  const contextBadge = getContextBadge(contextMode);
+  const contextLabel = getContextLabel(contextMode);
+
   return (
     <>
     {showTutorial && (
@@ -2724,8 +2746,17 @@ export default function Home() {
         </div>
 
         <header className="mb-8">
+          {/* Contextual mode badge */}
+          {contextBadge && (
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-kidgo-50 text-kidgo-600 border border-kidgo-100 dark:bg-kidgo-900/20 dark:text-kidgo-400 dark:border-kidgo-800">
+                {contextBadge}
+              </span>
+              <span className="text-xs text-[var(--text-muted)]">{contextLabel}</span>
+            </div>
+          )}
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight mb-1">
-            {headline.title}
+            {contextMode === "evening" ? "Für morgen geplant" : headline.title}
           </h1>
           <p className="text-gray-500 text-sm mb-3">{headline.subtitle}</p>
 
@@ -2810,11 +2841,11 @@ export default function Home() {
         )}
 
         {/* Hero + 2 sub-cards */}
-        {!loading && recommendations.length > 0 && (
+        {!loading && contextRecs.length > 0 && (
           <div className="mb-8">
-            {/* Hero card — first recommendation, large */}
+            {/* Hero card — first recommendation, context-sorted */}
             {(() => {
-              const event = recommendations[0];
+              const event = contextRecs[0];
               const isBookmarkedHero = bookmarks.some((b) => b.id === event.id);
               const isDismissingHero = dismissingEventId === event.id;
               return (
@@ -3124,9 +3155,9 @@ export default function Home() {
         )}
 
         {/* Desktop grid */}
-        {!loading && recommendations.length > 0 && (
+        {!loading && contextRecs.length > 0 && (
           <div className="hidden md:grid md:grid-cols-2 gap-5 mb-8">
-            {recommendations.map((event, i) => {
+            {contextRecs.map((event, i) => {
               const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
               return (
                 <RecommendationCard
@@ -3154,7 +3185,7 @@ export default function Home() {
 
         {/* ===== DIESES WOCHENENDE ===== */}
         {!loading && weekendEventsForLayer2.length > 0 && (
-          <div className="mt-8">
+          <LazySection className="mt-8" fallback={<div className="mt-8 h-48 skeleton rounded-2xl" />}><div>
             <div className="flex items-center justify-between mb-3 px-0.5">
               <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Dieses Wochenende</p>
               <Link href="/explore" className="text-xs font-semibold text-kidgo-500 hover:text-kidgo-600 transition">
@@ -3199,11 +3230,11 @@ export default function Home() {
                 </Link>
               ))}
             </div>
-          </div>
+          </div></LazySection>
         )}
 
         {/* ===== SAISONALE LANDING ===== */}
-        {!loading && allEventsPool.length > 0 && (() => {
+        {!loading && allEventsPool.length > 0 && <LazySection fallback={<div className="mt-10 h-56 skeleton rounded-2xl" />}>{(() => {
           const month = now.getMonth();
           type SeasonCfg = { title: string; subtitle: string; gradFrom: string; gradTo: string; cats: string[]; io: string | null };
           const cfg: SeasonCfg =
@@ -3281,7 +3312,7 @@ export default function Home() {
               </div>
             </div>
           );
-        })()}
+        })()}</LazySection>}
 
         {/* Link to explore */}
         <div className="mt-10 text-center">

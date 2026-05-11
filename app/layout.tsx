@@ -8,6 +8,7 @@ import { KidgoFooter } from "@/components/KidgoFooter";
 import { PageTransitionWrapper } from "@/components/PageTransitionWrapper";
 import { SwipeBackGate } from "@/components/SwipeBackGate";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
+import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -82,7 +83,9 @@ gtag('config', 'G-LFZ63YFTRR');`}
         <AuthProvider>
           <DesktopSideNav />
           <div className="md:pl-56">
-            <PageTransitionWrapper>{children}</PageTransitionWrapper>
+            <ClientProviders>
+              <PageTransitionWrapper>{children}</PageTransitionWrapper>
+            </ClientProviders>
           </div>
         </AuthProvider>
         <KidgoFooter />

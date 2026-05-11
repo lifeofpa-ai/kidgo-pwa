@@ -8,6 +8,8 @@ import { getCategoryIcon } from "@/components/Icons";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
+import { ChatFAB } from "@/components/home/ChatFAB";
+import { ChatSheet } from "@/components/home/ChatSheet";
 
 const PAGE_SIZE = 15;
 
@@ -170,6 +172,7 @@ export default function ExplorePage() {
   const [visibleCountFuture, setVisibleCountFuture]   = useState(PAGE_SIZE);
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
   const [selectedAgeBuckets, setSelectedAgeBuckets]   = useState<string[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
   const [selectedCategories, setSelectedCategories]   = useState<string[]>([]);
   const [indoorOutdoor, setIndoorOutdoor] = useState<IndoorOutdoor>("all");
   const [gratisOnly, setGratisOnly]       = useState(false);
@@ -632,6 +635,9 @@ export default function ExplorePage() {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 12V4M4 8l4-4 4 4"/></svg>
         </button>
       )}
+
+      <ChatFAB onClick={() => setChatOpen(true)} />
+      <ChatSheet open={chatOpen} onClose={() => setChatOpen(false)} />
     </main>
   );
 }

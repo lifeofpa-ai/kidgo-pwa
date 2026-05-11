@@ -49,6 +49,8 @@ import {
   type DismissProfile,
 } from "@/lib/preferences";
 import { DismissOverlay } from "@/components/home/DismissOverlay";
+import { ChatSheet } from "@/components/home/ChatSheet";
+import { ChatFAB } from "@/components/home/ChatFAB";
 import {
   type DismissReason,
   type EventMeta,
@@ -1378,11 +1380,6 @@ export default function Home() {
     approximate: boolean;
   } | null>(null);
 
-  // Feature A: Chat
-  const [chatInput, setChatInput] = useState("");
-  const [chatResult, setChatResult] = useState<{ message: string; events: KidgoEvent[] } | null>(null);
-  const chatResultRef = useRef<HTMLDivElement>(null);
-
   // Feature C: Day plan
   const [dayPlan, setDayPlan] = useState<DayPlanResult | null>(null);
   const [showDayPlan, setShowDayPlan] = useState(false);
@@ -1441,13 +1438,9 @@ export default function Home() {
   const [recentVisits, setRecentVisits] = useState<CompactEvent[]>([]);
   const [bookmarks, setBookmarks] = useState<CompactEvent[]>([]);
 
-  // Sprint 7: Search history
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-
-  // Sprint 11: Social proof, countdown, AI
+  // Sprint 11: Social proof, countdown
   const [bookmarkCounts, setBookmarkCounts] = useState<Map<string, number>>(new Map());
   const [countdownTick, setCountdownTick]   = useState(0);
-  const [aiLoading, setAiLoading]           = useState(false);
 
   // Sprint 15: Badge popups + notification prompt
   const [badgePopup, setBadgePopup]         = useState<BadgeDef | null>(null);
@@ -1549,10 +1542,6 @@ export default function Home() {
     try {
       const raw = localStorage.getItem("kidgo_bookmarks");
       if (raw) setBookmarks(JSON.parse(raw));
-    } catch {}
-    try {
-      const raw = localStorage.getItem("kidgo_search_history");
-      if (raw) setSearchHistory(JSON.parse(raw));
     } catch {}
     try {
       const raw = localStorage.getItem("kidgo_interests");
@@ -1779,7 +1768,6 @@ export default function Home() {
     setLoading(true);
     setSurpriseEvent(null);
     setShowSurprise(false);
-    setChatResult(null);
     setDayPlan(null);
     setShowDayPlan(false);
 
@@ -1934,97 +1922,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  const handleChatQuery = (query: string) => {
-    const q = query.trim();
-    if (!q) return;
-    setChatInput(q);
-    trackChatUsed();
-    triggerBadgeCheck();
-
-    const parsed = parseNaturalQuery(q);
-    const effectiveBuckets = parsed.ageBuckets.length > 0 ? parsed.ageBuckets : selectedBuckets;
-    const parsedWithBuckets = { ...parsed, ageBuckets: effectiveBuckets };
-
-    const pool = parsed.ageBuckets.length > 0 ? allEventsPool : allEvents;
-    const filtered = filterByQuery(pool, parsedWithBuckets);
-
-    const now = new Date();
-    const scored = [...filtered]
-      .map((e) => ({ ...e, score: scoreEvent(e, effectiveBuckets, weatherCode, now, userInterests, preferenceProfile).score }))
-      .sort(() => Math.random() - 0.5)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
-
-    const message = buildChatResponse(parsedWithBuckets, filtered.length, weatherCode, now);
-    setChatResult({ message, events: scored });
-
-    setSearchHistory((prev) => {
-      const next = [q, ...prev.filter((h) => h !== q)].slice(0, 5);
-      try { localStorage.setItem("kidgo_search_history", JSON.stringify(next)); } catch {}
-      return next;
-    });
-
-    setTimeout(() => {
-      chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 100);
-  };
-
-  const handleAiQuery = async () => {
-    const q = chatInput.trim();
-    if (!q || aiLoading) return;
-    setAiLoading(true);
-    trackChatUsed();
-
-    // Liked categories from preference profile
-    const likedCats = preferenceProfile?.preferredCategories?.slice(0, 5) ?? [];
-
-    try {
-      
-
-      // 8-second timeout with fallback to client-side
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-
-      let succeeded = false;
-      try {
-        const { data, error } = await supabase.functions.invoke("ask-kidgo", {
-          body: {
-            question: q,
-            context: {
-              age_buckets: selectedBuckets,
-              weather_code: weatherCode,
-              hour: new Date().getHours(),
-              liked_categories: likedCats,
-              standort: userLocation ? "Zürich" : null,
-            },
-          },
-        });
-        clearTimeout(timeout);
-        if (data && !error) {
-          // Edge function returns matched events directly; fall back to allEventsPool lookup
-          const returnedEvents: KidgoEvent[] = Array.isArray(data.events) && data.events.length > 0
-            ? data.events
-            : ((data.ids || []) as string[])
-                .map((id: string) => allEventsPool.find((e) => e.id === id))
-                .filter((e): e is KidgoEvent => !!e);
-          setChatResult({ message: data.answer, events: returnedEvents });
-          succeeded = true;
-          setTimeout(() => chatResultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
-        }
-      } catch {
-        clearTimeout(timeout);
-      }
-
-      // Fallback: client-side parse
-      if (!succeeded) {
-        handleChatQuery(q);
-      }
-    } catch {}
-
-    triggerBadgeCheck();
-    setAiLoading(false);
-  };
-
   const triggerBadgeCheck = () => {
     const stats = getLocalStats(bookmarks.length);
     const newBadges = popNewBadges(stats);
@@ -2101,8 +1998,6 @@ export default function Home() {
     setAllEventsPool([]);
     setSurpriseEvent(null);
     setShowSurprise(false);
-    setChatResult(null);
-    setChatInput("");
     setDayPlan(null);
     setShowDayPlan(false);
     setActiveCollection(null);
@@ -3340,158 +3235,10 @@ export default function Home() {
       )}
 
       {/* Chat FAB */}
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          aria-label="Frag Kidgo"
-          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-90 hover:scale-105 hover:shadow-xl"
-          style={{ background: "linear-gradient(135deg, #5BBAA7 0%, #4A9E8E 100%)", boxShadow: "0 4px 20px rgba(91,186,167,0.45)" }}
-        >
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 5h14a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1z"/>
-          </svg>
-        </button>
-      )}
+      <ChatFAB onClick={() => setChatOpen(true)} />
     </main>
 
-    {/* Chat bottom sheet */}
-    {chatOpen && (
-      <div
-        className="fixed inset-0 z-50 flex flex-col justify-end"
-        style={{ background: "rgba(0,0,0,0.4)" }}
-        onClick={(e) => { if (e.target === e.currentTarget) setChatOpen(false); }}
-      >
-        <div className="bg-white dark:bg-[#1e2221] rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl">
-          {/* Sheet header */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[var(--border)] flex-shrink-0">
-            <div>
-              <h2 className="font-bold text-[var(--text-primary)] text-lg">Frag Kidgo</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">Beschreib was du suchst</p>
-            </div>
-            <button
-              onClick={() => setChatOpen(false)}
-              aria-label="Schliessen"
-              className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M2 2l8 8M10 2l-8 8"/>
-              </svg>
-            </button>
-          </div>
-
-          {/* Sheet body — scrollable */}
-          <div className="overflow-y-auto flex-1 px-5 pt-4 pb-6">
-            {/* Quick chips */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {CHAT_CHIPS.map((chip) => (
-                <button
-                  key={chip}
-                  onClick={() => handleChatQuery(chip)}
-                  className="text-xs font-medium bg-kidgo-50 text-kidgo-500 border border-kidgo-200 px-3 py-1.5 rounded-full hover:bg-kidgo-100 hover:border-kidgo-300 transition active:scale-95"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-
-            {/* Search history */}
-            {chatInput.trim() === "" && searchHistory.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-[var(--text-muted)] font-medium">Letzte Suchen:</span>
-                  <button
-                    onClick={() => { setSearchHistory([]); try { localStorage.removeItem("kidgo_search_history"); } catch {} }}
-                    className="text-xs text-gray-300 hover:text-gray-400 transition ml-auto"
-                  >
-                    Löschen
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {searchHistory.map((h) => (
-                    <button
-                      key={h}
-                      onClick={() => handleChatQuery(h)}
-                      className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1 hover:text-kidgo-500 hover:border-kidgo-200 transition"
-                    >
-                      {h}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Input row */}
-            <div className="flex gap-2 mb-4">
-              <input
-                id="kidgo-chat-input"
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleChatQuery(chatInput)}
-                placeholder="Frag Kidgo..."
-                autoFocus
-                className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-kidgo-300 focus:border-transparent transition"
-              />
-              <button
-                onClick={() => handleChatQuery(chatInput)}
-                disabled={!chatInput.trim()}
-                aria-label="Suchen"
-                className="bg-kidgo-400 text-white rounded-xl px-4 py-2.5 font-bold hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 7h8M7 3l4 4-4 4"/>
-                </svg>
-              </button>
-              <button
-                onClick={handleAiQuery}
-                disabled={!chatInput.trim() || aiLoading}
-                aria-label="AI-Empfehlung"
-                className="bg-[var(--bg-subtle)] border border-kidgo-200 text-kidgo-600 rounded-xl px-3 py-2.5 text-xs font-bold hover:bg-kidgo-50 hover:border-kidgo-300 transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex-shrink-0 flex items-center gap-1.5"
-              >
-                {aiLoading ? (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="animate-spin">
-                    <path d="M7 1.5A5.5 5.5 0 1 1 1.5 7"/>
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 1l1.5 3 3.3.5-2.4 2.3.6 3.2L7 8.5l-3 1.5.6-3.2-2.4-2.3 3.3-.5z"/>
-                  </svg>
-                )}
-                <span>AI</span>
-              </button>
-            </div>
-
-            {/* Chat results */}
-            {chatResult && (
-              <div className="border-t border-[var(--border)] pt-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)] mb-4">{chatResult.message}</p>
-                {chatResult.events.length > 0 ? (
-                  <div className="space-y-3">
-                    {chatResult.events.map((event, i) => (
-                      <RecommendationCard
-                        key={event.id}
-                        event={event}
-                        reasons={[]}
-                        sources={sources}
-                        userLocation={userLocation}
-                        animIndex={i}
-                        selectedBuckets={selectedBuckets}
-                        isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                        onBookmark={(e) => toggleBookmark(event, e)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Link href="/explore" className="inline-block text-sm text-kidgo-500 underline underline-offset-2 hover:text-kidgo-600 transition">
-                    Alle Events durchsuchen →
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
+    <ChatSheet open={chatOpen} onClose={() => setChatOpen(false)} weatherCode={weatherCode} />
     </>
   );
 }

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
+import { ChatFAB } from "@/components/home/ChatFAB";
+import { ChatSheet } from "@/components/home/ChatSheet";
 
 interface KidgoEvent {
   id: string;
@@ -28,6 +30,7 @@ export default function PlanerPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const now = new Date();
   const dow = now.getDay();
@@ -227,6 +230,9 @@ export default function PlanerPage() {
           </Link>
         </div>
       </div>
+
+      <ChatFAB onClick={() => setChatOpen(true)} />
+      <ChatSheet open={chatOpen} onClose={() => setChatOpen(false)} />
     </main>
   );
 }

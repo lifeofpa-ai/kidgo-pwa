@@ -56,6 +56,35 @@ export async function fetchNextConnection(
   };
 }
 
+export async function fetchConnections(
+  from: string,
+  to: string,
+  limit: number = 3,
+  datetime?: string,
+  signal?: AbortSignal,
+): Promise<TransitConnection[]> {
+  const url = new URL("https://transport.opendata.ch/v1/connections");
+  url.searchParams.set("from", from);
+  url.searchParams.set("to", to);
+  url.searchParams.set("limit", String(Math.min(limit, 6)));
+  if (datetime) url.searchParams.set("datetime", datetime);
+
+  const res = await fetch(url.toString(), { signal });
+  if (!res.ok) return [];
+  const data: { connections?: OpendataConnection[] } = await res.json();
+  return (data.connections ?? [])
+    .filter((c) => c.from?.departure && c.to?.arrival)
+    .map((c) => ({
+      from: c.from.station?.name ?? from,
+      to:   c.to.station?.name   ?? to,
+      departure: c.from.departure!,
+      arrival:   c.to.arrival!,
+      durationMinutes: parseDurationToMinutes(c.duration),
+      transfers: c.transfers ?? 0,
+      products:  c.products  ?? [],
+    }));
+}
+
 export function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} Min.`;
   const h = Math.floor(minutes / 60);

@@ -1,21 +1,23 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { trackVisit } from "@/lib/gamification";
 import {
   getEventRating,
+  getRatedEvents,
   setEventRating,
   type EventRating,
 } from "@/lib/preferences";
 import {
-  fetchNextConnection,
+  fetchConnections,
   formatDuration,
   formatDepartureTime,
   type TransitConnection,
 } from "@/lib/transport";
 import { safeExternalUrl } from "@/lib/safe-url";
+import { useUserPrefs } from "@/lib/user-prefs-context";
 
 interface Review {
   id: string;
@@ -201,100 +203,282 @@ function IconBell() {
   );
 }
 
-function TransitInfo({ ort, sbbUrl }: { ort: string; sbbUrl: string | null }) {
-  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [conn, setConn]   = useState<TransitConnection | null>(null);
-  const [error, setError] = useState<string>("");
+// ============ WEATHER BADGE ============
 
-  // Read user location from the same localStorage key used by the home page.
-  // We prefer a labelled city ("Zürich", "Winterthur", ...) over raw coords —
-  // transport.opendata.ch resolves station names but not arbitrary lat/lng.
+const RAINY_CODES = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
+const SNOW_CODES = [71, 73, 75, 77, 85, 86];
+
+function WeatherSvgIcon({ code }: { code: number }) {
+  if (code === 0) {
+    return (
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <circle cx="6.5" cy="6.5" r="2.5"/>
+        <path d="M6.5 1v1.2M6.5 10.8V12M1 6.5h1.2M10.8 6.5H12M2.4 2.4l.85.85M9.75 9.75l.85.85M2.4 10.6l.85-.85M9.75 3.25l.85-.85"/>
+      </svg>
+    );
+  }
+  if (RAINY_CODES.includes(code)) {
+    return (
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M2.5 7.5A2.5 2.5 0 0 1 2.5 3h.3A3.7 3.7 0 0 1 10.5 5h.2A1.8 1.8 0 0 1 10.5 9H2.5z"/>
+        <path d="M4 11l-.5 1.5M7 11l-.5 1.5"/>
+      </svg>
+    );
+  }
+  if (SNOW_CODES.includes(code)) {
+    return (
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M2.5 7A2.5 2.5 0 0 1 2.5 2h.3A3.7 3.7 0 0 1 10.5 4h.2A1.8 1.8 0 0 1 10.5 8H2.5z"/>
+        <path d="M4 10h.1M7 10h.1M5.5 11.5h.1"/>
+      </svg>
+    );
+  }
+  if ([95, 96, 99].includes(code)) {
+    return (
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 7.5A2.5 2.5 0 0 1 2.5 3h.3A3.7 3.7 0 0 1 10.5 5h.2A1.8 1.8 0 0 1 10.5 9H2.5z"/>
+        <path d="M6 9l-1.5 3h2.5L5.5 15"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M2.5 8A2.5 2.5 0 0 1 2.5 3h.3A3.7 3.7 0 0 1 10.5 5h.2A1.8 1.8 0 0 1 10.5 9H2.5z"/>
+    </svg>
+  );
+}
+
+function WeatherBadge({
+  datum,
+  ort,
+  indoorOutdoor,
+}: {
+  datum: string;
+  ort: string | null;
+  indoorOutdoor?: string | null;
+}) {
+  const [info, setInfo] = useState<{ code: number; maxTemp: number } | null>(null);
+
+  useEffect(() => {
+    if (!datum || !ort) return;
+    const eventDate = new Date(datum + "T00:00:00");
+    const now = new Date();
+    const diffDays = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays < -1 || diffDays > 7) return;
+
+    const city = ort.split(",")[0].trim().split(" ").slice(0, 2).join(" ");
+
+    const run = async () => {
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=de&format=json`
+        );
+        if (!geoRes.ok) return;
+        const geo = await geoRes.json();
+        if (!geo.results?.[0]) return;
+        const { latitude, longitude } = geo.results[0];
+
+        const fRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max&timezone=Europe%2FZurich&start_date=${datum}&end_date=${datum}`
+        );
+        if (!fRes.ok) return;
+        const f = await fRes.json();
+        const code = f.daily?.weathercode?.[0];
+        const maxTemp = f.daily?.temperature_2m_max?.[0];
+        if (code !== undefined && maxTemp !== undefined) {
+          setInfo({ code, maxTemp: Math.round(maxTemp) });
+        }
+      } catch {}
+    };
+    run();
+  }, [datum, ort]);
+
+  if (!info) return null;
+
+  const isRainy = RAINY_CODES.includes(info.code);
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] rounded-full px-2 py-0.5">
+      <WeatherSvgIcon code={info.code} />
+      <span className="font-medium">{info.maxTemp}°</span>
+      {isRainy && indoorOutdoor === "outdoor" && (
+        <span className="text-amber-500 font-semibold">· Regnerisch</span>
+      )}
+    </span>
+  );
+}
+
+// ============ TRANSIT WIDGET ============
+
+function TransitProductIcon({ products }: { products: string[] }) {
+  const main = (products[0] || "").toLowerCase();
+  if (main.includes("bus")) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] flex-shrink-0">
+        <rect x="1" y="2" width="10" height="7" rx="1.5"/>
+        <path d="M1 5.5h10M3.5 9v1.5M8.5 9v1.5"/>
+      </svg>
+    );
+  }
+  if (main.includes("tram") || main.includes("metro")) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] flex-shrink-0">
+        <rect x="2" y="1" width="8" height="7.5" rx="1"/>
+        <path d="M2 4h8M3.5 8.5l-1 2M8.5 8.5l1 2"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] flex-shrink-0">
+      <rect x="1.5" y="1" width="9" height="7.5" rx="1"/>
+      <path d="M1.5 4.5h9M4 8.5l-1 2.5M8 8.5l1 2.5M4 4.5v3M8 4.5v3"/>
+    </svg>
+  );
+}
+
+function TransitWidget({
+  ort,
+  datum,
+  sbbUrl,
+}: {
+  ort: string;
+  datum?: string | null;
+  sbbUrl: string | null;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef(false);
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [connections, setConnections] = useState<TransitConnection[]>([]);
+  const [errorMsg, setErrorMsg] = useState("");
+
   function readUserLabel(): string | null {
     try {
       const raw = localStorage.getItem("kidgo_location");
       if (!raw) return null;
       const loc = JSON.parse(raw);
       if (loc.label && loc.label !== "Dein Standort") return String(loc.label);
-      if (loc.label === "Dein Standort" && loc.lat && loc.lon) return `${loc.lat},${loc.lon}`;
+      if (loc.lat && loc.lon) return `${loc.lat},${loc.lon}`;
       return null;
     } catch { return null; }
   }
 
-  const compute = async () => {
+  const load = useCallback(async () => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     setState("loading");
-    setError("");
     const from = readUserLabel();
     if (!from) {
       setState("error");
-      setError("Kein Standort gespeichert. Auf der Startseite Standort freigeben.");
+      setErrorMsg("Kein Standort — bitte auf der Startseite freigeben.");
       return;
     }
     try {
-      const result = await fetchNextConnection(from, ort);
-      if (!result) { setState("error"); setError("Keine Verbindung gefunden."); return; }
-      setConn(result);
+      const datetime = datum ? `${datum}T09:00` : undefined;
+      const conns = await fetchConnections(from, ort, 3, datetime);
+      if (conns.length === 0) {
+        setState("error");
+        setErrorMsg("Keine Verbindung gefunden.");
+        return;
+      }
+      setConnections(conns);
       setState("ready");
-    } catch (e) {
+    } catch {
       setState("error");
-      setError(String(e));
+      setErrorMsg("Verbindung konnte nicht geladen werden.");
     }
-  };
+  }, [ort, datum]);
 
-  if (state === "ready" && conn) {
-    return (
-      <div className="bg-kidgo-50 border border-kidgo-100 rounded-xl px-3 py-2 text-xs">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="font-semibold text-kidgo-700">{formatDuration(conn.durationMinutes)}</span>
-          <span className="text-kidgo-600">ab {formatDepartureTime(conn.departure)}</span>
-        </div>
-        <div className="text-[var(--text-muted)]">
-          {conn.transfers} Umstieg{conn.transfers === 1 ? "" : "e"}
-          {conn.products.length > 0 && ` · ${conn.products.join(", ")}`}
-        </div>
-        {sbbUrl && (
-          <a
-            href={sbbUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block mt-1.5 text-kidgo-600 hover:text-kidgo-700 underline"
-          >
-            Auf SBB.ch öffnen
-          </a>
-        )}
-      </div>
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          observer.disconnect();
+          load();
+        }
+      },
+      { rootMargin: "200px" }
     );
-  }
-
-  if (state === "error") {
-    return (
-      <div className="text-xs text-[var(--text-muted)] px-3 py-2 border border-[var(--border)] rounded-xl">
-        {error}
-        {sbbUrl && (
-          <>
-            {" "}
-            <a href={sbbUrl} target="_blank" rel="noopener noreferrer" className="text-kidgo-600 underline">
-              SBB.ch
-            </a>
-          </>
-        )}
-      </div>
-    );
-  }
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [load]);
 
   return (
-    <button
-      type="button"
-      onClick={compute}
-      disabled={state === "loading"}
-      className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500 px-3 py-1.5 rounded-full transition disabled:opacity-50"
-    >
-      {state === "loading" ? "Lade…" : "ÖV-Verbindung"}
-    </button>
+    <div ref={containerRef} className="w-full mt-3">
+      {state === "loading" && (
+        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] py-1">
+          <div className="w-3 h-3 border border-kidgo-300 border-t-transparent rounded-full animate-spin" />
+          ÖV-Verbindungen laden…
+        </div>
+      )}
+      {state === "error" && (
+        <p className="text-xs text-[var(--text-muted)]">
+          {errorMsg}
+          {sbbUrl && (
+            <> —{" "}
+              <a href={sbbUrl} target="_blank" rel="noopener noreferrer" className="text-kidgo-600 underline">
+                SBB.ch
+              </a>
+            </>
+          )}
+        </p>
+      )}
+      {state === "ready" && connections.length > 0 && (
+        <div className="rounded-xl border border-[var(--border)] bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm overflow-hidden">
+          <div className="px-3 py-1.5 flex justify-between items-center border-b border-[var(--border)] bg-[var(--bg-subtle)]">
+            <span className="text-xs font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="2.5" width="10" height="8" rx="1"/>
+                <path d="M1 5.5h10M4 1v2.5M8 1v2.5"/>
+              </svg>
+              ÖV ab deinem Standort
+            </span>
+            {sbbUrl && (
+              <a
+                href={sbbUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-kidgo-600 hover:text-kidgo-700 transition"
+              >
+                SBB.ch →
+              </a>
+            )}
+          </div>
+          <div className="divide-y divide-[var(--border)]">
+            {connections.map((conn, i) => (
+              <div key={i} className="px-3 py-2 flex items-center gap-2.5">
+                <TransitProductIcon products={conn.products} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-primary)]">
+                    <span>{formatDepartureTime(conn.departure)}</span>
+                    <span className="text-[var(--text-muted)]">→</span>
+                    <span>{formatDepartureTime(conn.arrival)}</span>
+                  </div>
+                  {conn.products.length > 0 && (
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                      {conn.products.slice(0, 2).join(", ")}
+                      {conn.transfers > 0 && ` · ${conn.transfers}x`}
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs text-kidgo-600 font-medium whitespace-nowrap">
+                  {formatDuration(conn.durationMinutes)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
+// ============ MAIN COMPONENT ============
+
 export default function EventDetailClient({ id }: { id: string }) {
   const { user } = useAuth();
+  const { prefs } = useUserPrefs();
   const [event, setEvent] = useState<any>(null);
   const [source, setSource] = useState<any>(null);
   const [serieTermine, setSerieTermine] = useState<any[]>([]);
@@ -305,8 +489,13 @@ export default function EventDetailClient({ id }: { id: string }) {
   const [isReminded, setIsReminded] = useState(false);
   const [eventRating, setEventRatingState] = useState<EventRating | null>(null);
   const [ratingPulse, setRatingPulse] = useState<EventRating | null>(null);
+  const [socialCount, setSocialCount] = useState(0);
 
-  // Sprint 12: Parallax scroll offset
+  // Capture latest prefs without triggering re-fetch on array reference change
+  const prefsAgeBucketsRef = useRef(prefs.ageBuckets);
+  useEffect(() => { prefsAgeBucketsRef.current = prefs.ageBuckets; }, [prefs.ageBuckets]);
+
+  // Parallax scroll offset
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -365,7 +554,22 @@ export default function EventDetailClient({ id }: { id: string }) {
     fetchReviews();
   }, [id, user]);
 
-  // Sprint 21: keyboard shortcut "b" toggles bookmark on the current event
+  // Social proof count
+  useEffect(() => {
+    const fetchSocialProof = async () => {
+      try {
+        const [bRes, rRes] = await Promise.all([
+          supabase.from("user_bookmarks").select("id", { count: "exact", head: true }).eq("event_id", id),
+          supabase.from("event_reviews").select("id", { count: "exact", head: true }).eq("event_id", id),
+        ]);
+        const total = (bRes.count ?? 0) + (rRes.count ?? 0);
+        setSocialCount(total);
+      } catch {}
+    };
+    fetchSocialProof();
+  }, [id]);
+
+  // Keyboard shortcut: "b" toggles bookmark
   useEffect(() => {
     const onShortcut = () => toggleBookmarkDetail();
     window.addEventListener("kidgo:shortcut:bookmark", onShortcut);
@@ -373,6 +577,7 @@ export default function EventDetailClient({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
 
+  // Weekly visit streak
   useEffect(() => {
     try {
       const now = new Date();
@@ -387,6 +592,7 @@ export default function EventDetailClient({ id }: { id: string }) {
     } catch {}
   }, [id]);
 
+  // Main event fetch
   useEffect(() => {
     const fetchEvent = async () => {
       const { data: eventData } = await supabase
@@ -401,7 +607,15 @@ export default function EventDetailClient({ id }: { id: string }) {
           const raw = localStorage.getItem("kidgo_recent_visits");
           const visits: any[] = raw ? JSON.parse(raw) : [];
           const filtered = visits.filter((v: any) => v.id !== eventData.id);
-          const compact = { id: eventData.id, titel: eventData.titel, datum: eventData.datum, ort: eventData.ort, kategorie_bild_url: eventData.kategorie_bild_url, kategorien: eventData.kategorien, visitedAt: new Date().toISOString() };
+          const compact = {
+            id: eventData.id,
+            titel: eventData.titel,
+            datum: eventData.datum,
+            ort: eventData.ort,
+            kategorie_bild_url: eventData.kategorie_bild_url,
+            kategorien: eventData.kategorien,
+            visitedAt: new Date().toISOString(),
+          };
           localStorage.setItem("kidgo_recent_visits", JSON.stringify([compact, ...filtered].slice(0, 10)));
           trackVisit(eventData.id);
         } catch {}
@@ -434,6 +648,7 @@ export default function EventDetailClient({ id }: { id: string }) {
             .single();
           setSource(sourceData);
         }
+
         const { data: termineData } = await supabase
           .from("events")
           .select("id, datum, datum_ende, ort")
@@ -441,53 +656,83 @@ export default function EventDetailClient({ id }: { id: string }) {
           .order("datum", { ascending: true });
         setSerieTermine(termineData || []);
 
+        // --- Similar events with scoring ---
+        const dismissedIds = new Set(
+          getRatedEvents()
+            .filter((r) => r.rating === "dislike")
+            .map((r) => r.eventId)
+        );
+
         const cats = eventData.kategorien || (eventData.kategorie ? [eventData.kategorie] : []);
-        let simResults: any[] = [];
+        const mainAges: string[] = eventData.alters_buckets || [];
+        const mainCity = eventData.ort
+          ? eventData.ort.split(",")[0].trim().split(" ")[0].toLowerCase()
+          : "";
+
+        let simCandidates: any[] = [];
         if (cats.length > 0) {
           const { data: catData } = await supabase
             .from("events")
-            .select("id, titel, datum, ort, kategorie_bild_url, kategorien, kategorie")
+            .select("id, titel, datum, ort, kategorie_bild_url, kategorien, kategorie, alters_buckets")
             .eq("status", "approved")
             .neq("id", eventData.id)
             .contains("kategorien", [cats[0]])
-            .limit(6);
-          simResults = catData || [];
+            .limit(12);
+          simCandidates = catData || [];
         }
-        if (simResults.length < 3 && eventData.ort) {
-          const existing = new Set(simResults.map((e: any) => e.id));
+        if (simCandidates.length < 4 && eventData.ort) {
+          const existing = new Set(simCandidates.map((e: any) => e.id));
           const city = eventData.ort.split(",")[0].trim().split(" ")[0];
           const { data: ortData } = await supabase
             .from("events")
-            .select("id, titel, datum, ort, kategorie_bild_url, kategorien, kategorie")
+            .select("id, titel, datum, ort, kategorie_bild_url, kategorien, kategorie, alters_buckets")
             .eq("status", "approved")
             .neq("id", eventData.id)
             .ilike("ort", `%${city}%`)
-            .limit(4);
+            .limit(8);
           for (const e of ortData || []) {
-            if (!existing.has(e.id)) simResults.push(e);
+            if (!existing.has(e.id)) simCandidates.push(e);
           }
         }
-        setSimilarEvents(simResults.slice(0, 6));
+
+        const scored = simCandidates
+          .map((sim) => {
+            if (dismissedIds.has(sim.id)) return { ...sim, _score: -10 };
+            let score = 0;
+            const simCats: string[] = sim.kategorien || (sim.kategorie ? [sim.kategorie] : []);
+            if (cats.some((c: string) => simCats.includes(c))) score += 3;
+            const simAges: string[] = sim.alters_buckets || [];
+            if (mainAges.length > 0 && simAges.some((a) => mainAges.includes(a))) score += 2;
+            const userAgeBuckets = prefsAgeBucketsRef.current;
+            if (userAgeBuckets.length > 0 && simAges.some((a) => userAgeBuckets.includes(a))) score += 1;
+            if (mainCity && sim.ort) {
+              const sc = sim.ort.split(",")[0].trim().split(" ")[0].toLowerCase();
+              if (sc === mainCity && mainCity.length > 2) score += 1;
+            }
+            return { ...sim, _score: score };
+          })
+          .filter((s) => s._score >= 0)
+          .sort((a, b) => b._score - a._score);
+
+        setSimilarEvents(scored.slice(0, 6));
       }
       setLoading(false);
     };
     fetchEvent();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleReminder = async () => {
     if (!event) return;
-
     if (!("Notification" in window)) {
       alert("Dein Browser unterstützt leider keine Benachrichtigungen.");
       return;
     }
-
     let permission = Notification.permission;
     if (permission === "default") {
       permission = await Notification.requestPermission();
     }
     if (permission !== "granted") return;
-
     try {
       const raw = localStorage.getItem("kidgo_reminders");
       const reminders: any[] = raw ? JSON.parse(raw) : [];
@@ -496,12 +741,8 @@ export default function EventDetailClient({ id }: { id: string }) {
         localStorage.setItem("kidgo_reminders", JSON.stringify(reminders));
       }
       setIsReminded(true);
-
-      // Send to SW if available
       if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: "CHECK_REMINDERS_NOW",
-        });
+        navigator.serviceWorker.controller.postMessage({ type: "CHECK_REMINDERS_NOW" });
       }
     } catch {}
   };
@@ -632,7 +873,7 @@ export default function EventDetailClient({ id }: { id: string }) {
       <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
         <div className="text-center p-8">
           <p className="text-[var(--text-secondary)] text-lg mb-6">Event nicht gefunden</p>
-          <Link href="/" className="bg-kidgo-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
+          <Link href="/" className="bg-kidgo-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-400 transition">
             Zurück zur Übersicht
           </Link>
         </div>
@@ -666,7 +907,7 @@ export default function EventDetailClient({ id }: { id: string }) {
             parallaxOffset={scrollY}
           />
 
-          {/* Sprint 12: Floating circle back button */}
+          {/* Back button */}
           <div className="absolute top-4 left-4">
             <Link
               href="/"
@@ -701,6 +942,17 @@ export default function EventDetailClient({ id }: { id: string }) {
               <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug drop-shadow-sm">
                 {event.titel}
               </h1>
+              {socialCount > 0 && (
+                <div className="flex items-center gap-1 mt-1.5 text-white/70 text-xs">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="4.5" cy="4" r="2"/>
+                    <path d="M1 11.5c0-1.9 1.6-3.5 3.5-3.5"/>
+                    <circle cx="9.5" cy="5" r="1.8"/>
+                    <path d="M7 11.5c0-1.7 1.1-3 2.5-3s2.5 1.3 2.5 3"/>
+                  </svg>
+                  <span>{socialCount} {socialCount === 1 ? "Familie" : "Familien"} interessiert</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -730,6 +982,17 @@ export default function EventDetailClient({ id }: { id: string }) {
               <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] leading-snug">
                 {event.titel}
               </h1>
+              {socialCount > 0 && (
+                <div className="flex items-center gap-1 text-xs text-[var(--text-muted)] mt-1.5">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="4.5" cy="4" r="2"/>
+                    <path d="M1 11.5c0-1.9 1.6-3.5 3.5-3.5"/>
+                    <circle cx="9.5" cy="5" r="1.8"/>
+                    <path d="M7 11.5c0-1.7 1.1-3 2.5-3s2.5 1.3 2.5 3"/>
+                  </svg>
+                  <span>{socialCount} {socialCount === 1 ? "Familie" : "Familien"} interessiert</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -740,7 +1003,10 @@ export default function EventDetailClient({ id }: { id: string }) {
                 <IconCalendar />
                 <div>
                   <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Datum</p>
-                  <p className="font-semibold text-[var(--text-primary)] text-sm">{formatDate(event.datum, event.datum_ende)}</p>
+                  <div className="flex items-center flex-wrap gap-2">
+                    <p className="font-semibold text-[var(--text-primary)] text-sm">{formatDate(event.datum, event.datum_ende)}</p>
+                    <WeatherBadge datum={event.datum} ort={event.ort} indoorOutdoor={event.indoor_outdoor} />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -759,7 +1025,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                 <div className="flex-1">
                   <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Ort</p>
                   <p className="font-semibold text-[var(--text-primary)] text-sm mb-2">{event.ort}</p>
-                  <div className="flex gap-2 flex-wrap items-start">
+                  <div className="flex gap-2 flex-wrap items-center">
                     {mapsUrl && (
                       <a
                         href={mapsUrl}
@@ -770,8 +1036,18 @@ export default function EventDetailClient({ id }: { id: string }) {
                         Route
                       </a>
                     )}
-                    {event.ort && <TransitInfo ort={event.ort} sbbUrl={sbbUrl} />}
+                    {sbbUrl && (
+                      <a
+                        href={sbbUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500 px-3 py-1.5 rounded-full transition"
+                      >
+                        SBB.ch
+                      </a>
+                    )}
                   </div>
+                  <TransitWidget ort={event.ort} datum={event.datum} sbbUrl={sbbUrl} />
                 </div>
               </div>
             )}
@@ -848,8 +1124,6 @@ export default function EventDetailClient({ id }: { id: string }) {
 
           {/* CTA buttons */}
           <div className="mt-8 space-y-3">
-
-            {/* Erinnere mich — primary CTA */}
             {canRemind && (
               <button
                 onClick={handleReminder}
@@ -893,7 +1167,6 @@ export default function EventDetailClient({ id }: { id: string }) {
                     : "Hat euch das Event gefallen?"}
               </p>
               <div className="flex items-center gap-1.5">
-                {/* Thumbs down */}
                 <button
                   onClick={() => handleRate("dislike")}
                   aria-label="Hat nicht gefallen"
@@ -908,7 +1181,6 @@ export default function EventDetailClient({ id }: { id: string }) {
                     <path d="M14 1h-1a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" strokeWidth="1.5"/>
                   </svg>
                 </button>
-                {/* Thumbs up */}
                 <button
                   onClick={() => handleRate("like")}
                   aria-label="Hat gefallen"
@@ -923,7 +1195,6 @@ export default function EventDetailClient({ id }: { id: string }) {
                     <path d="M2 15h1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H2" strokeWidth="1.5"/>
                   </svg>
                 </button>
-                {/* Super like */}
                 <button
                   onClick={() => handleRate("superlike")}
                   aria-label="Mega gut gefallen"
@@ -946,7 +1217,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                 href={ctaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-kidgo-500 text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-kidgo-500 transition shadow-sm"
+                className="flex items-center justify-center gap-2 w-full bg-kidgo-500 text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-kidgo-400 transition shadow-sm"
               >
                 <IconGlobe />
                 Zur Webseite
@@ -994,25 +1265,30 @@ export default function EventDetailClient({ id }: { id: string }) {
             </div>
           </div>
 
-          {/* Similar events — horizontal carousel */}
+          {/* Similar events — horizontal carousel with Netflix-style "Mehr davon" */}
           {similarEvents.length > 0 && (
             <div className="mt-10">
               <h2 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">
                 Das könnte dir gefallen
               </h2>
               <div
-                className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5"
+                className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 snap-x snap-mandatory"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
               >
                 {similarEvents.map((sim) => (
                   <Link
                     key={sim.id}
                     href={`/events/${sim.id}`}
-                    className="flex-shrink-0 w-40 sm:w-48 group"
+                    className="flex-shrink-0 w-40 sm:w-48 group snap-start"
                   >
-                    <div className="w-full h-28 rounded-xl overflow-hidden bg-[var(--bg-subtle)] mb-2">
+                    <div className="w-full h-28 rounded-xl overflow-hidden bg-[var(--bg-subtle)] mb-2 shadow-sm">
                       {sim.kategorie_bild_url ? (
-                        <img src={sim.kategorie_bild_url} alt={sim.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <img
+                          src={sim.kategorie_bild_url}
+                          alt={sim.titel}
+                          loading="lazy"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
                       ) : (
                         <div className={`w-full h-full bg-gradient-to-br ${categoryFallbackColors[sim.kategorien?.[0] || ""] || "from-kidgo-100 to-kidgo-50"}`} />
                       )}
@@ -1024,6 +1300,9 @@ export default function EventDetailClient({ id }: { id: string }) {
                       <p className="text-xs text-[var(--text-muted)] mt-0.5">
                         {new Date(sim.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
                       </p>
+                    )}
+                    {sim.ort && (
+                      <p className="text-xs text-[var(--text-muted)] truncate">{sim.ort.split(",")[0]}</p>
                     )}
                   </Link>
                 ))}
@@ -1037,20 +1316,18 @@ export default function EventDetailClient({ id }: { id: string }) {
               <h2 className="text-base font-bold text-[var(--text-primary)]">Bewertungen</h2>
               {avgRating !== null && (
                 <div className="flex items-center gap-1.5 bg-kidgo-50 rounded-full px-3 py-1">
-                  <span className="text-yellow-400 text-sm">★</span>
+                  <span className="text-yellow-400 text-sm">&#9733;</span>
                   <span className="text-sm font-semibold text-kidgo-700">{avgRating}</span>
                   <span className="text-xs text-kidgo-500">({reviews.length})</span>
                 </div>
               )}
             </div>
 
-            {/* Review form for logged-in users */}
             {user ? (
               <div className="bg-white dark:bg-gray-800 border border-[var(--border)] rounded-2xl p-4 mb-5">
                 <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
                   {reviewSubmitted ? "Deine Bewertung" : "Event bewerten"}
                 </p>
-                {/* Star rating */}
                 <div className="flex gap-1 mb-3">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -1062,7 +1339,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                       aria-label={`${star} Sterne`}
                     >
                       <span className={(hoverRating || userRating) >= star ? "text-yellow-400" : "text-gray-200"}>
-                        ★
+                        &#9733;
                       </span>
                     </button>
                   ))}
@@ -1098,7 +1375,6 @@ export default function EventDetailClient({ id }: { id: string }) {
               </div>
             )}
 
-            {/* Reviews list */}
             {reviews.length > 0 ? (
               <div className="space-y-3">
                 {reviews.map((review) => (

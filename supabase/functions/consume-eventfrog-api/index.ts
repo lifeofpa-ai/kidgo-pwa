@@ -1,132 +1,186 @@
-// Eventfrog API consumer — replaces the legacy HTML scraper.
-// Docs: https://docs.api.eventfrog.net/
-// Endpoint: https://api.eventfrog.net/api/v1/events.json
+// Eventfrog public API consumer for Kinder/Familie events in Kanton Zürich.
+// API docs: https://api.eventfrog.net / https://docs.api.eventfrog.net/
+// Trigger: HTTP POST or cron job. Optional body { dryRun: true } for a dry run.
 //
-// Trigger: invoke via cron or HTTP POST. Optional body { dryRun: true } returns
-// the events that would be inserted without writing to the DB.
-//
-// Required env vars (set in Supabase dashboard > Edge Functions > Secrets):
-//   - SUPABASE_URL
-//   - SUPABASE_SERVICE_ROLE_KEY
-//   - EVENTFROG_API_KEY     (free, register at eventfrog.ch/de/kooperationen)
+// Required Supabase Secrets:
+//   EVENTFROG_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, jsonHeaders } from "../_shared/cors.ts";
 import { inferCategories, inferIndoorOutdoor } from "../_shared/category-map.ts";
 
-const EVENTFROG_BASE = "https://api.eventfrog.net/api/v1";
-const SOURCE_KEY     = "eventfrog";
+const EVENTFROG_BASE = "https://api.eventfrog.net";
+const SOURCE_KEY = "eventfrog";
 
-// Zurich region lat/lng bbox (rough rectangle covering Kanton Zürich)
-const ZH_BBOX = { minLat: 47.16, maxLat: 47.70, minLng: 8.36, maxLng: 8.98 };
+// Kinder/Familie rubric IDs
+const RUBRIC_IDS = [47, 48, 51, 52, 53, 54, 55, 99];
 
-// Family-friendly keywords used to filter events for kids.
-const FAMILY_RX = /\b(kind|kinder|familie|family|jugend|teen|baby|schul|spiel|bastel|kreativ|workshop|theater|zoo|tier|spielplatz|ferien|camp)\b/i;
+// Rubric ID → Kidgo category (merged with text-based inference)
+const RUBRIC_CATEGORY: Record<number, string> = {
+  47: "Ausflug",   // Babys
+  48: "Ausflug",   // Familienveranstaltungen
+  51: "Ausflug",   // Kinderfest
+  52: "Bildung",   // Kinderführung
+  53: "Ausflug",   // Kinderparty
+  54: "Theater",   // Kindertheater
+  55: "Theater",   // Kinderzirkus
+  99: "Bildung",   // Familienweiterbildung
+};
 
-interface EventfrogEvent {
-  id?: string;
-  title?: string | Record<string, string> | string[];
-  summary?: string | Record<string, string> | string[];
-  html?: string | Record<string, string> | string[];
-  startDate?: string;
-  endDate?: string;
-  link?: string;
-  cancelled?: boolean;
-  visible?: boolean;
-  published?: boolean;
-  image?: { url?: string } | null;
-  location?: {
-    name?: string;
-    city?: string;
-    zip?: string;
-    street?: string;
-    country?: string;
-    latitude?: number;
-    longitude?: number;
-  };
-  organizer?: { name?: string; website?: string };
+// Skip events clearly targeting 13+ / adult audiences
+const ADULT_RX = /\bab\s*(1[3-9]|[2-9]\d)\s*(jahre?|j\.?)?|\bjugendliche\b|\bteenager\b/i;
+// Classify as camp instead of generic event
+const CAMP_RX = /\b(ferienlager|feriencamp|sommercamp|ferien[- ]?pass)\b/i;
+
+// Kanton Zürich PLZ (8000–8999 covers the canton reliably enough)
+const ZH_ZIP_RX = /^8\d{3}$/;
+const ZH_CITY_RX =
+  /zürich|zurich|winterthur|uster|wädenswil|horgen|schlieren|opfikon|wallisellen|dübendorf|kloten|dietikon|regensdorf|bülach|wetzikon|volketswil|thalwil|adliswil|küsnacht|männedorf|meilen|rüti|pfäffikon|illnau/i;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Localized {
+  de?: string;
+  fr?: string;
+  en?: string;
+  it?: string;
+  [key: string]: string | undefined;
 }
 
-// Pull a string from the multi-lingual fields the Eventfrog API returns.
-function pickLocalized(v: unknown): string {
+interface EfLocation {
+  id: string;
+  name?: string;
+  street?: string;
+  zip?: string;
+  city?: string;
+  canton?: string;        // "ZH" | "BE" | …
+  countryCode?: string;
+  lat?: number;
+  lng?: number;
+  latitude?: number;      // some API versions use these
+  longitude?: number;
+}
+
+interface EfEvent {
+  id: string;
+  title?: Localized | string;
+  shortDescription?: Localized | string;
+  begin?: string;
+  end?: string;
+  url?: string;
+  presaleLink?: string;
+  emblemToShow?: { url?: string } | null;
+  locationIds?: string[];
+  rubricIds?: number[];
+  cancelled?: boolean;
+  published?: boolean;
+  visible?: boolean;
+}
+
+interface PagedResponse<T> {
+  data?: T[];
+  items?: T[];
+  results?: T[];
+  total?: number;
+  count?: number;
+  totalCount?: number;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function pickDe(v: unknown): string {
   if (!v) return "";
   if (typeof v === "string") return v;
   if (Array.isArray(v)) return String(v[0] ?? "");
   if (typeof v === "object") {
-    const obj = v as Record<string, string>;
-    return obj.de || obj.en || obj.fr || obj.it || Object.values(obj)[0] || "";
+    const o = v as Localized;
+    return o.de || o.en || o.fr || o.it || Object.values(o).find(Boolean) || "";
   }
   return "";
 }
 
-function inZurich(ev: EventfrogEvent): boolean {
-  const lat = ev.location?.latitude;
-  const lng = ev.location?.longitude;
-  if (lat != null && lng != null) {
-    return lat >= ZH_BBOX.minLat && lat <= ZH_BBOX.maxLat &&
-           lng >= ZH_BBOX.minLng && lng <= ZH_BBOX.maxLng;
-  }
-  // Fallback: city-name heuristic
-  const city = (ev.location?.city || "").toLowerCase();
-  return /zürich|zurich|winterthur|uster|wädenswil|horgen|schlieren|opfikon|wallisellen|dübendorf/.test(city);
+function unpackPage<T>(json: unknown): { items: T[]; total: number } {
+  if (Array.isArray(json)) return { items: json as T[], total: (json as T[]).length };
+  const r = json as PagedResponse<T>;
+  const items = r.data ?? r.items ?? r.results ?? [];
+  const total = r.total ?? r.totalCount ?? r.count ?? items.length;
+  return { items, total };
 }
 
-function isFamilyEvent(ev: EventfrogEvent): boolean {
-  const haystack = [
-    pickLocalized(ev.title), pickLocalized(ev.summary), pickLocalized(ev.html),
-  ].join(" ");
-  return FAMILY_RX.test(haystack);
+function isInZurich(loc: EfLocation | undefined): boolean {
+  if (!loc) return false;
+  if (loc.canton === "ZH") return true;
+  if (loc.zip && ZH_ZIP_RX.test(loc.zip)) return true;
+  if (loc.city && ZH_CITY_RX.test(loc.city)) return true;
+  return false;
 }
 
-function fmtOrt(ev: EventfrogEvent): string {
-  const loc = ev.location;
+function fmtOrt(loc: EfLocation | undefined): string {
   if (!loc) return "Zürich";
-  return [loc.name, [loc.zip, loc.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  const zip  = loc.zip  || "";
+  const city = loc.city || "";
+  const addr = [loc.name, loc.street, [zip, city].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ");
+  return addr || "Zürich";
 }
 
-function mapToEventRow(ev: EventfrogEvent) {
-  const titel        = pickLocalized(ev.title).trim();
-  const beschreibung = pickLocalized(ev.summary) || pickLocalized(ev.html) || null;
-  const fullText     = `${titel} ${beschreibung || ""}`;
-  const kategorien   = inferCategories(fullText);
-  const indoor_outdoor = inferIndoorOutdoor(fullText);
-
+function locLatLng(loc: EfLocation | undefined): { lat: number | null; lng: number | null } {
+  if (!loc) return { lat: null, lng: null };
   return {
-    external_id: String(ev.id),
-    external_source: SOURCE_KEY,
-    titel,
-    beschreibung,
-    datum:        ev.startDate ? ev.startDate.slice(0, 10) : null,
-    datum_ende:   ev.endDate   ? ev.endDate.slice(0, 10)   : null,
-    ort:          fmtOrt(ev),
-    lat:          ev.location?.latitude  ?? null,
-    lng:          ev.location?.longitude ?? null,
-    anmelde_link: ev.link || null,
-    kategorie_bild_url: ev.image?.url || null,
-    kategorien,
-    indoor_outdoor,
-    event_typ: "event",
-    status: "approved", // Auto-Approved Pipeline
+    lat: loc.lat ?? loc.latitude ?? null,
+    lng: loc.lng ?? loc.longitude ?? null,
   };
 }
 
-async function fetchPage(apiKey: string, page: number, perPage: number): Promise<EventfrogEvent[]> {
-  const url = new URL(`${EVENTFROG_BASE}/events.json`);
-  url.searchParams.set("apiKey", apiKey);
-  url.searchParams.set("page", String(page));
-  url.searchParams.set("perPage", String(perPage));
-  url.searchParams.set("fromDate", new Date().toISOString().slice(0, 10));
+// ─── API calls ────────────────────────────────────────────────────────────────
 
-  const res = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
+async function apiFetch(url: string, apiKey: string): Promise<unknown> {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+  });
   if (!res.ok) throw new Error(`Eventfrog ${res.status}: ${await res.text()}`);
-  const json = await res.json();
-  // Eventfrog returns either { events: [...] } or { data: [...] } depending on version
-  if (Array.isArray(json))                 return json;
-  if (Array.isArray(json.events))          return json.events;
-  if (Array.isArray(json.data))            return json.data;
-  if (Array.isArray(json.items))           return json.items;
-  return [];
+  return res.json();
 }
+
+async function fetchEventPage(
+  apiKey: string,
+  rubricId: number,
+  offset: number,
+  limit: number,
+): Promise<{ items: EfEvent[]; total: number }> {
+  const u = new URL(`${EVENTFROG_BASE}/public/v1/events`);
+  u.searchParams.set("rubricId", String(rubricId));
+  u.searchParams.set("limit", String(limit));
+  u.searchParams.set("offset", String(offset));
+  u.searchParams.set("canton", "ZH");
+  u.searchParams.set("fromDate", new Date().toISOString().slice(0, 10));
+  return unpackPage<EfEvent>(await apiFetch(u.toString(), apiKey));
+}
+
+async function fetchLocations(apiKey: string, ids: string[]): Promise<Map<string, EfLocation>> {
+  const cache = new Map<string, EfLocation>();
+  if (!ids.length) return cache;
+
+  // Batch in chunks of 50 to avoid query-string overflow
+  const CHUNK = 50;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    try {
+      const u = new URL(`${EVENTFROG_BASE}/public/v1/locations`);
+      u.searchParams.set("limit", String(CHUNK));
+      for (const id of chunk) u.searchParams.append("ids[]", id);
+      const { items } = unpackPage<EfLocation>(await apiFetch(u.toString(), apiKey));
+      for (const loc of items) if (loc.id) cache.set(loc.id, loc);
+    } catch (e) {
+      // Location lookup is best-effort; log and continue
+      console.warn("Location fetch failed for chunk:", e);
+    }
+  }
+  return cache;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -141,7 +195,7 @@ Deno.serve(async (req) => {
 
     let dryRun = false;
     if (req.method === "POST") {
-      try { dryRun = !!(await req.json()).dryRun; } catch { /* ignore */ }
+      try { dryRun = !!(await req.json()).dryRun; } catch { /* body is optional */ }
     }
 
     const supabase = createClient(
@@ -149,43 +203,159 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const all: EventfrogEvent[] = [];
-    for (let page = 1; page <= 5; page++) {
-      const batch = await fetchPage(apiKey, page, 100);
-      if (!batch.length) break;
-      all.push(...batch);
-      if (batch.length < 100) break;
+    const LIMIT = 100;
+    const now = new Date();
+
+    // 1. Fetch all events from all rubrics (deduplicated by event ID)
+    const eventMap = new Map<string, { ev: EfEvent; rubricId: number }>();
+    const rubricStats: Record<number, number> = {};
+    let totalFetched = 0;
+
+    for (const rubricId of RUBRIC_IDS) {
+      let offset = 0;
+      let rubricCount = 0;
+
+      while (true) {
+        let page: { items: EfEvent[]; total: number };
+        try {
+          page = await fetchEventPage(apiKey, rubricId, offset, LIMIT);
+        } catch (err) {
+          console.error(`Rubric ${rubricId} @ offset ${offset}:`, err);
+          break;
+        }
+
+        for (const ev of page.items) {
+          if (ev.id && !eventMap.has(ev.id)) {
+            eventMap.set(ev.id, { ev, rubricId });
+          }
+        }
+
+        rubricCount += page.items.length;
+        totalFetched += page.items.length;
+        offset += page.items.length;
+
+        if (page.items.length < LIMIT || offset >= page.total) break;
+      }
+
+      rubricStats[rubricId] = rubricCount;
     }
 
-    const filtered = all.filter((ev) =>
-      ev.id && ev.published !== false && !ev.cancelled &&
-      pickLocalized(ev.title).trim() &&
-      inZurich(ev) && isFamilyEvent(ev)
-    );
+    // 2. Resolve location data
+    const locationIds = new Set<string>();
+    for (const { ev } of eventMap.values()) {
+      for (const id of ev.locationIds ?? []) locationIds.add(id);
+    }
+    const locationCache = await fetchLocations(apiKey, [...locationIds]);
 
-    const rows = filtered.map(mapToEventRow);
+    // 3. Filter + map to DB rows
+    let skippedPast = 0;
+    let skippedAdult = 0;
+    let skippedOutsideZH = 0;
+    const rows: Record<string, unknown>[] = [];
+
+    for (const [, { ev, rubricId }] of eventMap) {
+      // Skip cancelled / invisible
+      if (ev.cancelled || ev.published === false || ev.visible === false) continue;
+
+      // Skip past events
+      if (ev.begin && new Date(ev.begin) < now) { skippedPast++; continue; }
+
+      const titel = pickDe(ev.title).trim();
+      if (!titel) continue;
+
+      const beschreibung = pickDe(ev.shortDescription) || null;
+      const fullText = `${titel} ${beschreibung ?? ""}`;
+
+      // Skip events targeting 13+ audience
+      if (ADULT_RX.test(fullText)) { skippedAdult++; continue; }
+
+      // Resolve primary location
+      const locId = ev.locationIds?.[0];
+      const loc = locId ? locationCache.get(locId) : undefined;
+
+      // Filter to Kanton Zürich when we have location data to check
+      if (loc !== undefined && !isInZurich(loc)) { skippedOutsideZH++; continue; }
+
+      // Categories: rubric base + text inference, deduplicated
+      const baseCategory = RUBRIC_CATEGORY[rubricId];
+      const inferred = inferCategories(fullText);
+      const kategorien = [...new Set([...(baseCategory ? [baseCategory] : []), ...inferred])];
+
+      const { lat, lng } = locLatLng(loc);
+
+      rows.push({
+        external_id:        String(ev.id),
+        external_source:    SOURCE_KEY,
+        titel,
+        beschreibung,
+        datum:              ev.begin ? ev.begin.slice(0, 10) : null,
+        datum_ende:         ev.end   ? ev.end.slice(0, 10)   : null,
+        ort:                fmtOrt(loc),
+        lat,
+        lng,
+        anmelde_link:       ev.presaleLink || ev.url || null,
+        kategorie_bild_url: ev.emblemToShow?.url || null,
+        kategorien,
+        indoor_outdoor:     inferIndoorOutdoor(fullText),
+        event_typ:          CAMP_RX.test(fullText) ? "camp" : "event",
+        status:             "approved",
+      });
+    }
+
+    const summary = {
+      fetched:         totalFetched,
+      matched:         rows.length,
+      skippedPast,
+      skippedAdult,
+      skippedOutsideZH,
+      rubrics:         rubricStats,
+    };
 
     if (dryRun) {
-      return new Response(JSON.stringify({ fetched: all.length, matched: rows.length, sample: rows.slice(0, 3) }), { headers: jsonHeaders });
+      return new Response(
+        JSON.stringify({ ...summary, sample: rows.slice(0, 5) }),
+        { headers: jsonHeaders },
+      );
     }
 
     if (!rows.length) {
-      return new Response(JSON.stringify({ fetched: all.length, inserted: 0, message: "no family events in Zurich found" }), { headers: jsonHeaders });
+      return new Response(
+        JSON.stringify({ ...summary, inserted: 0, duplicates: 0, message: "no events to import" }),
+        { headers: jsonHeaders },
+      );
     }
 
-    const { error, data } = await supabase
-      .from("events")
-      .upsert(rows, { onConflict: "external_source,external_id", ignoreDuplicates: false })
-      .select("id");
+    // 4. Upsert in batches — ignore duplicates, count new inserts
+    const BATCH = 50;
+    let inserted = 0;
+    let duplicates = 0;
 
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH);
+      const { error, data } = await supabase
+        .from("events")
+        .upsert(batch, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+        .select("id");
+
+      if (error) {
+        console.error("DB upsert error:", error.message);
+        continue;
+      }
+
+      const batchNew = data?.length ?? 0;
+      inserted  += batchNew;
+      duplicates += batch.length - batchNew;
     }
 
-    return new Response(JSON.stringify({
-      fetched: all.length, matched: rows.length, upserted: data?.length ?? 0,
-    }), { headers: jsonHeaders });
+    return new Response(
+      JSON.stringify({ ...summary, inserted, duplicates }),
+      { headers: jsonHeaders },
+    );
+
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: jsonHeaders });
+    console.error("consume-eventfrog-api fatal:", err);
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500, headers: jsonHeaders,
+    });
   }
 });

@@ -71,6 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        // On first sign-in: push localStorage prefs to Supabase if no profile exists yet
+        if (_event === "SIGNED_IN") {
+          try {
+            const raw = typeof localStorage !== "undefined" ? localStorage.getItem("user_preferences") : null;
+            const parsed: { interests?: string[] } = raw ? JSON.parse(raw) : {};
+            await supabase.from("user_profiles").upsert(
+              { user_id: session.user.id, interests: parsed.interests ?? [], children: [] },
+              { onConflict: "user_id", ignoreDuplicates: true }
+            );
+          } catch {}
+        }
         await fetchProfile(session.user.id);
       } else {
         setProfile(null);

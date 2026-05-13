@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useUserPrefs } from "@/lib/user-prefs-context";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase-browser";
 import { INTERESTS } from "@/lib/interests";
 import { getCategoryIcon } from "@/components/Icons";
 
@@ -31,6 +33,7 @@ const TOTAL_STEPS = 4;
 
 export function OnboardingFlow() {
   const { prefs, setPrefs, markOnboarded } = useUserPrefs();
+  const { user } = useAuth();
   const [step, setStep]           = useState(0);
   const [ages, setAges]           = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
@@ -50,7 +53,7 @@ export function OnboardingFlow() {
     if (step > 0) setStep((s) => s - 1);
   }, [step]);
 
-  const finish = useCallback(() => {
+  const finish = useCallback(async () => {
     const updated = { ...prefs, ageBuckets: ages, interests, radius, onboarded: true };
     setPrefs(updated);
     try {
@@ -59,8 +62,24 @@ export function OnboardingFlow() {
       if (ages.length > 0) localStorage.setItem("kidgo_age_buckets", JSON.stringify(ages));
       if (interests.length > 0) localStorage.setItem("kidgo_interests", JSON.stringify(interests));
     } catch {}
+
+    // Request notification permission while still in user-gesture context
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    // Persist to Supabase if logged in
+    if (user) {
+      try {
+        await supabase.from("user_profiles").upsert(
+          { user_id: user.id, interests },
+          { onConflict: "user_id" }
+        );
+      } catch {}
+    }
+
     markOnboarded();
-  }, [prefs, setPrefs, ages, interests, radius, markOnboarded]);
+  }, [prefs, setPrefs, ages, interests, radius, markOnboarded, user]);
 
   const glassCard = (active: boolean) => ({
     background: active ? "rgba(91,186,167,0.2)" : "rgba(255,255,255,0.05)",

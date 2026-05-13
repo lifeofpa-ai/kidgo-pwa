@@ -5,7 +5,7 @@ import { KidgoLogo } from "@/components/KidgoLogo";
 import { useAuth } from "@/lib/auth-context";
 import { AuthButton } from "@/components/AuthButton";
 import { getLocalStats, getLevelProgress } from "@/lib/gamification";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { INTERESTS } from "@/lib/interests";
 import { getCategoryIcon } from "@/components/Icons";
 import { useUserPrefs } from "@/lib/user-prefs-context";
@@ -38,11 +38,25 @@ export default function IchPage() {
   const [editMode, setEditMode]         = useState(false);
   const [saving, setSaving]             = useState(false);
   const [isDark, setIsDark]             = useState(false);
+  const prefsRef = useRef(prefs);
 
   // Edit state
   const [children, setChildren]         = useState<Child[]>([]);
   const [interests, setInterests]       = useState<string[]>([]);
   const [radius, setRadius]             = useState(15);
+
+  // Keep ref current so we can read latest prefs in effects without including it in deps
+  useEffect(() => { prefsRef.current = prefs; });
+
+  // Supabase profile wins on conflict — sync remote interests to local prefs once on load
+  useEffect(() => {
+    if (!profile || !prefsMounted) return;
+    const remoteInterests = Array.isArray(profile.interests) ? (profile.interests as string[]) : null;
+    if (remoteInterests && remoteInterests.length > 0) {
+      setPrefs({ ...prefsRef.current, interests: remoteInterests });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.user_id, prefsMounted]);
 
   useEffect(() => {
     setMounted(true);

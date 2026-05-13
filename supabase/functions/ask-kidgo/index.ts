@@ -29,6 +29,59 @@ interface EventRow {
   alters_buckets: string[] | null;
 }
 
+// Extract intent signals from the question text for pre-filtering
+function extractIntent(question: string): {
+  indoor: boolean | null;
+  freeOnly: boolean;
+  keywords: string[];
+  targetDate: string | null;
+} {
+  const q = question.toLowerCase();
+
+  const indoor =
+    q.includes("indoor") || q.includes("drin") || q.includes("regen") || q.includes("drinnen")
+      ? true
+      : q.includes("outdoor") || q.includes("drauss") || q.includes("natur") || q.includes("wald")
+      ? false
+      : null;
+
+  const freeOnly =
+    q.includes("gratis") || q.includes("kostenlos") || q.includes("umsonst") || q.includes("frei ");
+
+  // Extract date hints (heute/morgen/samstag/wochenende)
+  const today = new Date();
+  let targetDate: string | null = null;
+  if (q.includes("heute")) {
+    targetDate = today.toISOString().split("T")[0];
+  } else if (q.includes("morgen")) {
+    const t = new Date(today); t.setDate(t.getDate() + 1);
+    targetDate = t.toISOString().split("T")[0];
+  } else if (q.includes("samstag")) {
+    const dow = today.getDay();
+    const diff = dow === 6 ? 0 : (6 - dow);
+    const t = new Date(today); t.setDate(t.getDate() + diff);
+    targetDate = t.toISOString().split("T")[0];
+  } else if (q.includes("sonntag")) {
+    const dow = today.getDay();
+    const diff = dow === 0 ? 0 : (7 - dow);
+    const t = new Date(today); t.setDate(t.getDate() + diff);
+    targetDate = t.toISOString().split("T")[0];
+  } else if (q.includes("wochenende")) {
+    const dow = today.getDay();
+    const toSat = dow === 6 ? 0 : dow === 0 ? 6 : (6 - dow);
+    const t = new Date(today); t.setDate(t.getDate() + toSat);
+    targetDate = t.toISOString().split("T")[0]; // return Saturday; Claude picks the range
+  }
+
+  const categoryKeywords = [
+    "museum", "sport", "basteln", "malen", "kreativ", "theater", "musik", "tanz",
+    "schwimm", "klettern", "ausflug", "natur", "zoo", "zirkus", "camp", "ferien",
+  ];
+  const keywords = categoryKeywords.filter((kw) => q.includes(kw));
+
+  return { indoor, freeOnly, keywords, targetDate };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,7 +90,6 @@ Deno.serve(async (req) => {
   try {
     const { question, context }: AskKidgoRequest = await req.json();
 
-    // Load events from DB
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const db = createClient(supabaseUrl, supabaseKey);
@@ -49,7 +101,7 @@ Deno.serve(async (req) => {
       .select("id, titel, beschreibung, datum, ort, preis_chf, kategorien, indoor_outdoor, alters_buckets")
       .eq("status", "aktiv")
       .or(`datum.gte.${today},datum.is.null`)
-      .limit(60);
+      .limit(80);
 
     if (dbError || !allEvents) {
       return new Response(JSON.stringify({ error: "DB error: " + (dbError?.message || "unknown") }), {
@@ -58,19 +110,61 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter by age buckets
+    // --- Intent-based pre-filtering ---
+    const intent = extractIntent(question);
     let filtered: EventRow[] = allEvents;
+
+    // Age filter
     if (context.age_buckets?.length) {
-      filtered = allEvents.filter(
+      const ageFiltered = allEvents.filter(
         (e: EventRow) =>
           !e.alters_buckets ||
           e.alters_buckets.length === 0 ||
           e.alters_buckets.some((b) => context.age_buckets!.includes(b))
       );
-      if (filtered.length < 5) filtered = allEvents; // fallback if too few results
+      filtered = ageFiltered.length >= 5 ? ageFiltered : allEvents;
     }
 
-    // Boost liked categories to the top
+    // Indoor/outdoor filter from question intent
+    if (intent.indoor !== null) {
+      const io = intent.indoor ? "indoor" : "outdoor";
+      const ioFiltered = filtered.filter(
+        (e: EventRow) => !e.indoor_outdoor || e.indoor_outdoor === io || e.indoor_outdoor === "beides"
+      );
+      if (ioFiltered.length >= 5) filtered = ioFiltered;
+    }
+
+    // Free-only filter
+    if (intent.freeOnly) {
+      const freeFiltered = filtered.filter((e: EventRow) => e.preis_chf === 0);
+      if (freeFiltered.length >= 3) filtered = freeFiltered;
+    }
+
+    // Date boost: events on targetDate get sorted to the top
+    if (intent.targetDate) {
+      const onDate = filtered.filter((e: EventRow) => e.datum === intent.targetDate);
+      const rest = filtered.filter((e: EventRow) => e.datum !== intent.targetDate);
+      filtered = [...onDate, ...rest];
+    }
+
+    // Keyword boost
+    if (intent.keywords.length > 0) {
+      filtered.sort((a: EventRow, b: EventRow) => {
+        const aHit = intent.keywords.some((kw) =>
+          a.titel.toLowerCase().includes(kw) ||
+          (a.beschreibung || "").toLowerCase().includes(kw) ||
+          a.kategorien?.some((k) => k.toLowerCase().includes(kw))
+        ) ? 1 : 0;
+        const bHit = intent.keywords.some((kw) =>
+          b.titel.toLowerCase().includes(kw) ||
+          (b.beschreibung || "").toLowerCase().includes(kw) ||
+          b.kategorien?.some((k) => k.toLowerCase().includes(kw))
+        ) ? 1 : 0;
+        return bHit - aHit;
+      });
+    }
+
+    // Liked categories boost (keep to top after keyword sort)
     if (context.liked_categories?.length) {
       filtered.sort((a: EventRow, b: EventRow) => {
         const aScore = a.kategorien?.some((k) => context.liked_categories!.includes(k)) ? 1 : 0;
@@ -79,7 +173,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const topEvents = filtered.slice(0, 20);
+    const topEvents = filtered.slice(0, 25);
 
     const eventsText = topEvents
       .map(
@@ -109,19 +203,23 @@ Deno.serve(async (req) => {
       context.hour !== undefined           ? `Uhrzeit: ${context.hour}:00 Uhr`                     : "",
       context.liked_categories?.length     ? `Interessen: ${context.liked_categories.slice(0,3).join(", ")}` : "",
       context.standort                     ? `Standort: ${context.standort}`                       : "",
+      intent.indoor !== null               ? `Anfrage-Intent: ${intent.indoor ? "Indoor bevorzugt" : "Outdoor bevorzugt"}` : "",
+      intent.freeOnly                      ? "Anfrage-Intent: Nur Gratis-Events"                   : "",
+      intent.targetDate                    ? `Anfrage-Intent: Datum ${intent.targetDate}`          : "",
     ].filter(Boolean);
 
     const contextText = contextParts.length ? contextParts.join(" | ") : "Keine Angaben";
 
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 450,
+      max_tokens: 500,
       system: [
         "Du bist Kidgo, ein freundlicher Familien-Assistent für Kinderaktivitäten in Zürich.",
-        "Empfehle exakt 3 passende Events aus der bereitgestellten Liste.",
-        "Antworte auf Deutsch, kurz und warmherzig.",
-        'Gib IMMER eine JSON-Antwort zurück im Format: {"ids":["id1","id2","id3"],"answer":"Deine warmherzige Empfehlung in 1-2 Sätzen"}',
-        "Verwende nur IDs aus der Liste. Keine Emojis.",
+        "Empfehle 3 bis 5 passende Events aus der bereitgestellten Liste — wähle die Anzahl je nach Qualität der Treffer.",
+        "Achte auf: Alter der Kinder, Indoor/Outdoor-Präferenz der Frage, Datum/Wochentag, Preis (bei 'Gratis' nur kostenlose).",
+        "Antworte auf Deutsch, kurz und warmherzig (1-2 Sätze).",
+        'Gib IMMER eine JSON-Antwort im Format: {"ids":["id1","id2","id3"],"answer":"Deine Empfehlung"}',
+        "Verwende nur IDs aus der Liste. Keine Emojis im answer-Feld.",
       ].join(" "),
       messages: [
         {
@@ -140,19 +238,24 @@ Deno.serve(async (req) => {
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
-        ids = Array.isArray(parsed.ids) ? parsed.ids.slice(0, 3) : [];
+        ids = Array.isArray(parsed.ids) ? parsed.ids.slice(0, 5) : [];
         answer = parsed.answer || responseText;
       } catch {
-        // keep full response
+        // keep full response as answer
       }
     }
 
-    // Fetch full event rows for matched IDs so frontend can display cards
+    // Fetch full event rows including kategorie_bild_url for the frontend cards
     const { data: matchedEvents } = ids.length
-      ? await db.from("events").select("*").in("id", ids)
+      ? await db.from("events").select("id, titel, datum, ort, kategorie_bild_url").in("id", ids)
       : { data: [] };
 
-    return new Response(JSON.stringify({ answer, ids, events: matchedEvents || [] }), {
+    // Return in the order Claude selected them
+    const orderedEvents = ids
+      .map((id) => (matchedEvents || []).find((e: { id: string }) => e.id === id))
+      .filter(Boolean);
+
+    return new Response(JSON.stringify({ answer, ids, events: orderedEvents }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

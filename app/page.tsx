@@ -24,6 +24,7 @@ import {
 import { AuthButton } from "@/components/AuthButton";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { useAuth } from "@/lib/auth-context";
+import { useUserPrefs } from "@/lib/user-prefs-context";
 import {
   getLocalStats,
   getLevelProgress,
@@ -36,8 +37,6 @@ import {
 } from "@/lib/gamification";
 import { BadgePopup } from "@/components/BadgePopup";
 import { HexIcon } from "@/components/HexIcon";
-import { OnboardingTutorial } from "@/components/OnboardingTutorial";
-import { InterestsModal } from "@/components/InterestsModal";
 import { eventMatchesInterests } from "@/lib/interests";
 import {
   getRatedEvents,
@@ -1332,10 +1331,10 @@ const EVENTS_CACHE_TTL = 5 * 60 * 1000;
 
 export default function Home() {
   const { user, profile, loading: authLoading } = useAuth();
+  const { prefs, mounted: prefsMounted } = useUserPrefs();
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState<"welcome" | "age-select" | "location-ask" | "recommendations">("age-select");
-  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [step, setStep] = useState<"age-select" | "recommendations">("age-select");
   const [selectedBuckets, setSelectedBuckets] = useState<string[]>([]);
   const [multiChild, setMultiChild] = useState(false);
 
@@ -1394,7 +1393,6 @@ export default function Home() {
 
   // Sprint 11: Interests
   const [userInterests, setUserInterests] = useState<string[]>([]);
-  const [showInterestsModal, setShowInterestsModal] = useState(false);
 
   // Sprint 11: Preference profile from liked events
   const [preferenceProfile, setPreferenceProfile] = useState<PreferenceProfile | null>(null);
@@ -1416,9 +1414,6 @@ export default function Home() {
   // Sprint 3: Challenge
   const [challengeAccepted, setChallengeAccepted] = useState(false);
   const [showChallengeEvents, setShowChallengeEvents] = useState(false);
-
-  // Sprint 13: Onboarding tutorial overlay
-  const [showTutorial, setShowTutorial] = useState(false);
 
   // Sprint 3: Offline + PWA install
   const [isOffline, setIsOffline] = useState(false);
@@ -1508,23 +1503,19 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
     setIsDark(document.documentElement.classList.contains("dark"));
-    const onboarded = localStorage.getItem("kidgo_onboarded");
-    if (!onboarded) {
-      setIsFirstVisit(true);
-      setStep("welcome");
-    } else {
-      try {
-        const saved = localStorage.getItem("kidgo_age_buckets");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSelectedBuckets(parsed);
-            if (parsed.length > 1) setMultiChild(true);
-            setStep("recommendations");
-          }
+    // OnboardingGate (ClientProviders) handles first-visit age collection via OnboardingFlow.
+    // page.tsx reads the saved buckets and jumps straight to recommendations.
+    try {
+      const saved = localStorage.getItem("kidgo_age_buckets");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSelectedBuckets(parsed);
+          if (parsed.length > 1) setMultiChild(true);
+          setStep("recommendations");
         }
-      } catch {}
-    }
+      }
+    } catch {}
     try {
       const raw = localStorage.getItem("kidgo_visit_streak");
       if (raw) {
@@ -1758,6 +1749,16 @@ export default function Home() {
     );
   }, [mounted]);
 
+  // After OnboardingFlow completes, sync age buckets from UserPrefsContext into local state.
+  useEffect(() => {
+    if (!prefsMounted || !prefs.onboarded || prefs.ageBuckets.length === 0) return;
+    setSelectedBuckets((prev) => (prev.length > 0 ? prev : prefs.ageBuckets));
+    if (prefs.ageBuckets.length > 1) setMultiChild(true);
+    setStep("recommendations");
+  // prefs.ageBuckets.join ensures the effect re-runs when the array content changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefsMounted, prefs.onboarded, prefs.ageBuckets.join(",")]);
+
   useEffect(() => {
     if (step !== "recommendations" || selectedBuckets.length === 0) return;
     fetchAndScore();
@@ -1960,12 +1961,12 @@ export default function Home() {
     try { localStorage.setItem("kidgo_theme", next ? "dark" : "light"); } catch {}
   };
 
-  const navigateForward = (target: "welcome" | "age-select" | "location-ask" | "recommendations") => {
+  const navigateForward = (target: "age-select" | "recommendations") => {
     setTransitionClass("page-slide-in");
     setStep(target);
   };
 
-  const navigateBack = (target: "welcome" | "age-select" | "location-ask" | "recommendations") => {
+  const navigateBack = (target: "age-select" | "recommendations") => {
     setTransitionClass("page-slide-back");
     setStep(target);
   };
@@ -1979,14 +1980,14 @@ export default function Home() {
       const newBuckets = [bucket];
       setSelectedBuckets(newBuckets);
       localStorage.setItem("kidgo_age_buckets", JSON.stringify(newBuckets));
-      navigateForward(isFirstVisit ? "location-ask" : "recommendations");
+      navigateForward("recommendations");
     }
   };
 
   const handleMultiChildConfirm = () => {
     if (selectedBuckets.length === 0) return;
     localStorage.setItem("kidgo_age_buckets", JSON.stringify(selectedBuckets));
-    navigateForward(isFirstVisit ? "location-ask" : "recommendations");
+    navigateForward("recommendations");
   };
 
   const handleChangeAge = () => {
@@ -2216,25 +2217,6 @@ export default function Home() {
   };
 
   // Sprint 3: Complete onboarding
-  const finishOnboarding = () => {
-    try { localStorage.setItem("kidgo_onboarded", "true"); } catch {}
-    setIsFirstVisit(false);
-    // Sprint 13: Show tutorial on first visit
-    try {
-      if (!localStorage.getItem("kidgo_tutorial_seen")) setShowTutorial(true);
-    } catch {}
-    navigateForward("recommendations");
-    // Sprint 11: Show interests modal if not yet set
-    try {
-      const existing = localStorage.getItem("kidgo_interests");
-      if (!existing) setShowInterestsModal(true);
-    } catch {}
-  };
-
-  const handleTutorialComplete = () => {
-    try { localStorage.setItem("kidgo_tutorial_seen", "true"); } catch {}
-    setShowTutorial(false);
-  };
 
   const now = new Date();
   const headline = getHeadline(now);
@@ -2245,90 +2227,6 @@ export default function Home() {
 
   if (!mounted) return null;
 
-  // ===== STEP: WELCOME (first-time only) =====
-  if (step === "welcome") {
-    return (
-      <main className={`min-h-screen bg-gradient-to-b from-[#6EC4B3] to-[#4A9E8E] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
-        <div className="w-full max-w-md mx-auto text-center fade-in">
-          <div className="mb-8 flex justify-center">
-            <KidgoLogo size="lg" animated />
-          </div>
-          <h1 className="text-4xl font-extrabold text-white mb-3 leading-tight">
-            Willkommen bei Kidgo
-          </h1>
-          <p className="text-white/80 text-lg mb-2 leading-relaxed">
-            Dein persönlicher Begleiter für die besten Kinder-Events in Zürich
-          </p>
-          <p className="text-white/60 text-sm mb-10">
-            Passend fürs Alter, Wetter und deine Ferien
-          </p>
-          <button
-            onClick={() => navigateForward("age-select")}
-            className="w-full bg-white text-[#5BBAA7] border-2 border-[#5BBAA7]/30 py-4 rounded-2xl font-bold text-xl hover:bg-kidgo-50 transition shadow-lg active:scale-95"
-          >
-            Weiter
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  // ===== STEP: LOCATION ASK (first-time only) =====
-  if (step === "location-ask") {
-    return (
-      <main className={`min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
-        <div className="w-full max-w-md mx-auto card-enter">
-          <div className="text-center mb-8">
-            <div className="mb-4 flex justify-center"><KidgoLogo size="md" /></div>
-            <h1 className="text-2xl font-bold text-white mb-2">Standort für dich</h1>
-            <p className="text-white/80 leading-relaxed">
-              Mit deinem Standort zeigen wir Events in deiner Nähe und berechnen die Entfernung.
-            </p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-600 flex items-start gap-2">
-              <span className="mt-0.5 text-[var(--kidgo-teal)]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </span>
-              <span>Dein Standort wird nur lokal auf deinem Gerät gespeichert — niemals weitergegeben.</span>
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    const loc = {
-                      lat: pos.coords.latitude,
-                      lon: pos.coords.longitude,
-                      label: "Dein Standort",
-                      approximate: false,
-                    };
-                    setUserLocation(loc);
-                    try { localStorage.setItem("kidgo_location", JSON.stringify(loc)); } catch {}
-                  },
-                  () => {}
-                );
-              }
-              finishOnboarding();
-            }}
-            className="w-full bg-white text-[#5BBAA7] py-4 rounded-2xl font-bold text-lg hover:bg-kidgo-50 transition shadow-lg active:scale-95 mb-3"
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              Standort erlauben
-            </span>
-          </button>
-          <button
-            onClick={finishOnboarding}
-            className="w-full py-3 text-white/60 text-sm hover:text-white/80 transition"
-          >
-            Überspringen
-          </button>
-        </div>
-      </main>
-    );
-  }
 
   // ===== STEP 1: AGE SELECTION =====
   if (step === "age-select") {
@@ -2442,19 +2340,8 @@ export default function Home() {
 
   return (
     <>
-    {showTutorial && (
-      <OnboardingTutorial onComplete={handleTutorialComplete} />
-    )}
     {showProfileSetup && (
       <ProfileSetupModal onComplete={() => setShowProfileSetup(false)} />
-    )}
-    {showInterestsModal && (
-      <InterestsModal
-        onComplete={(interests) => {
-          setUserInterests(interests);
-          setShowInterestsModal(false);
-        }}
-      />
     )}
     <main
       id="main-content"

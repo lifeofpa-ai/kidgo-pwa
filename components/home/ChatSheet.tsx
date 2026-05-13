@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase-browser";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { trackChatUsed } from "@/lib/gamification";
@@ -11,6 +12,7 @@ interface EventCard {
   titel: string;
   datum: string | null;
   ort?: string | null;
+  kategorie_bild_url?: string | null;
 }
 
 interface ChatMessage {
@@ -59,6 +61,50 @@ function KidgoAvatar() {
         <path d="M4 5h14a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1z"/>
       </svg>
     </div>
+  );
+}
+
+function ChatEventCard({ ev, onClose }: { ev: EventCard; onClose: () => void }) {
+  const dateStr = ev.datum
+    ? new Date(ev.datum).toLocaleDateString("de-CH", { day: "numeric", month: "short" })
+    : "Ganzjährig";
+
+  return (
+    <Link
+      href={`/events/${ev.id}`}
+      onClick={onClose}
+      className="flex-shrink-0 w-36 rounded-2xl overflow-hidden border border-[var(--border)] bg-white dark:bg-gray-900 hover:border-kidgo-300 hover:shadow-md transition-all active:scale-95 group"
+    >
+      {/* Image area */}
+      <div className="relative w-full h-20 bg-gray-100 dark:bg-gray-800">
+        {ev.kategorie_bild_url ? (
+          <Image
+            src={ev.kategorie_bild_url}
+            alt={ev.titel}
+            fill
+            className="object-cover"
+            sizes="144px"
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #5BBAA7 0%, #4A9E8E 100%)" }}
+          >
+            <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <rect x="2" y="3" width="12" height="12" rx="2"/>
+              <path d="M5 1v4M11 1v4M2 7h12"/>
+            </svg>
+          </div>
+        )}
+      </div>
+      {/* Text area */}
+      <div className="p-2">
+        <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight line-clamp-2 group-hover:text-kidgo-600 transition mb-1">
+          {ev.titel}
+        </p>
+        <p className="text-[10px] text-[var(--text-muted)]">{dateStr}</p>
+      </div>
+    </Link>
   );
 }
 
@@ -138,11 +184,18 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
       if (error || !data) throw new Error(error?.message || "API-Fehler");
 
       const events: EventCard[] = Array.isArray(data.events)
-        ? data.events.slice(0, 3).map((e: { id: string; titel: string; datum: string | null; ort?: string | null }) => ({
+        ? data.events.slice(0, 5).map((e: {
+            id: string;
+            titel: string;
+            datum: string | null;
+            ort?: string | null;
+            kategorie_bild_url?: string | null;
+          }) => ({
             id: e.id,
             titel: e.titel,
             datum: e.datum,
             ort: e.ort,
+            kategorie_bild_url: e.kategorie_bild_url ?? null,
           }))
         : [];
 
@@ -259,46 +312,22 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
               ) : (
                 <div key={msg.id} className="flex gap-3 items-start">
                   <KidgoAvatar />
-                  <div className="flex flex-col gap-2 max-w-[80%]">
+                  <div className="flex flex-col gap-2 max-w-[85%]">
                     <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
                       <p className="text-sm text-[var(--text-primary)] leading-relaxed">{msg.text}</p>
                     </div>
+
+                    {/* Horizontal scrollable event cards */}
                     {msg.events && msg.events.length > 0 && (
-                      <div className="space-y-2">
+                      <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
                         {msg.events.map((ev) => (
-                          <Link
-                            key={ev.id}
-                            href={`/events/${ev.id}`}
-                            onClick={onClose}
-                            className="flex items-center gap-3 bg-white dark:bg-gray-900 border border-[var(--border)] rounded-xl px-3 py-2.5 hover:border-kidgo-300 hover:bg-[var(--bg-subtle)] transition group"
-                          >
-                            <div
-                              className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center"
-                              style={{ background: "linear-gradient(135deg, #5BBAA7 0%, #4A9E8E 100%)" }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                                <rect x="2" y="3" width="12" height="12" rx="2"/>
-                                <path d="M5 1v4M11 1v4M2 7h12"/>
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-[var(--text-primary)] truncate group-hover:text-kidgo-600 transition">{ev.titel}</p>
-                              {(ev.datum || ev.ort) && (
-                                <p className="text-xs text-[var(--text-muted)]">
-                                  {ev.datum
-                                    ? new Date(ev.datum).toLocaleDateString("de-CH", { day: "numeric", month: "short" })
-                                    : "Ganzjährig"}
-                                  {ev.ort ? ` · ${ev.ort}` : ""}
-                                </p>
-                              )}
-                            </div>
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-[var(--text-muted)] group-hover:text-kidgo-500 flex-shrink-0" aria-hidden="true">
-                              <path d="M2.5 6h7M6.5 2.5l3.5 3.5-3.5 3.5"/>
-                            </svg>
-                          </Link>
+                          <div key={ev.id} className="snap-start">
+                            <ChatEventCard ev={ev} onClose={onClose} />
+                          </div>
                         ))}
                       </div>
                     )}
+
                     {msg.quickReplies && msg.quickReplies.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {msg.quickReplies.slice(0, 3).map((qr) => (

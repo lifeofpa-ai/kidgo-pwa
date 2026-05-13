@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { EmptyState } from "@/components/EmptyState";
 
 interface BookmarkEntry {
   id: string;
@@ -69,25 +70,12 @@ export default function BookmarksPage() {
         </div>
 
         {bookmarks.length === 0 ? (
-          <div className="text-center py-14">
-            <div className="empty-float mx-auto mb-5 w-24 h-24">
-              <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="96" height="96" rx="24" fill="var(--accent-light)"/>
-                <path d="M30 24h36a4 4 0 0 1 4 4v40l-22-11-22 11V28a4 4 0 0 1 4-4z" stroke="var(--accent)" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M40 38h16" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.5"/>
-                <path d="M40 45h10" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.35"/>
-                <circle cx="48" cy="32" r="3.5" fill="var(--accent)" fillOpacity="0.25" stroke="var(--accent)" strokeWidth="1.4"/>
-              </svg>
-            </div>
-            <p className="text-[var(--text-primary)] font-semibold mb-1">Noch nichts gemerkt</p>
-            <p className="text-[var(--text-muted)] text-sm mb-6">Entdecke Events — tippe auf das Lesezeichen-Icon</p>
-            <Link
-              href="/"
-              className="btn-primary"
-            >
-              Events entdecken
-            </Link>
-          </div>
+          <EmptyState
+            type="bookmarks-empty"
+            title="Noch nichts gemerkt"
+            message="Entdecke Events — tippe auf das Lesezeichen-Icon."
+            actionHref="/"
+          />
         ) : (
           <div className="space-y-3">
             {bookmarks.map((bm) => {

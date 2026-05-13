@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { SkeletonDetail } from "@/components/Skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
@@ -859,23 +861,22 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   if (loading) {
     return (
-      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-kidgo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--text-muted)] text-sm">Lädt...</p>
-        </div>
+      <main id="main-content">
+        <SkeletonDetail />
       </main>
     );
   }
 
   if (!event) {
     return (
-      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
-        <div className="text-center p-8">
-          <p className="text-[var(--text-secondary)] text-lg mb-6">Event nicht gefunden</p>
-          <Link href="/" className="bg-kidgo-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-400 transition">
-            Zurück zur Übersicht
-          </Link>
+      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <EmptyState
+            type="not-found"
+            title="Event nicht gefunden"
+            message="Dieses Event existiert nicht oder wurde entfernt."
+            actionHref="/"
+          />
         </div>
       </main>
     );

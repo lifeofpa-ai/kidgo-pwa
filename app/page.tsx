@@ -1751,17 +1751,20 @@ export default function Home() {
   }, [mounted]);
 
   // After OnboardingFlow completes, sync age buckets from UserPrefsContext into local state.
+  // Note: advance to "recommendations" even when no ages were selected (show all events).
   useEffect(() => {
-    if (!prefsMounted || !prefs.onboarded || prefs.ageBuckets.length === 0) return;
-    setSelectedBuckets((prev) => (prev.length > 0 ? prev : prefs.ageBuckets));
-    if (prefs.ageBuckets.length > 1) setMultiChild(true);
+    if (!prefsMounted || !prefs.onboarded) return;
+    if (prefs.ageBuckets.length > 0) {
+      setSelectedBuckets((prev) => (prev.length > 0 ? prev : prefs.ageBuckets));
+      if (prefs.ageBuckets.length > 1) setMultiChild(true);
+    }
     setStep("recommendations");
   // prefs.ageBuckets.join ensures the effect re-runs when the array content changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefsMounted, prefs.onboarded, prefs.ageBuckets.join(",")]);
 
   useEffect(() => {
-    if (step !== "recommendations" || selectedBuckets.length === 0) return;
+    if (step !== "recommendations") return;
     fetchAndScore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, selectedBuckets, weatherCode]);

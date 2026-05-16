@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { trackEvent } from "@/lib/analytics";
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -64,6 +65,7 @@ export function BottomNav() {
               key={href}
               href={href}
               aria-label={label}
+              onClick={() => trackEvent("tab_switch", { tab: label })}
               className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 relative transition-colors duration-200 ${
                 active
                   ? "text-[var(--text-primary)]"

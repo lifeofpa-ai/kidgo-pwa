@@ -10,6 +10,7 @@ import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
 import { ChatFAB } from "@/components/home/ChatFAB";
 import { ChatSheet } from "@/components/home/ChatSheet";
+import { trackEvent } from "@/lib/analytics";
 
 const PAGE_SIZE = 15;
 
@@ -100,7 +101,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
           {event.indoor_outdoor === "outdoor" && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">Outdoor</span>}
         </div>
 
-        <Link href={`/events/${event.id}`} className="block flex-1">
+        <Link href={`/events/${event.id}`} className="block flex-1" onClick={() => trackEvent("event_click", { event_id: event.id, source: "explore" })}>
           <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2 group-hover:text-kidgo-500 transition-colors line-clamp-2">
             {event.titel}
           </h3>
@@ -204,6 +205,7 @@ export default function ExplorePage() {
   ];
 
   const handleSearch = useCallback(async () => {
+    if (search.trim()) trackEvent("search", { search_term: search.trim() });
     setLoading(true);
     setError("");
     setEvents([]);
@@ -312,6 +314,8 @@ export default function ExplorePage() {
   };
 
   const switchView = (mode: ViewMode) => {
+    trackEvent("explore_view_toggle", { view: mode });
+    if (mode === "map") trackEvent("map_view");
     setViewMode(mode);
     const url = new URL(window.location.href);
     if (mode === "map") url.searchParams.set("view", "map");
@@ -396,7 +400,7 @@ export default function ExplorePage() {
             {categories.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setSelectedCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat])}
+                onClick={() => { trackEvent("explore_filter", { filter_type: "category", value: cat, active: !selectedCategories.includes(cat) }); setSelectedCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]); }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
                   selectedCategories.includes(cat)
                     ? `${categoryColors[cat]?.split(" ").slice(0, 3).join(" ")} border-current shadow-sm font-semibold`
@@ -415,7 +419,7 @@ export default function ExplorePage() {
               {[{ key: "0-3", label: "0–3" }, { key: "4-6", label: "4–6" }, { key: "7-9", label: "7–9" }, { key: "10-12", label: "10–12" }].map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => setSelectedAgeBuckets((prev) => prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key])}
+                  onClick={() => { trackEvent("explore_filter", { filter_type: "age", value: key, active: !selectedAgeBuckets.includes(key) }); setSelectedAgeBuckets((prev) => prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key]); }}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium transition border ${
                     selectedAgeBuckets.includes(key)
                       ? "bg-[var(--text-primary)] text-[var(--bg-card)] border-[var(--text-primary)]"
@@ -431,7 +435,7 @@ export default function ExplorePage() {
               {([["all", "Alle"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]] as [IndoorOutdoor, string][]).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setIndoorOutdoor(val)}
+                  onClick={() => { trackEvent("explore_filter", { filter_type: "indoor_outdoor", value: val }); setIndoorOutdoor(val); }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                     indoorOutdoor === val
                       ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm border border-[var(--border)]"
@@ -444,7 +448,7 @@ export default function ExplorePage() {
             </div>
 
             <button
-              onClick={() => setGratisOnly((v) => !v)}
+              onClick={() => { trackEvent("explore_filter", { filter_type: "gratis", active: !gratisOnly }); setGratisOnly((v) => !v); }}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition border flex items-center gap-1.5 ${
                 gratisOnly
                   ? "bg-green-500 text-white border-green-500 shadow-sm"

@@ -59,6 +59,7 @@ import {
   saveDismissalLocally,
   saveDismissalToSupabase,
 } from "@/lib/dismiss-reasons";
+import { trackEvent, trackFirstEventClick, trackFirstBookmark } from "@/lib/analytics";
 import {
   getCategoryIcon,
   GiftIcon,
@@ -2060,6 +2061,7 @@ export default function Home() {
       distanceKm,
     };
 
+    trackEvent("event_dismiss", { event_id: eventId, reasons: selectedReasonIds.join(",") });
     saveDismissalLocally(eventId, selectedReasonIds, eventMeta);
 
     if (user) {
@@ -2187,6 +2189,8 @@ export default function Home() {
       if (!exists && event.quelle_id && smallSourceIds.has(event.quelle_id)) {
         trackGeheimtipp(event.id);
       }
+      trackEvent("event_bookmark", { event_id: event.id, action: exists ? "remove" : "add" });
+      if (!exists) trackFirstBookmark(event.id);
       const next: CompactEvent[] = exists
         ? prev.filter((b) => b.id !== event.id)
         : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...prev];
@@ -2637,7 +2641,7 @@ export default function Home() {
                     <Link
                       href={`/events/${event.id}`}
                       className="block group"
-                      onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                      onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {}; trackEvent("event_click", { event_id: event.id, source: "home_hero" }); trackFirstEventClick(event.id, event.titel); }}
                     >
                       <div className="relative rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(91,186,167,0.2)" }}>
                         <EventImage
@@ -2735,7 +2739,7 @@ export default function Home() {
                         <Link
                           href={`/events/${event.id}`}
                           className="group block"
-                          onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
+                          onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {}; trackEvent("event_click", { event_id: event.id, source: "home_sub" }); trackFirstEventClick(event.id, event.titel); }}
                         >
                           <div
                             className="rounded-xl overflow-hidden border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all bg-[var(--bg-card)]"

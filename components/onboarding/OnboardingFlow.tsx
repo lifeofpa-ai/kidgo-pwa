@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase-browser";
@@ -39,6 +40,8 @@ export function OnboardingFlow() {
   const [interests, setInterests] = useState<string[]>([]);
   const [radius, setRadius]       = useState(15);
 
+  useEffect(() => { trackEvent("onboarding_start"); }, []);
+
   const toggleAge = (key: string) =>
     setAges((p) => p.includes(key) ? p.filter((a) => a !== key) : [...p, key]);
 
@@ -46,6 +49,14 @@ export function OnboardingFlow() {
     setInterests((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]);
 
   const next = useCallback(() => {
+    if (step < TOTAL_STEPS - 1) {
+      trackEvent("onboarding_step", { step: step + 2 });
+      setStep((s) => s + 1);
+    }
+  }, [step]);
+
+  const handleSkip = useCallback(() => {
+    trackEvent("onboarding_skip", { from_step: step + 1 });
     if (step < TOTAL_STEPS - 1) setStep((s) => s + 1);
   }, [step]);
 
@@ -54,6 +65,7 @@ export function OnboardingFlow() {
   }, [step]);
 
   const finish = useCallback(async () => {
+    trackEvent("onboarding_complete", { ages_count: ages.length, interests_count: interests.length, radius });
     const updated = { ...prefs, ageBuckets: ages, interests, radius, onboarded: true };
     setPrefs(updated);
     try {
@@ -112,7 +124,7 @@ export function OnboardingFlow() {
       {/* Skip */}
       {step < TOTAL_STEPS - 1 && (
         <button
-          onClick={next}
+          onClick={handleSkip}
           className="absolute top-7 right-6 text-white/50 hover:text-white/80 text-sm font-medium transition-colors z-10"
         >
           Überspringen

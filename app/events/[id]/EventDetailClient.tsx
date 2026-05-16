@@ -20,6 +20,7 @@ import {
 } from "@/lib/transport";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { useUserPrefs } from "@/lib/user-prefs-context";
+import { trackEvent } from "@/lib/analytics";
 
 interface Review {
   id: string;
@@ -756,6 +757,7 @@ export default function EventDetailClient({ id }: { id: string }) {
       const raw = localStorage.getItem("kidgo_bookmarks");
       const bms: any[] = raw ? JSON.parse(raw) : [];
       const exists = bms.some((b) => b.id === event.id);
+      trackEvent("event_bookmark", { event_id: event.id, action: exists ? "remove" : "add" });
       const next = exists
         ? bms.filter((b) => b.id !== event.id)
         : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...bms];
@@ -768,6 +770,7 @@ export default function EventDetailClient({ id }: { id: string }) {
     if (!event) return;
     try { (navigator as any).vibrate?.(15); } catch {}
     const next = eventRating === rating ? null : rating;
+    if (next) trackEvent("event_rating", { event_id: event.id, rating: next });
     setEventRatingState(next);
     setEventRating(
       {
@@ -797,6 +800,7 @@ export default function EventDetailClient({ id }: { id: string }) {
 
   const handleShare = () => {
     if (!event) return;
+    trackEvent("event_share", { event_id: event.id });
     const url = window.location.href;
     const text = buildShareText();
     if (navigator.share) {
@@ -1281,6 +1285,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                     key={sim.id}
                     href={`/events/${sim.id}`}
                     className="flex-shrink-0 w-40 sm:w-48 group snap-start"
+                    onClick={() => trackEvent("event_click", { event_id: sim.id, source: "similar_events" })}
                   >
                     <div className="w-full h-28 rounded-xl overflow-hidden bg-[var(--bg-subtle)] mb-2 shadow-sm">
                       {sim.kategorie_bild_url ? (

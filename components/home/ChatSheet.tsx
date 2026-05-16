@@ -6,6 +6,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase-browser";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { trackChatUsed } from "@/lib/gamification";
+import { trackEvent } from "@/lib/analytics";
 
 interface EventCard {
   id: string;
@@ -72,7 +73,7 @@ function ChatEventCard({ ev, onClose }: { ev: EventCard; onClose: () => void }) 
   return (
     <Link
       href={`/events/${ev.id}`}
-      onClick={onClose}
+      onClick={() => { trackEvent("chat_event_click", { event_id: ev.id, event_title: ev.titel }); onClose(); }}
       className="flex-shrink-0 w-36 rounded-2xl overflow-hidden border border-[var(--border)] bg-white dark:bg-gray-900 hover:border-kidgo-300 hover:shadow-md transition-all active:scale-95 group"
     >
       {/* Image area */}
@@ -144,6 +145,7 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
 
   useEffect(() => {
     if (open) {
+      trackEvent("chat_open");
       setTimeout(() => inputRef.current?.focus(), 300);
     }
   }, [open]);
@@ -165,6 +167,7 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
     setInput("");
     setLoading(true);
 
+    trackEvent("chat_message", { message_length: q.length });
     try { trackChatUsed(); } catch {}
 
     try {
@@ -290,7 +293,7 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
                 {SUGGESTION_CHIPS.map((chip) => (
                   <button
                     key={chip}
-                    onClick={() => sendMessage(chip)}
+                    onClick={() => { trackEvent("chat_suggestion_click", { chip }); sendMessage(chip); }}
                     className="text-xs font-medium bg-[var(--bg-subtle)] text-kidgo-600 dark:text-kidgo-400 border border-kidgo-200 dark:border-kidgo-800 px-3 py-1.5 rounded-full hover:bg-kidgo-50 dark:hover:bg-kidgo-950/30 hover:border-kidgo-300 transition active:scale-95"
                   >
                     {chip}
@@ -333,7 +336,7 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
                         {msg.quickReplies.slice(0, 3).map((qr) => (
                           <button
                             key={qr}
-                            onClick={() => sendMessage(qr)}
+                            onClick={() => { trackEvent("chat_suggestion_click", { chip: qr }); sendMessage(qr); }}
                             disabled={loading}
                             className="text-xs text-kidgo-600 dark:text-kidgo-400 border border-kidgo-200 dark:border-kidgo-800 px-3 py-1.5 rounded-full hover:bg-kidgo-50 dark:hover:bg-kidgo-950/30 hover:border-kidgo-300 transition active:scale-95 disabled:opacity-50"
                           >

@@ -2232,6 +2232,14 @@ export default function Home() {
   const gamificationStats = mounted ? getLocalStats(bookmarks.length) : null;
   const levelInfo = gamificationStats ? getLevelProgress(gamificationStats.visitedEventIds.length) : null;
 
+  // useMemo must be called before any conditional return (Rules of Hooks)
+  const contextRecs = useMemo(
+    () => applyContextSort([...recommendations], contextMode) as ScoredEvent[],
+    [recommendations, contextMode]
+  );
+  const contextBadge = getContextBadge(contextMode);
+  const contextLabel = getContextLabel(contextMode);
+
   if (!mounted) return null;
 
 
@@ -2336,14 +2344,6 @@ export default function Home() {
     const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
     return e.event_typ === "camp" || cats.includes("Feriencamp") || desc.includes("camp") || desc.includes("ferienlager");
   }).length;
-
-  // Context-sorted recommendations: rain → indoor first, holiday → camps first
-  const contextRecs = useMemo(
-    () => applyContextSort([...recommendations], contextMode) as ScoredEvent[],
-    [recommendations, contextMode]
-  );
-  const contextBadge = getContextBadge(contextMode);
-  const contextLabel = getContextLabel(contextMode);
 
   return (
     <>

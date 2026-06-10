@@ -48,6 +48,7 @@ interface ScrapedEvent {
   datum_ende:   string | null;
   alter_min:    number;
   alter_max:    number;
+  preis_chf:    number | null;
   external_id:  string;
   anmelde_link: string;
   bild_url:     string | null;
@@ -55,6 +56,26 @@ interface ScrapedEvent {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Safely parse a price value that may be a number, a Swiss price string like
+ * "CHF 50.-" / "50.00" / "Fr. 20", or a free-text like "gratis" / "kostenlos".
+ * Returns 0 for free, null when truly unknown, or the parsed CHF amount.
+ */
+function parsePreisCHF(val: unknown): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number") return isFinite(val) ? val : null;
+  const str = String(val).trim().toLowerCase();
+  if (!str || str === "-") return null;
+  if (/gratis|kostenlos|frei|free|umsonst/.test(str)) return 0;
+  // Strip currency prefixes and trailing punctuation
+  const cleaned = str
+    .replace(/chf|fr\.?|sfr\.?/g, "")
+    .replace(/[^0-9.,]/g, "")
+    .replace(",", ".");
+  const num = parseFloat(cleaned);
+  return isFinite(num) ? num : null;
+}
 
 function msToDate(ms: number): string {
   // Convert Unix ms timestamp to YYYY-MM-DD (UTC)
@@ -124,6 +145,10 @@ Deno.serve(async (req) => {
       const ageMin = course.minAlter ?? course.alterVon ?? 0;
       const ageMax = course.maxAlter ?? course.alterBis ?? 18;
 
+      // Guard: skip entries without a usable title
+      const rawTitle = (course.kursStammTitel ?? "").trim();
+      if (!rawTitle) continue;
+
       // Skip 13+ only courses
       if (ageMin > 12) continue;
 
@@ -138,12 +163,13 @@ Deno.serve(async (req) => {
       }
 
       events.push({
-        titel:        course.kursStammTitel.trim().slice(0, 200),
+        titel:        rawTitle.slice(0, 200),
         beschreibung: course.text ? course.text.trim().slice(0, 1000) : null,
         datum,
         datum_ende,
         alter_min:    ageMin,
         alter_max:    Math.min(ageMax, 18),
+        preis_chf:    parsePreisCHF(course.preis),
         external_id:  course.id,
         anmelde_link: `${BASE_URL}/kurs/${course.id}`,
         bild_url:     buildImageUrl(course.bildUrl),
@@ -172,6 +198,9 @@ Deno.serve(async (req) => {
         kategorie_bild_url: ev.bild_url,
         kategorien,
         alters_buckets,
+        alter_von:          ev.alter_min,
+        alter_bis:          ev.alter_max,
+        preis_chf:          ev.preis_chf,
         indoor_outdoor:     inferIndoorOutdoor(fullText),
         event_typ:          "camp",
         status:             "approved",
@@ -207,7 +236,17 @@ Deno.serve(async (req) => {
         .select("id");
 
       if (error) {
-        console.error("upsert error:", error.message);
+        // Batch failed — retry row by row so one bad record doesn't block the rest
+        for (const row of batch) {
+          const { data: single, error: rowErr } = await supabase
+            .from("events")
+            .upsert(row, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+            .select("id");
+          if (!rowErr) {
+            inserted   += single?.length ?? 0;
+            duplicates += 1 - (single?.length ?? 0);
+          }
+        }
         continue;
       }
 

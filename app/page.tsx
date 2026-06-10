@@ -13,7 +13,6 @@ import {
   getLocalStats,
   getLevelProgress,
   trackGeheimtipp,
-  trackChatUsed,
   trackDayPlanUsed,
   trackWeeklyActivity,
   popNewBadges,
@@ -48,15 +47,10 @@ import {
   applyContextSort,
   type ContextMode,
 } from "@/lib/context-mode";
-import type { KidgoEvent, ScoredEvent, CompactEvent, DayPlanResult, UserLocation } from "@/types/home";
+import type { KidgoEvent, ScoredEvent, CompactEvent, DayPlanResult } from "@/types/home";
 import {
   AGE_BUCKETS,
-  CHAT_CHIPS,
-  SMART_COLLECTIONS,
-  WEEKLY_CHALLENGES,
-  getCategoryColor,
   getWeekStart,
-  getISOWeek,
   getHeadline,
   ageToBucket,
   localDateStr,
@@ -664,7 +658,6 @@ export default function Home() {
     const today = now.toISOString().split("T")[0];
     const lastSent = localStorage.getItem("kidgo_push_last_sent");
     if (lastSent === today) return;
-    const weekend = [now.getDay() === 5 ? 6 : 0, now.getDay() === 5 ? 0 : 0];
     const sat = new Date(now); sat.setDate(now.getDate() + (6 - now.getDay()));
     const sun = new Date(now); sun.setDate(now.getDate() + (7 - now.getDay()));
     const satStr = sat.toISOString().split("T")[0];

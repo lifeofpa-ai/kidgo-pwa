@@ -1,26 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
-import { QuickActionsPopup, QuickActionIcons, type QuickAction } from "@/components/QuickActionsPopup";
-import { HeartBurst } from "@/components/HeartBurst";
-import {
-  vibrate,
-  toggleLike,
-  isLiked,
-  saveScrollPosition,
-  restoreScrollPosition,
-  shareEvent,
-  downloadEventICS,
-  openRouteForEvent,
-  broadcastClosePopups,
-  isTouchDevice,
-  LONG_PRESS_MS,
-  DOUBLE_TAP_MS,
-  QUICK_ACTIONS_CLOSE_EVENT,
-} from "@/lib/interactions";
+import { restoreScrollPosition } from "@/lib/interactions";
 import { AuthButton } from "@/components/AuthButton";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { useAuth } from "@/lib/auth-context";
@@ -37,17 +21,13 @@ import {
 } from "@/lib/gamification";
 import { BadgePopup } from "@/components/BadgePopup";
 import { HexIcon } from "@/components/HexIcon";
-import { eventMatchesInterests } from "@/lib/interests";
 import {
   getRatedEvents,
   buildPreferenceProfile,
-  scoreWithPreferences,
   buildDismissProfile,
-  dismissPenalty,
   type PreferenceProfile,
   type DismissProfile,
 } from "@/lib/preferences";
-import { DismissOverlay } from "@/components/home/DismissOverlay";
 import { ChatSheet } from "@/components/home/ChatSheet";
 import { ChatFAB } from "@/components/home/ChatFAB";
 import {
@@ -59,20 +39,8 @@ import {
   saveDismissalLocally,
   saveDismissalToSupabase,
 } from "@/lib/dismiss-reasons";
-import { trackEvent, trackFirstEventClick, trackFirstBookmark } from "@/lib/analytics";
-import {
-  getCategoryIcon,
-  GiftIcon,
-  KreativIcon,
-  TentIcon,
-  TreeIcon,
-  SparkleIcon,
-  MuseumIcon,
-  SportIcon,
-  MapIcon,
-  PhoneIcon,
-  WifiOffIcon,
-} from "@/components/Icons";
+import { trackEvent, trackFirstBookmark } from "@/lib/analytics";
+import { PhoneIcon, WifiOffIcon } from "@/components/Icons";
 import {
   getContextMode,
   getContextBadge,
@@ -80,49 +48,29 @@ import {
   applyContextSort,
   type ContextMode,
 } from "@/lib/context-mode";
-import { LazySection } from "@/components/home/LazySection";
+import type { KidgoEvent, ScoredEvent, CompactEvent, DayPlanResult, UserLocation } from "@/types/home";
+import {
+  AGE_BUCKETS,
+  CHAT_CHIPS,
+  SMART_COLLECTIONS,
+  WEEKLY_CHALLENGES,
+  getCategoryColor,
+  getWeekStart,
+  getISOWeek,
+  getHeadline,
+  ageToBucket,
+  localDateStr,
+  haversine,
+  ZH_CITIES,
+} from "@/lib/home-constants";
+import { scoreEvent } from "@/lib/scoring";
+import { SkeletonCard, EventImage, RecommendationCard } from "@/components/home/EventCards";
+import { HeroSection } from "@/components/home/HeroSection";
+import { CardStack } from "@/components/home/CardStack";
+import { WeekendSection } from "@/components/home/WeekendSection";
+import { SeasonalSection } from "@/components/home/SeasonalSection";
 
-// ============================================================
-// TYPES
-// ============================================================
-
-interface KidgoEvent {
-  id: string;
-  titel: string;
-  datum: string | null;
-  datum_ende: string | null;
-  ort: string | null;
-  beschreibung: string | null;
-  kategorie_bild_url: string | null;
-  status: string;
-  event_typ: string | null;
-  altersgruppen: string[] | null;
-  alters_buckets: string[] | null;
-  alter_von: number | null;
-  alter_bis: number | null;
-  indoor_outdoor: string | null;
-  kategorie: string | null;
-  kategorien: string[] | null;
-  preis_chf: number | null;
-  anmelde_link: string | null;
-  quelle_id: string | null;
-  created_at: string;
-  serie_id: string | null;
-}
-
-interface ScoredEvent extends KidgoEvent {
-  score: number;
-  reasons: string[];
-}
-
-interface CompactEvent {
-  id: string;
-  titel: string;
-  datum: string | null;
-  ort: string | null;
-  kategorie_bild_url: string | null;
-  kategorien: string[] | null;
-}
+// Types imported from @/types/home
 
 interface ParsedQuery {
   ageBuckets: string[];
@@ -134,325 +82,7 @@ interface ParsedQuery {
   childNames: Array<{ name: string; bucket: string }>;
 }
 
-interface DayPlanResult {
-  morning: KidgoEvent | null;
-  afternoon: KidgoEvent | null;
-}
-
-interface SmartCollection {
-  id: string;
-  label: string;
-  emoji?: string;
-  filter: (e: KidgoEvent, now: Date) => boolean;
-}
-
-// ============================================================
-// CONSTANTS
-// ============================================================
-
-const AGE_BUCKETS = [
-  { key: "0-3",   label: "0–3 Jahre",   emoji: "👶", desc: "Baby & Kleinkind" },
-  { key: "4-6",   label: "4–6 Jahre",   emoji: "🧒", desc: "Vorschule" },
-  { key: "7-9",   label: "7–9 Jahre",   emoji: "🏃", desc: "Schulkind" },
-  { key: "10-12", label: "10–12 Jahre", emoji: "🔭", desc: "Entdecker" },
-];
-
-const CHAT_CHIPS = [
-  "Was machen wir heute?",
-  "Indoor mit 2 Kindern",
-  "Gratis am Wochenende",
-  "Basteln für 5-Jährige",
-];
-
-const SMART_COLLECTIONS: SmartCollection[] = [
-  {
-    id: "gratis",
-    emoji: "🎁",
-    label: "Gratis diese Woche",
-    filter: (e, now) => {
-      const desc = (e.beschreibung || "").toLowerCase();
-      const title = e.titel.toLowerCase();
-      const free =
-        e.preis_chf === 0 ||
-        ["gratis", "kostenlos", "freier eintritt"].some((kw) => desc.includes(kw) || title.includes(kw));
-      if (!free) return false;
-      if (!e.datum) return true;
-      const today = new Date(now); today.setHours(0, 0, 0, 0);
-      const in7 = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const ed = new Date(e.datum + "T00:00:00");
-      return ed >= today && ed <= in7;
-    },
-  },
-  {
-    id: "kreativ-wochenende",
-    emoji: "🎨",
-    label: "Kreativ-Wochenende",
-    filter: (e, now) => {
-      const desc = (e.beschreibung || "").toLowerCase();
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      const isCreative =
-        cats.some((c) => ["Kreativ", "Theater", "Musik", "Tanz"].includes(c)) ||
-        ["bastel", "malen", "kreativ", "kunst", "zeichn", "töpfer"].some((kw) => desc.includes(kw));
-      if (!isCreative || !e.datum) return false;
-      const dow = now.getDay();
-      const toSat = dow === 0 ? 6 : (6 - dow) || 7;
-      const sat = new Date(now); sat.setHours(0, 0, 0, 0); sat.setDate(sat.getDate() + toSat);
-      const sun = new Date(sat); sun.setDate(sun.getDate() + 1); sun.setHours(23, 59, 59, 999);
-      const ed = new Date(e.datum + "T00:00:00");
-      return ed >= sat && ed <= sun;
-    },
-  },
-  {
-    id: "camps",
-    emoji: "⛺",
-    label: "Camps im Sommer",
-    filter: (e) => {
-      const desc = (e.beschreibung || "").toLowerCase();
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      const isCamp =
-        e.event_typ === "camp" ||
-        cats.includes("Feriencamp") ||
-        desc.includes("camp") ||
-        desc.includes("ferienlager");
-      if (!isCamp || !e.datum) return false;
-      const m = new Date(e.datum + "T00:00:00").getMonth() + 1;
-      return m >= 6 && m <= 8;
-    },
-  },
-  {
-    id: "outdoor",
-    emoji: "🌳",
-    label: "Outdoor-Abenteuer",
-    filter: (e) => e.indoor_outdoor === "outdoor" || e.indoor_outdoor === "beides",
-  },
-  {
-    id: "neu",
-    emoji: "✨",
-    label: "Neu entdeckt",
-    filter: (e, now) =>
-      !!e.created_at &&
-      new Date(e.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-  },
-];
-
-// Sprint 3: Weekly challenges — rotate by ISO week number
-const WEEKLY_CHALLENGES = [
-  {
-    id: "museum",
-    emoji: "🏛️",
-    title: "Besuche diese Woche ein Museum!",
-    filter: (e: KidgoEvent) => {
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      const desc = (e.beschreibung || "").toLowerCase();
-      const t = e.titel.toLowerCase();
-      return (
-        cats.some((c) => ["Ausflug", "Bildung", "Wissenschaft"].includes(c)) ||
-        ["museum", "ausstellung", "galerie"].some((kw) => desc.includes(kw) || t.includes(kw))
-      );
-    },
-  },
-  {
-    id: "outdoor",
-    emoji: "🌳",
-    title: "Outdoor-Abenteuer erleben!",
-    filter: (e: KidgoEvent) => {
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      return e.indoor_outdoor === "outdoor" || e.indoor_outdoor === "beides" || cats.includes("Natur");
-    },
-  },
-  {
-    id: "kreativ",
-    emoji: "🎨",
-    title: "Kreativ-Workshop besuchen!",
-    filter: (e: KidgoEvent) => {
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      const desc = (e.beschreibung || "").toLowerCase();
-      return (
-        cats.some((c) => ["Kreativ", "Theater", "Musik"].includes(c)) ||
-        ["bastel", "malen", "kreativ", "töpfer", "zeichn"].some((kw) => desc.includes(kw))
-      );
-    },
-  },
-  {
-    id: "sport",
-    emoji: "⚽",
-    title: "Sport-Event für die Kinder!",
-    filter: (e: KidgoEvent) => {
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      const desc = (e.beschreibung || "").toLowerCase();
-      return (
-        cats.includes("Sport") ||
-        ["sport", "turnen", "klettern", "schwimm", "fussball", "fußball"].some((kw) => desc.includes(kw))
-      );
-    },
-  },
-  {
-    id: "gratis",
-    emoji: "🎁",
-    title: "Gratis-Event entdecken!",
-    filter: (e: KidgoEvent) => {
-      const desc = (e.beschreibung || "").toLowerCase();
-      const t = e.titel.toLowerCase();
-      return (
-        e.preis_chf === 0 ||
-        ["gratis", "kostenlos", "freier eintritt"].some((kw) => desc.includes(kw) || t.includes(kw))
-      );
-    },
-  },
-  {
-    id: "quartier",
-    emoji: "🗺️",
-    title: "Neues Quartier entdecken!",
-    filter: (e: KidgoEvent) => {
-      const cats = e.kategorien || (e.kategorie ? [e.kategorie] : []);
-      return cats.includes("Ausflug") || !!e.ort;
-    },
-  },
-];
-
-const CATEGORY_BG_COLORS: Record<string, string> = {
-  Kreativ: "#EC4899", Natur: "#22C55E", Tiere: "#22C55E", Sport: "#3B82F6",
-  Tanz: "#8B5CF6", Theater: "#EF4444", Musik: "#8B5CF6", "Mode & Design": "#F43F5E",
-  Wissenschaft: "#06B6D4", Bildung: "#F59E0B", Ausflug: "#14B8A6", Feriencamp: "#06B6D4",
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Sport:      "#3B82F6",
-  Kreativ:    "#EC4899",
-  Musik:      "#8B5CF6",
-  Tanz:       "#8B5CF6",
-  Natur:      "#22C55E",
-  Tiere:      "#22C55E",
-  Museum:     "#F59E0B",
-  Bildung:    "#F59E0B",
-  Wissenschaft: "#F59E0B",
-  Theater:    "#EF4444",
-  Feriencamp: "#06B6D4",
-};
-
-function getCategoryColor(kategorien: string[] | null, kategorie: string | null): string {
-  const cats = kategorien ?? (kategorie ? [kategorie] : []);
-  for (const c of cats) {
-    if (CATEGORY_COLORS[c]) return CATEGORY_COLORS[c];
-  }
-  return "#5BBAA7";
-}
-
-// ============================================================
-// UTILITY FUNCTIONS
-// ============================================================
-
-const ZH_HOLIDAYS_2026 = [
-  { name: "Frühlingsferien",  from: "2026-04-11", to: "2026-04-25" },
-  { name: "Sommerferien",     from: "2026-07-11", to: "2026-08-15" },
-  { name: "Herbstferien",     from: "2026-10-10", to: "2026-10-24" },
-  { name: "Weihnachtsferien", from: "2026-12-19", to: "2027-01-02" },
-];
-
-function localDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const d = date.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function getActiveHoliday(date: Date): string | null {
-  const ds = localDateStr(date);
-  for (const h of ZH_HOLIDAYS_2026) {
-    if (ds >= h.from && ds <= h.to) return h.name;
-  }
-  return null;
-}
-
-function isSchoolHoliday(date: Date): boolean {
-  return getActiveHoliday(date) !== null;
-}
-
-function getWeekStart(date: Date): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
-  return localDateStr(d);
-}
-
-function getWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
-function computeEntdeckerScore(count: number): number {
-  if (count <= 1) return 10;
-  if (count <= 3) return 9;
-  if (count <= 5) return 8;
-  if (count <= 7) return 7;
-  if (count <= 9) return 6;
-  if (count <= 15) return 5;
-  if (count <= 25) return 4;
-  if (count <= 40) return 3;
-  return 2;
-}
-
-// Sprint 3: ISO week number for challenge rotation
-function getISOWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
-// Sprint 3: Upcoming holiday within 14 days
-function getUpcomingHoliday(now: Date): { name: string; daysUntil: number } | null {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const ds = localDateStr(today);
-  for (const h of ZH_HOLIDAYS_2026) {
-    if (h.from > ds) {
-      const daysUntil = Math.round(
-        (new Date(h.from + "T00:00:00").getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (daysUntil <= 14) return { name: h.name, daysUntil };
-      break;
-    }
-  }
-  return null;
-}
-
-// Sprint 3: Remaining days of active holiday
-function getRemainingHolidayDays(now: Date): { name: string; daysLeft: number } | null {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const ds = localDateStr(today);
-  for (const h of ZH_HOLIDAYS_2026) {
-    if (ds >= h.from && ds <= h.to) {
-      const daysLeft = Math.round(
-        (new Date(h.to + "T00:00:00").getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return { name: h.name, daysLeft };
-    }
-  }
-  return null;
-}
-
-function getHeadline(now: Date): { title: string; subtitle: string } {
-  const dow = now.getDay();
-  const h = now.getHours();
-  const holiday = getActiveHoliday(now);
-  if (holiday)
-    return { title: "Ferientipp für euch", subtitle: `${holiday} — Zeit für Abenteuer!` };
-  if (dow === 6 || dow === 0 || (dow === 5 && h >= 15))
-    return { title: "Dieses Wochenende für euch", subtitle: "Passend ausgewählt für dein Kind" };
-  if (dow === 3 && h >= 11 && h <= 18)
-    return { title: "Mittwochnachmittag-Tipps", subtitle: "Heute Nachmittag was Tolles unternehmen" };
-  if (h >= 6 && h < 12)
-    return { title: "Guten Morgen! Was unternehmt ihr heute?", subtitle: "Passend ausgewählt für dein Kind" };
-  if (h >= 12 && h < 17)
-    return { title: "Nachmittagsprogramm gesucht?", subtitle: "Passend ausgewählt für dein Kind" };
-  if (h >= 17 && h < 21)
-    return { title: "Für morgen planen?", subtitle: "Schau was morgen passt" };
-  return { title: "Schlaf gut! Hier sind Ideen für morgen.", subtitle: "Schon mal für morgen planen" };
-}
+// Constants, types, and utility functions are imported from @/lib/home-constants, @/types/home, @/lib/scoring
 
 function WeatherIcon({ code, size = 24 }: { code: number; size?: number }) {
   // Regen / Schauer (Drizzle, Rain, Showers)
@@ -479,138 +109,6 @@ function WeatherIcon({ code, size = 24 }: { code: number; size?: number }) {
   );
 }
 
-function HexDivider() {
-  return (
-    <div className="flex items-center justify-center my-3" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 16 16">
-        <polygon points="8,1 14,4.5 14,11.5 8,15 2,11.5 2,4.5" fill="rgba(91,186,167,0.3)" stroke="none"/>
-      </svg>
-    </div>
-  );
-}
-
-function ageToBucket(age: number): string | null {
-  if (age <= 3) return "0-3";
-  if (age <= 6) return "4-6";
-  if (age <= 9) return "7-9";
-  if (age <= 12) return "10-12";
-  return null;
-}
-
-// ============================================================
-// SCORING
-// ============================================================
-
-function scoreEvent(
-  event: KidgoEvent,
-  selectedBuckets: string[],
-  weatherCode: number | null,
-  now: Date,
-  interests: string[] = [],
-  profile: PreferenceProfile | null = null,
-  dProfile: DismissProfile | null = null
-): { score: number; reasons: string[] } {
-  let score = 0;
-  const reasons: string[] = [];
-
-  if (event.alters_buckets && selectedBuckets.some((b) => event.alters_buckets!.includes(b))) {
-    score += 10;
-  }
-
-  if (
-    selectedBuckets.length > 1 &&
-    event.alters_buckets &&
-    selectedBuckets.every((b) => event.alters_buckets!.includes(b))
-  ) {
-    score += 5;
-    reasons.push("Passt für alle Kinder");
-  }
-
-  const isRain = weatherCode !== null && weatherCode >= 51;
-  const isSun  = weatherCode !== null && weatherCode <= 2;
-  if (isRain && event.indoor_outdoor === "indoor") {
-    score += 8;
-    reasons.push("Indoor-Tipp — heute regnet es");
-  } else if (isSun && event.indoor_outdoor === "outdoor") {
-    score += 8;
-    reasons.push("Perfekt bei diesem Wetter");
-  } else if (isRain && event.indoor_outdoor === "beides") {
-    score += 4;
-  }
-
-  if (event.datum) {
-    const eventDate = new Date(event.datum + "T00:00:00");
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const diff = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff >= 0 && diff <= 3) {
-      score += 5;
-      if (diff === 0) reasons.push("Heute!");
-      else if (diff === 1) reasons.push("Morgen!");
-      else reasons.push(`Nur noch ${diff} Tage!`);
-    }
-  }
-
-  const descLow = (event.beschreibung || "").toLowerCase();
-  const titleLow = event.titel.toLowerCase();
-  const isFree =
-    event.preis_chf === 0 ||
-    ["gratis", "kostenlos", "freier eintritt"].some(
-      (kw) => descLow.includes(kw) || titleLow.includes(kw)
-    );
-  if (isFree) { score += 3; reasons.push("Gratis!"); }
-
-  if (
-    event.created_at &&
-    new Date(event.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  ) {
-    score += 3;
-    reasons.push("Neu entdeckt");
-  }
-
-  const m = now.getMonth() + 1;
-  const cats = event.kategorien || (event.kategorie ? [event.kategorie] : []);
-  if (m >= 3 && m <= 5 && (event.indoor_outdoor === "outdoor" || cats.includes("Natur") || descLow.includes("natur"))) score += 3;
-  if (m >= 6 && m <= 8 && (cats.some((k) => ["Sport", "Ausflug"].includes(k)) || descLow.includes("schwimm") || descLow.includes("camp") || descLow.includes("freibad"))) score += 3;
-  if (m >= 9 && m <= 11 && (cats.some((k) => ["Kreativ", "Musik", "Theater"].includes(k)) || event.indoor_outdoor === "indoor" || descLow.includes("bastel") || titleLow.includes("bastel"))) score += 3;
-  if ((m === 12 || m <= 2) && (descLow.includes("weihnacht") || descLow.includes("eis") || descLow.includes("advent") || cats.includes("Kreativ"))) score += 3;
-
-  if (isSchoolHoliday(now)) {
-    const isCamp =
-      event.event_typ === "camp" ||
-      cats.includes("Feriencamp") ||
-      descLow.includes("camp") ||
-      descLow.includes("ferienlager");
-    if (isCamp) { score += 5; reasons.push("Ferientipp!"); }
-  }
-
-  const hour = now.getHours();
-  if (hour >= 6 && hour < 12 && !event.datum) score += 3;
-  else if (hour >= 12 && hour < 17 && event.datum && !event.datum_ende) score += 2;
-
-  if (
-    event.created_at &&
-    new Date(event.created_at) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  ) {
-    score -= 5;
-  }
-
-  if (interests.length > 0 && eventMatchesInterests(event, interests)) {
-    score += 5;
-  }
-
-  if (profile) {
-    score += scoreWithPreferences(event, profile);
-  }
-
-  if (dProfile) {
-    score += dismissPenalty(event, dProfile);
-  }
-
-  return { score, reasons };
-}
-
-// ============================================================
 // CHAT NLP
 // ============================================================
 
@@ -619,7 +117,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
   const ageBuckets: string[] = [];
   const childNames: Array<{ name: string; bucket: string }> = [];
 
-  const namedRegex = /([A-ZÄÖÜ][a-zäöüß]+)\s*\((\d+)\)/g;
+  const namedRegex = /([A-ZÃ„Ã–Ãœ][a-zÃ¤Ã¶Ã¼ÃŸ]+)\s*\((\d+)\)/g;
   let m: RegExpExecArray | null;
   while ((m = namedRegex.exec(query)) !== null) {
     const bucket = ageToBucket(parseInt(m[2]));
@@ -630,7 +128,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
   }
 
   if (ageBuckets.length === 0) {
-    const ageNumRegex = /(\d+)\s*[-–]?\s*j[äa]hr/gi;
+    const ageNumRegex = /(\d+)\s*[-â€“]?\s*j[Ã¤a]hr/gi;
     while ((m = ageNumRegex.exec(query)) !== null) {
       const bucket = ageToBucket(parseInt(m[1]));
       if (bucket && !ageBuckets.includes(bucket)) ageBuckets.push(bucket);
@@ -638,14 +136,14 @@ function parseNaturalQuery(query: string): ParsedQuery {
   }
 
   if (ageBuckets.length === 0) {
-    if (/kleinkind|baby|säugling/i.test(q)) ageBuckets.push("0-3");
+    if (/kleinkind|baby|sÃ¤ugling/i.test(q)) ageBuckets.push("0-3");
     if (/vorschul|kindergarten/i.test(q)) ageBuckets.push("4-6");
     if (/schulkind|grundschul/i.test(q)) ageBuckets.push("7-9");
   }
 
   let indoor: boolean | null = null;
   if (/regen|regnet|indoor|drinnen/i.test(q)) indoor = true;
-  if (/sonne|sonnig|schönes?\s*wetter|outdoor|draußen|aussen/i.test(q)) indoor = false;
+  if (/sonne|sonnig|schÃ¶nes?\s*wetter|outdoor|drauÃŸen|aussen/i.test(q)) indoor = false;
 
   const now = new Date();
   let dateFrom: Date | null = null;
@@ -670,7 +168,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
     dateTo = new Date(dateFrom);
     dateTo.setDate(dateTo.getDate() + 1);
     dateTo.setHours(23, 59, 59, 999);
-  } else if (/nächste\s*woche/i.test(q)) {
+  } else if (/nÃ¤chste\s*woche/i.test(q)) {
     const dow = now.getDay();
     const toMon = (8 - dow) % 7 || 7;
     dateFrom = new Date(todayStart);
@@ -681,8 +179,8 @@ function parseNaturalQuery(query: string): ParsedQuery {
   }
 
   const kwMap: Record<string, string[]> = {
-    Kreativ:     ["bastel", "malen", "kreativ", "kunst", "zeichn", "töpfer"],
-    Sport:       ["sport", "turnen", "klettern", "schwimm", "fussball", "fußball"],
+    Kreativ:     ["bastel", "malen", "kreativ", "kunst", "zeichn", "tÃ¶pfer"],
+    Sport:       ["sport", "turnen", "klettern", "schwimm", "fussball", "fuÃŸball"],
     Natur:       ["natur", "wald", "tiere", "zoo", "bauernhof"],
     Ausflug:     ["museum", "ausflug", "ausstellung"],
     Theater:     ["theater", "zirkus", "puppentheater"],
@@ -695,7 +193,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
     if (kws.some((kw) => q.includes(kw))) keywords.push(cat);
   }
 
-  const freeOnly = /gratis|kostenlos|umsonst|günstig/i.test(q);
+  const freeOnly = /gratis|kostenlos|umsonst|gÃ¼nstig/i.test(q);
 
   return { ageBuckets, indoor, dateFrom, dateTo, keywords, freeOnly, childNames };
 }
@@ -741,7 +239,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
   if (total === 0) {
     const alts = [["Museum", "Outdoor"], ["Theater", "Gratis"], ["Sport", "Kreativ"], ["Ausflug", "Natur"]];
     const pair = alts[Math.floor(Date.now() / 1000) % alts.length];
-    return `Dazu habe ich leider nichts gefunden. Versuch mal "${pair[0]}" oder "${pair[1]}" — oder schau in alle Events.`;
+    return `Dazu habe ich leider nichts gefunden. Versuch mal "${pair[0]}" oder "${pair[1]}" â€” oder schau in alle Events.`;
   }
   const n = Math.min(3, total);
   const h = now.getHours();
@@ -751,7 +249,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
 
   if (parsed.childNames.length >= 2) {
     const names = parsed.childNames.map((c) => c.name).join(" und ");
-    return `Für ${names}${weatherCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+    return `FÃ¼r ${names}${weatherCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
   }
 
   if (parsed.dateFrom) {
@@ -760,13 +258,13 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
     const dateLabel = diff === 0 ? "heute" : diff === 1 ? "morgen" :
       parsed.dateFrom.toLocaleDateString("de-CH", { weekday: "long" });
     const kwCtx = parsed.keywords.length > 0 ? ` ${parsed.keywords[0].toLowerCase()}` : "";
-    return `Für euren ${dateLabel}${kwCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+    return `FÃ¼r euren ${dateLabel}${kwCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
   }
 
   if (parsed.keywords.length > 0) {
     const kw = parsed.keywords[0].toLowerCase();
     const ageCtx = parsed.ageBuckets.length > 0
-      ? ` für ${parsed.ageBuckets.map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b).join(" & ")}`
+      ? ` fÃ¼r ${parsed.ageBuckets.map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b).join(" & ")}`
       : "";
     return `${n} ${kw}${ageCtx ? `-Ideen${ageCtx}` : " Tipps"} gefunden:`;
   }
@@ -776,7 +274,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
     const timeCtx = dow === 3 && h >= 11 && h <= 18 ? "Mittwochnachmittag" :
       (dow === 0 || dow === 6) ? "Wochenende" :
       h < 12 ? "Vormittag" : h < 17 ? "Nachmittag" : "Abend";
-    return `Für ${labels}${weatherCtx} — ${n} ${n === 1 ? "Tipp" : "Tipps"} für euren ${timeCtx}:`;
+    return `FÃ¼r ${labels}${weatherCtx} â€” ${n} ${n === 1 ? "Tipp" : "Tipps"} fÃ¼r euren ${timeCtx}:`;
   }
 
   if (parsed.freeOnly) {
@@ -786,37 +284,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
   const timeCtx = dow === 3 && h >= 11 && h <= 18 ? "Mittwochnachmittag" :
     (dow === 0 || dow === 6) ? "Wochenende" :
     h < 12 ? "Vormittag" : h < 17 ? "Nachmittag" : "Abend";
-  return `${n} ${n === 1 ? "Tipp" : "Tipps"} für euren ${timeCtx}${weatherCtx}:`;
-}
-
-// ============================================================
-// PRICE HELPERS
-// ============================================================
-
-function extractPrice(beschreibung: string | null): number | null {
-  if (!beschreibung) return null;
-  const patterns = [
-    /CHF\s*(\d+(?:[.,]\d+)?)/i,
-    /Fr\.\s*(\d+(?:[.,]\d+)?)/i,
-    /(\d+(?:[.,]\d+)?)\.[-–—]+/,
-    /(\d+(?:[.,]\d+)?)\s*Franken/i,
-  ];
-  for (const pat of patterns) {
-    const m = beschreibung.match(pat);
-    if (m) return parseFloat(m[1].replace(",", "."));
-  }
-  return null;
-}
-
-function isFreeEvent(event: KidgoEvent): boolean {
-  const desc = (event.beschreibung || "").toLowerCase();
-  const title = event.titel.toLowerCase();
-  return (
-    event.preis_chf === 0 ||
-    ["gratis", "kostenlos", "freier eintritt", "free"].some(
-      (kw) => desc.includes(kw) || title.includes(kw)
-    )
-  );
+  return `${n} ${n === 1 ? "Tipp" : "Tipps"} fÃ¼r euren ${timeCtx}${weatherCtx}:`;
 }
 
 // ============================================================
@@ -855,467 +323,6 @@ function buildDayPlan(
   return { morning, afternoon };
 }
 
-// ============================================================
-// LOCATION
-// ============================================================
-
-const ZH_CITIES: Record<string, [number, number]> = {
-  Zürich:      [47.37, 8.54],
-  Winterthur:  [47.50, 8.72],
-  Uster:       [47.35, 8.72],
-  Wädenswil:   [47.23, 8.67],
-  Horgen:      [47.26, 8.60],
-  Schlieren:   [47.40, 8.45],
-  Volketswil:  [47.39, 8.69],
-  Opfikon:     [47.43, 8.57],
-  Rümlang:     [47.45, 8.53],
-  Wallisellen: [47.41, 8.60],
-};
-
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// ============================================================
-// COMPONENTS
-// ============================================================
-
-function SkeletonCard() {
-  return (
-    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border)] overflow-hidden" aria-hidden="true">
-      <div className="h-48 skeleton" />
-      <div className="p-4 space-y-3">
-        <div className="h-3.5 skeleton w-2/3" />
-        <div className="h-5 skeleton w-full" />
-        <div className="h-3.5 skeleton w-1/2" />
-        <div className="h-3 skeleton w-1/3" />
-      </div>
-    </div>
-  );
-}
-
-function EventImage({
-  url,
-  kategorien,
-  className,
-  title,
-}: {
-  url?: string | null;
-  kategorien?: string[] | null;
-  className?: string;
-  title?: string;
-}) {
-  const [err, setErr] = useState(false);
-  const cat = kategorien?.[0] || "";
-  const cls = className ?? "h-48 w-full overflow-hidden";
-  const altText = title || cat || "Event";
-  const iconColor = CATEGORY_BG_COLORS[cat] || "#5BBAA7";
-
-  if (url && !err) {
-    return (
-      <div className={`${cls} photo-cell`}>
-        <img
-          src={url}
-          alt={altText}
-          className="w-full h-full object-cover group-hover:scale-[1.03] group-hover:brightness-105 dark:brightness-90 transition-all duration-300 ease-out"
-          loading="lazy"
-          onError={() => setErr(true)}
-        />
-      </div>
-    );
-  }
-  return (
-    <div className={`${cls} flex items-center justify-center`} style={{ backgroundColor: "#F5F0E8" }} aria-label={altText}>
-      <div className="opacity-30" style={{ color: iconColor }}>
-        {getCategoryIcon(cat, { size: 60 })}
-      </div>
-    </div>
-  );
-}
-
-function formatDateShort(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("de-CH", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function getCountdownLabel(dateStr: string, now: Date): { label: string; urgent: boolean } {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const eventDate = new Date(dateStr + "T00:00:00");
-  const diff = Math.round((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (diff < 0) return { label: formatDateShort(dateStr), urgent: false };
-  if (diff === 0) return { label: "Heute", urgent: true };
-  if (diff === 1) return { label: "Morgen", urgent: true };
-  if (diff === 2) return { label: "Übermorgen", urgent: false };
-  if (diff <= 6) return { label: `In ${diff} Tagen`, urgent: false };
-  if (diff <= 13) return { label: "Nächste Woche", urgent: false };
-  return { label: formatDateShort(dateStr), urgent: false };
-}
-
-function RecommendationCard({
-  event,
-  reasons,
-  sources,
-  userLocation,
-  animIndex,
-  selectedBuckets = [],
-  isSeriesParent = false,
-  isGeheimtipp = false,
-  entdeckerScore,
-  isBookmarked = false,
-  onBookmark,
-  bookmarkCount,
-}: {
-  event: KidgoEvent;
-  reasons: string[];
-  sources: { id: string; url: string | null; latitude: number | null; longitude: number | null }[];
-  userLocation: { lat: number; lon: number; approximate: boolean } | null;
-  animIndex: number;
-  selectedBuckets?: string[];
-  isSeriesParent?: boolean;
-  isGeheimtipp?: boolean;
-  entdeckerScore?: number;
-  isBookmarked?: boolean;
-  onBookmark?: (e: React.MouseEvent) => void;
-  bookmarkCount?: number;
-}) {
-  const source = sources.find((s) => s.id === event.quelle_id);
-
-  let distanceLabel: string | null = null;
-  if (userLocation && source?.latitude && source?.longitude) {
-    const km = haversine(userLocation.lat, userLocation.lon, source.latitude, source.longitude);
-    if (km < 50) distanceLabel = km < 1 ? "< 1 km entfernt" : `~${Math.round(km)} km entfernt`;
-  }
-
-  const displayReasons = [...reasons];
-  if (distanceLabel && !displayReasons.some((r) => r.includes("km")))
-    displayReasons.push(distanceLabel);
-  const shownReasons = displayReasons.slice(0, 2);
-
-  const matchingBuckets =
-    selectedBuckets.length > 1 && event.alters_buckets
-      ? selectedBuckets.filter((b) => event.alters_buckets!.includes(b))
-      : [];
-
-  // Sprint 21 — interaction state
-  const cardRef = useRef<HTMLDivElement>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressFired = useRef(false);
-  const lastTap = useRef(0);
-  const suppressClick = useRef(false);
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const [popupOpen, setPopupOpen] = useState(false);
-  const [burstKey, setBurstKey] = useState(0);
-  const [liked, setLiked] = useState(false);
-
-  useEffect(() => { setLiked(isLiked(event.id)); }, [event.id]);
-
-  useEffect(() => {
-    const onClose = () => setPopupOpen(false);
-    window.addEventListener(QUICK_ACTIONS_CLOSE_EVENT, onClose);
-    return () => window.removeEventListener(QUICK_ACTIONS_CLOSE_EVENT, onClose);
-  }, []);
-
-  const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
-  const openPopup = () => {
-    broadcastClosePopups();
-    setPopupOpen(true);
-  };
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStartPos.current = { x: t.clientX, y: t.clientY };
-    longPressFired.current = false;
-    cancelLongPress();
-    longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true;
-      suppressClick.current = true;
-      vibrate(15);
-      openPopup();
-    }, LONG_PRESS_MS);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartPos.current) return;
-    const t = e.touches[0];
-    const dx = Math.abs(t.clientX - touchStartPos.current.x);
-    const dy = Math.abs(t.clientY - touchStartPos.current.y);
-    if (dx > 8 || dy > 8) cancelLongPress();
-  };
-
-  const onTouchEnd = () => {
-    cancelLongPress();
-    if (longPressFired.current) {
-      // The long-press already opened the popup; click is suppressed.
-      return;
-    }
-    const now = Date.now();
-    if (now - lastTap.current < DOUBLE_TAP_MS) {
-      suppressClick.current = true;
-      const newLiked = toggleLike(event.id);
-      setLiked(newLiked);
-      setBurstKey((k) => k + 1);
-      vibrate(15);
-      lastTap.current = 0;
-    } else {
-      lastTap.current = now;
-    }
-  };
-
-  const onContextMenu = (e: React.MouseEvent) => {
-    // Desktop right-click → show popup instead of native menu
-    if (isTouchDevice()) return;
-    e.preventDefault();
-    suppressClick.current = true;
-    openPopup();
-  };
-
-  const onLinkClick = (e: React.MouseEvent) => {
-    if (suppressClick.current) {
-      e.preventDefault();
-      e.stopPropagation();
-      suppressClick.current = false;
-      return;
-    }
-    try { saveScrollPosition(window.location.pathname); } catch {}
-  };
-
-  const popupActions: QuickAction[] = [
-    {
-      key: "bookmark",
-      label: isBookmarked ? "Gemerkt" : "Merken",
-      icon: QuickActionIcons.bookmark(isBookmarked),
-      active: isBookmarked,
-      onClick: () => {
-        if (onBookmark) {
-          const fakeEvent = {
-            preventDefault: () => {},
-            stopPropagation: () => {},
-          } as unknown as React.MouseEvent;
-          onBookmark(fakeEvent);
-        }
-      },
-    },
-    {
-      key: "share",
-      label: "Teilen",
-      icon: QuickActionIcons.share,
-      onClick: () => shareEvent(event),
-    },
-    {
-      key: "calendar",
-      label: "Kalender",
-      icon: QuickActionIcons.calendar,
-      onClick: () => downloadEventICS(event),
-    },
-    {
-      key: "route",
-      label: "Route",
-      icon: QuickActionIcons.route,
-      onClick: () => openRouteForEvent(event),
-    },
-  ];
-
-  return (
-    <>
-    <Link
-      href={`/events/${event.id}`}
-      className="block group card-enter"
-      style={{ animationDelay: `${animIndex * 80}ms` }}
-      onClick={onLinkClick}
-      onContextMenu={onContextMenu}
-    >
-      <div
-        ref={cardRef}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={cancelLongPress}
-        className="bg-[var(--bg-card)] rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ease-out overflow-hidden border border-[var(--border)] group-hover:border-kidgo-200 group-hover:scale-[1.01] relative select-none"
-        style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}`, boxShadow: "0 2px 12px rgba(91,186,167,0.08)", WebkitTouchCallout: "none" }}
-      >
-        <HeartBurst trigger={burstKey} />
-        {liked && (
-          <div className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md" aria-label="Geliked">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-              <path d="M7 12 C 2.5 8.5, 1 5, 3 3.5 C 4.5 2.5, 6 3.5, 7 5 C 8 3.5, 9.5 2.5, 11 3.5 C 13 5, 11.5 8.5, 7 12 Z" />
-            </svg>
-          </div>
-        )}
-          {onBookmark && (
-            <button
-              onClick={onBookmark}
-              aria-label={isBookmarked ? "Aus Merkliste entfernen" : "Event merken"}
-              className={`absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full shadow-sm transition-all ${
-                isBookmarked
-                  ? "bg-kidgo-400 text-white"
-                  : "bg-white/90 text-gray-300 hover:text-kidgo-500"
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 2h10v11L7 10 2 13V2z"/>
-              </svg>
-            </button>
-          )}
-        <EventImage
-          url={event.kategorie_bild_url}
-          kategorien={event.kategorien}
-          className="h-48 md:h-60 w-full overflow-hidden"
-          title={event.titel}
-        />
-        <div className="p-4">
-          <div className="flex flex-wrap gap-1.5 mb-2.5">
-            {isGeheimtipp && (
-              <span className="bg-purple-50 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-100">
-                Geheimtipp
-              </span>
-            )}
-            {shownReasons.map((r) => (
-              <span
-                key={r}
-                className="bg-kidgo-50 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-kidgo-100"
-              >
-                {r}
-              </span>
-            ))}
-          </div>
-
-          <h3 className="font-bold text-[var(--text-primary)] text-lg leading-snug mb-1.5 group-hover:text-kidgo-500 transition-colors duration-200">
-            {event.titel}
-          </h3>
-
-          {(() => {
-            const badges: { label: string; cls: string }[] = [];
-            if (isSeriesParent) badges.push({ label: "Regelmässig", cls: "bg-kidgo-50 text-kidgo-500 border border-kidgo-100" });
-            if (isFreeEvent(event)) {
-              badges.push({ label: "Gratis", cls: "bg-green-50 text-green-700 border border-green-100" });
-            } else {
-              const p = extractPrice(event.beschreibung);
-              if (p !== null) badges.push({ label: `ab CHF ${p % 1 === 0 ? p : p.toFixed(2)}`, cls: "bg-sky-50 text-sky-600 border border-sky-100" });
-            }
-            if (badges.length === 0) return null;
-            return (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {badges.map((b) => (
-                  <span key={b.label} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${b.cls}`}>{b.label}</span>
-                ))}
-              </div>
-            );
-          })()}
-
-          {matchingBuckets.length > 1 && (
-            <p className="text-xs text-emerald-600 font-semibold mb-2 flex items-center gap-1">
-              <span>✓</span>
-              <span>
-                Passt für{" "}
-                {matchingBuckets
-                  .map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b)
-                  .join(" und ")}
-              </span>
-            </p>
-          )}
-
-          <div className="flex items-end justify-between gap-2">
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--text-secondary)]">
-              {event.datum && (() => {
-                const { label, urgent } = getCountdownLabel(event.datum, new Date());
-                return (
-                  <span className={`flex items-center gap-1.5 ${urgent ? "font-semibold" : ""}`}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={`flex-shrink-0 ${urgent ? "text-kidgo-500" : "text-kidgo-400"}`}>
-                      <rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/>
-                    </svg>
-                    <span className={urgent ? "text-kidgo-500" : ""}>{label}</span>
-                  </span>
-                );
-              })()}
-              {!event.datum && (
-                <span className="text-emerald-600 font-medium">Ganzjährig</span>
-              )}
-              {event.ort && (
-                <span className="flex items-center gap-1.5 truncate max-w-[200px]">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-kidgo-400 flex-shrink-0">
-                    <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/>
-                  </svg>
-                  {event.ort}
-                </span>
-              )}
-            </div>
-            {entdeckerScore !== undefined && (
-              <span className="flex-shrink-0 text-xs text-kidgo-400 font-medium">{entdeckerScore}/10</span>
-            )}
-          </div>
-
-          {bookmarkCount && bookmarkCount > 1 && (
-            <div className="mt-2.5 flex items-center gap-1.5">
-              <div className="flex -space-x-1">
-                {[...Array(Math.min(3, bookmarkCount))].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-4 h-4 rounded-full bg-kidgo-100 border border-white"
-                    style={{ zIndex: 3 - i }}
-                  />
-                ))}
-              </div>
-              <span className="text-xs text-[var(--text-muted)] font-medium">
-                {bookmarkCount} {bookmarkCount === 1 ? "Familie" : "Familien"} interessiert
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
-    {popupOpen && (
-      <QuickActionsPopup
-        actions={popupActions}
-        onClose={() => setPopupOpen(false)}
-        anchorRef={cardRef}
-      />
-    )}
-    </>
-  );
-}
-
-// ============================================================
-// SWIPE HOOK
-// ============================================================
-
-function useSwipe(onSwipeLeft: () => void, onSwipeRight: () => void) {
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStart.current = { x: t.clientX, y: t.clientY };
-  };
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStart.current.x;
-    const dy = t.clientY - touchStart.current.y;
-    touchStart.current = null;
-    if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 50) return;
-    if (dx < 0) onSwipeLeft();
-    else onSwipeRight();
-  };
-
-  return { onTouchStart, onTouchEnd };
-}
 
 // ============================================================
 // MODULE-LEVEL 5-MINUTE EVENT CACHE
@@ -1567,7 +574,7 @@ export default function Home() {
       }
     }
 
-    // Push notifications — max once per day (spam protection)
+    // Push notifications â€” max once per day (spam protection)
     if ("Notification" in window && Notification.permission === "granted") {
       const today = new Date().toISOString().split("T")[0];
       const lastSent = localStorage.getItem("kidgo_push_last_sent");
@@ -1648,7 +655,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Sprint 15: Weekend preview push — Friday 16:00+, max once per day
+  // Sprint 15: Weekend preview push â€” Friday 16:00+, max once per day
   useEffect(() => {
     if (!mounted || allEventsPool.length === 0) return;
     if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -1697,7 +704,7 @@ export default function Home() {
     } catch {}
 
     const snapToZH = (lat: number, lon: number): { label: string; lat: number; lon: number } => {
-      let nearest = "Zürich";
+      let nearest = "ZÃ¼rich";
       let minDist = Infinity;
       for (const [city, [clat, clon]] of Object.entries(ZH_CITIES)) {
         const d = haversine(lat, lon, clat, clon);
@@ -1776,10 +783,10 @@ export default function Home() {
     setDayPlan(null);
     setShowDayPlan(false);
 
-    // Dismissed IDs — read fresh from storage so fetch is always consistent
+    // Dismissed IDs â€” read fresh from storage so fetch is always consistent
     const currentDismissedIds = new Set([...getDismissedEventIds(), ...dismissedEventIds]);
 
-    // Sprint 3: Offline — serve cached events
+    // Sprint 3: Offline â€” serve cached events
     if (isOffline) {
       try {
         const cached = localStorage.getItem("kidgo_cached_events");
@@ -1869,7 +876,7 @@ export default function Home() {
         localStorage.setItem("kidgo_cached_events", JSON.stringify(eventsData.slice(0, 50)));
       } catch {}
 
-      // Sprint 11: Social proof — aggregate bookmark counts
+      // Sprint 11: Social proof â€” aggregate bookmark counts
       try {
         
         const { data: bkData } = await supabase.rpc("get_event_bookmark_counts");
@@ -2080,7 +1087,7 @@ export default function Home() {
     setDismissingEventId(null);
   };
 
-  // Sprint 12: Card stack — animated swipe handlers
+  // Sprint 12: Card stack â€” animated swipe handlers
   const handleSwipeLeft = () => {
     if (recommendations.length === 0 || cardExiting || dismissingEventId) return;
     setSwipeOffset(0);
@@ -2261,7 +1268,7 @@ export default function Home() {
                 <button
                   key={bucket.key}
                   onClick={() => handleAgeSelect(bucket.key)}
-                  aria-label={`Altersgruppe ${bucket.label} auswählen`}
+                  aria-label={`Altersgruppe ${bucket.label} auswÃ¤hlen`}
                   aria-pressed={selected}
                   className={`relative p-5 rounded-2xl border-2 transition-all duration-200 text-left shadow-sm hover:shadow-md active:scale-95 bounce-hover ${
                     selected && multiChild
@@ -2306,7 +1313,7 @@ export default function Home() {
                 disabled={selectedBuckets.length === 0}
                 className="w-full py-3.5 bg-kidgo-400 text-white rounded-2xl font-bold text-lg hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
               >
-                Empfehlungen anzeigen →
+                Empfehlungen anzeigen â†’
               </button>
               <button
                 onClick={() => { setMultiChild(false); setSelectedBuckets([]); }}
@@ -2405,7 +1412,7 @@ export default function Home() {
                   }}
                   className="text-kidgo-200 hover:text-white text-xl leading-none w-7 h-7 flex items-center justify-center"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
             </div>
@@ -2457,7 +1464,7 @@ export default function Home() {
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)] flex-shrink-0"><path d="M9 2a5 5 0 0 1 5 5v3l1 1.5H3L4 10V7a5 5 0 0 1 5-5z"/><path d="M7.5 14a1.5 1.5 0 0 0 3 0"/></svg>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Events nicht verpassen</p>
-              <p className="text-xs text-[var(--text-muted)]">Erhalte Erinnerungen für gemerkten Events</p>
+              <p className="text-xs text-[var(--text-muted)]">Erhalte Erinnerungen fÃ¼r gemerkten Events</p>
             </div>
             <button
               onClick={() => {
@@ -2509,7 +1516,7 @@ export default function Home() {
                 <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl pl-1 pr-3 py-1 text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700">
                   <WeatherIcon code={weatherCode} size={26} />
                   {weatherTemp !== null && (
-                    <span className="font-medium">{Math.round(weatherTemp)}°C</span>
+                    <span className="font-medium">{Math.round(weatherTemp)}Â°C</span>
                   )}
                 </div>
               )}
@@ -2545,7 +1552,7 @@ export default function Home() {
             </div>
           )}
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight mb-1">
-            {contextMode === "evening" ? "Für morgen geplant" : headline.title}
+            {contextMode === "evening" ? "FÃ¼r morgen geplant" : headline.title}
           </h1>
           <p className="text-gray-500 text-sm mb-3">{headline.subtitle}</p>
 
@@ -2560,10 +1567,10 @@ export default function Home() {
             })}
             <button
               onClick={handleChangeAge}
-              aria-label="Altersgruppe ändern"
+              aria-label="Altersgruppe Ã¤ndern"
               className="text-xs text-gray-400 hover:text-kidgo-500 transition"
             >
-              Alter ändern
+              Alter Ã¤ndern
             </button>
           </div>
 
@@ -2573,7 +1580,7 @@ export default function Home() {
                 <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/>
               </svg>
               <span>
-                Ungefähr in {userLocation.label} —{" "}
+                UngefÃ¤hr in {userLocation.label} â€”{" "}
                 <button
                   onClick={() =>
                     navigator.geolocation?.getCurrentPosition((pos) =>
@@ -2589,7 +1596,7 @@ export default function Home() {
                 >
                   Standort aktivieren
                 </button>{" "}
-                für genauere Tipps
+                fÃ¼r genauere Tipps
               </span>
             </div>
           )}
@@ -2622,185 +1629,26 @@ export default function Home() {
               </HexIcon>
             </div>
             <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
-            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
+            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren AktivitÃ¤ten</p>
             <Link href="/explore" className="bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
               Alle Events entdecken
             </Link>
           </div>
         )}
 
-        {/* Hero + 2 sub-cards */}
         {!loading && contextRecs.length > 0 && (
-          <div className="mb-8">
-            {/* Hero card — first recommendation, context-sorted */}
-            {(() => {
-              const event = contextRecs[0];
-              const isBookmarkedHero = bookmarks.some((b) => b.id === event.id);
-              const isDismissingHero = dismissingEventId === event.id;
-              return (
-                <div className="relative mb-3">
-                  {/* Dimmed wrapper — card dims when dismiss overlay is open */}
-                  <div className={isDismissingHero ? "card-dimmed" : undefined}>
-                    <Link
-                      href={`/events/${event.id}`}
-                      className="block group"
-                      onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {}; trackEvent("event_click", { event_id: event.id, source: "home_hero" }); trackFirstEventClick(event.id, event.titel); }}
-                    >
-                      <div className="relative rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(91,186,167,0.2)" }}>
-                        <EventImage
-                          url={event.kategorie_bild_url}
-                          kategorien={event.kategorien}
-                          className="h-64 sm:h-72 w-full overflow-hidden"
-                          title={event.titel}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                        {/* Reason badges top-left */}
-                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                          {event.reasons.slice(0, 2).map((r) => (
-                            <span key={r} className="bg-white/90 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm">
-                              {r}
-                            </span>
-                          ))}
-                        </div>
-                        {/* Bookmark button top-right */}
-                        <button
-                          onClick={(e) => toggleBookmark(event, e)}
-                          aria-label={isBookmarkedHero ? "Aus Merkliste entfernen" : "Event merken"}
-                          className={`absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full shadow-md transition-all active:scale-90 ${
-                            isBookmarkedHero
-                              ? "bg-kidgo-400 text-white"
-                              : "bg-white/90 text-gray-400 hover:text-kidgo-500"
-                          }`}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill={isBookmarkedHero ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M2 2h10v11L7 10 2 13V2z"/>
-                          </svg>
-                        </button>
-                        {/* Text overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
-                          <h2 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-sm line-clamp-2 group-hover:text-kidgo-100 transition-colors">
-                            {event.titel}
-                          </h2>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80 text-sm mb-3">
-                            {event.datum && (() => {
-                              const { label, urgent } = getCountdownLabel(event.datum, now);
-                              return (
-                                <span className={`flex items-center gap-1 ${urgent ? "text-kidgo-200 font-semibold" : ""}`}>
-                                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><rect x="0.5" y="1.5" width="11" height="9" rx="1.2"/><path d="M0.5 4.5h11M4 0.5v2M8 0.5v2"/></svg>
-                                  {label}
-                                </span>
-                              );
-                            })()}
-                            {!event.datum && <span className="text-green-300 font-semibold">Ganzjährig</span>}
-                            {event.ort && (
-                              <span className="flex items-center gap-1 truncate max-w-[200px]">
-                                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/></svg>
-                                {event.ort.split(",")[0].trim()}
-                              </span>
-                            )}
-                          </div>
-                          <span className="inline-flex items-center gap-1.5 bg-white text-kidgo-600 text-xs font-bold px-3.5 py-2 rounded-full group-hover:bg-kidgo-50 transition shadow-sm">
-                            Details ansehen
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l4-4-4-4"/></svg>
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-                  {/* Dismiss button — outside Link so it doesn't navigate */}
-                  {!isDismissingHero && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDismissOpen(event); }}
-                      aria-label="Nicht interessiert"
-                      className="absolute top-3 right-14 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/50 backdrop-blur-sm transition-all active:scale-90"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <path d="M2 2l8 8M10 2l-8 8"/>
-                      </svg>
-                    </button>
-                  )}
-                  {/* Dismiss overlay */}
-                  {isDismissingHero && (
-                    <DismissOverlay
-                      reasons={dismissReasons}
-                      onSubmit={(ids) => handleDismissSubmit(event.id, ids)}
-                      onCancel={() => setDismissingEventId(null)}
-                    />
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Sub-cards — recs 2 + 3 */}
-            {recommendations.length > 1 && (
-              <div className="grid grid-cols-2 gap-3">
-                {recommendations.slice(1, 3).map((event) => {
-                  const isDismissingSub = dismissingEventId === event.id;
-                  return (
-                    <div key={event.id} className="relative">
-                      <div className={isDismissingSub ? "card-dimmed" : undefined}>
-                        <Link
-                          href={`/events/${event.id}`}
-                          className="group block"
-                          onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {}; trackEvent("event_click", { event_id: event.id, source: "home_sub" }); trackFirstEventClick(event.id, event.titel); }}
-                        >
-                          <div
-                            className="rounded-xl overflow-hidden border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all bg-[var(--bg-card)]"
-                            style={{ borderLeft: `3px solid ${getCategoryColor(event.kategorien, event.kategorie)}` }}
-                          >
-                            <EventImage
-                              url={event.kategorie_bild_url}
-                              kategorien={event.kategorien}
-                              className="h-28 w-full overflow-hidden"
-                              title={event.titel}
-                            />
-                            <div className="p-3">
-                              <h3 className="font-bold text-[var(--text-primary)] text-xs leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1.5">
-                                {event.titel}
-                              </h3>
-                              <div className="flex items-center gap-1 text-[10px]">
-                                {event.datum ? (
-                                  <span className={`font-semibold ${getCountdownLabel(event.datum, now).urgent ? "text-kidgo-500" : "text-[var(--text-muted)]"}`}>
-                                    {getCountdownLabel(event.datum, now).label}
-                                  </span>
-                                ) : (
-                                  <span className="text-green-600 font-semibold">Ganzjährig</span>
-                                )}
-                              </div>
-                              {event.reasons.length > 0 && (
-                                <span className="mt-1.5 inline-block text-[10px] font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
-                                  {event.reasons[0]}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
-                      {/* Sub-card dismiss button */}
-                      {!isDismissingSub && (
-                        <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDismissOpen(event); }}
-                          aria-label="Nicht interessiert"
-                          className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/25 text-white hover:bg-black/45 backdrop-blur-sm transition-all active:scale-90"
-                        >
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="M2 2l6 6M8 2l-6 6"/>
-                          </svg>
-                        </button>
-                      )}
-                      {isDismissingSub && (
-                        <DismissOverlay
-                          reasons={dismissReasons}
-                          onSubmit={(ids) => handleDismissSubmit(event.id, ids)}
-                          onCancel={() => setDismissingEventId(null)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <HeroSection
+            contextRecs={contextRecs}
+            recommendations={recommendations}
+            bookmarks={bookmarks}
+            dismissingEventId={dismissingEventId}
+            dismissReasons={dismissReasons}
+            now={now}
+            onDismissOpen={handleDismissOpen}
+            onDismissSubmit={handleDismissSubmit}
+            onDismissCancel={() => setDismissingEventId(null)}
+            onBookmark={toggleBookmark}
+          />
         )}
 
         {/* ===== LAYER 2: MEHR ENTDECKEN (below the fold) ===== */}
@@ -2813,295 +1661,46 @@ export default function Home() {
           </div>
         )}
 
-        {/* Card Stack — Tinder-style (mobile only) */}
         {!loading && recommendations.length > 0 && (
-          <div className="md:hidden relative select-none min-h-[420px] mb-4">
-            {/* Background stacked cards */}
-            {recommendations.slice(1).map((event, ri) => {
-              const stackPos = ri + 1;
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              return (
-                <div
-                  key={`stack-${event.id}`}
-                  className="absolute inset-x-0 top-0 pointer-events-none"
-                  aria-hidden="true"
-                  style={{
-                    zIndex: recommendations.length - stackPos,
-                    transform: `scale(${1 - stackPos * 0.035}) translateY(${stackPos * 13}px)`,
-                    transformOrigin: "center top",
-                    opacity: 1 - stackPos * 0.07,
-                  }}
-                >
-                  <RecommendationCard
-                    event={event}
-                    reasons={event.reasons}
-                    sources={sources}
-                    userLocation={userLocation}
-                    animIndex={0}
-                    selectedBuckets={selectedBuckets}
-                    isSeriesParent={seriesParentIds.has(event.id)}
-                    isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                    entdeckerScore={computeEntdeckerScore(sourceCountMap.get(event.quelle_id || "") ?? 0)}
-                    isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                    bookmarkCount={bookmarkCounts.get(event.id)}
-                  />
-                </div>
-              );
-            })}
-
-            {/* Top card */}
-            {(() => {
-              const event = recommendations[0];
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              const isDismissingStack = dismissingEventId === event.id;
-              return (
-                <div
-                  className="absolute inset-x-0 top-0 card-stack-top"
-                  style={{
-                    zIndex: recommendations.length + 1,
-                    transform: cardExiting
-                      ? `translateX(${exitDirection === "left" ? "-130%" : "130%"}) rotate(${exitDirection === "left" ? -13 : 13}deg)`
-                      : `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.024}deg)`,
-                    transition: cardExiting
-                      ? "transform 0.34s cubic-bezier(0.4,0,0.2,1)"
-                      : swipeOffset === 0 ? "transform 0.2s ease" : "none",
-                  }}
-                  onTouchStart={isDismissingStack ? undefined : handleRecTouchStart}
-                  onTouchMove={isDismissingStack ? undefined : handleRecTouchMove}
-                  onTouchEnd={isDismissingStack ? undefined : handleRecTouchEnd}
-                >
-                  <div className="relative">
-                    <div className={isDismissingStack ? "card-dimmed" : undefined}>
-                      <RecommendationCard
-                        key={event.id}
-                        event={event}
-                        reasons={event.reasons}
-                        sources={sources}
-                        userLocation={userLocation}
-                        animIndex={0}
-                        selectedBuckets={selectedBuckets}
-                        isSeriesParent={seriesParentIds.has(event.id)}
-                        isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                        entdeckerScore={computeEntdeckerScore(cnt)}
-                        isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                        onBookmark={(e) => toggleBookmark(event, e)}
-                        bookmarkCount={bookmarkCounts.get(event.id)}
-                      />
-                    </div>
-                    {isDismissingStack && (
-                      <DismissOverlay
-                        reasons={dismissReasons}
-                        onSubmit={(ids) => handleDismissSubmit(event.id, ids)}
-                        onCancel={() => setDismissingEventId(null)}
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Swipe hint */}
-            {swipeHint && (
-              <div
-                className={`absolute top-0 left-0 right-0 rounded-2xl pointer-events-none flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"}`}
-                style={{ height: "200px", zIndex: recommendations.length + 2 }}
-              >
-                <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-red-400" : "bg-green-500"}`}>
-                  {swipeHint === "left" ? "Nicht interessiert" : "Gemerkt"}
-                </div>
-              </div>
-            )}
-
-            {/* Counter + action buttons */}
-            <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-56px" }}>
-              <button
-                onClick={handleCycleCard}
-                aria-label="Nächste Karte"
-                className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg transition-all active:scale-90"
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 9H4M4 9l5-5M4 9l5 5"/>
-                </svg>
-              </button>
-              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 min-w-[36px] text-center tabular-nums">
-                {(cardIndex % recommendations.length) + 1}/{recommendations.length}
-              </span>
-              <button
-                onClick={handleSwipeRight}
-                aria-label={bookmarks.some((b) => b.id === recommendations[0].id) ? "Event bereits gemerkt" : "Event merken"}
-                className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all active:scale-90 ${
-                  bookmarks.some((b) => b.id === recommendations[0].id)
-                    ? "bg-kidgo-400 text-white border border-kidgo-300"
-                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill={bookmarks.some((b) => b.id === recommendations[0].id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 3h12v13.5L9 13.5 3 16.5V3z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
+          <CardStack
+            recommendations={recommendations}
+            contextRecs={contextRecs}
+            sources={sources}
+            userLocation={userLocation}
+            selectedBuckets={selectedBuckets}
+            seriesParentIds={seriesParentIds}
+            smallSourceIds={smallSourceIds}
+            sourceCountMap={sourceCountMap}
+            bookmarkCounts={bookmarkCounts}
+            bookmarks={bookmarks}
+            swipeOffset={swipeOffset}
+            swipeHint={swipeHint}
+            cardExiting={cardExiting}
+            exitDirection={exitDirection}
+            cardIndex={cardIndex}
+            dismissingEventId={dismissingEventId}
+            dismissReasons={dismissReasons}
+            onRecTouchStart={handleRecTouchStart}
+            onRecTouchMove={handleRecTouchMove}
+            onRecTouchEnd={handleRecTouchEnd}
+            onCycleCard={handleCycleCard}
+            onSwipeRight={handleSwipeRight}
+            onDismissSubmit={handleDismissSubmit}
+            onDismissCancel={() => setDismissingEventId(null)}
+            onBookmark={toggleBookmark}
+          />
         )}
 
-        {/* Desktop grid */}
-        {!loading && contextRecs.length > 0 && (
-          <div className="hidden md:grid md:grid-cols-2 gap-5 mb-8">
-            {contextRecs.map((event, i) => {
-              const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-              return (
-                <RecommendationCard
-                  key={event.id}
-                  event={event}
-                  reasons={event.reasons}
-                  sources={sources}
-                  userLocation={userLocation}
-                  animIndex={i}
-                  selectedBuckets={selectedBuckets}
-                  isSeriesParent={seriesParentIds.has(event.id)}
-                  isGeheimtipp={!!event.quelle_id && smallSourceIds.has(event.quelle_id)}
-                  entdeckerScore={computeEntdeckerScore(cnt)}
-                  isBookmarked={bookmarks.some((b) => b.id === event.id)}
-                  onBookmark={(e) => toggleBookmark(event, e)}
-                  bookmarkCount={bookmarkCounts.get(event.id)}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* Spacer for card stack action buttons — mobile only */}
+        {/* Spacer for card stack action buttons â€” mobile only */}
         {!loading && recommendations.length > 0 && <div className="mt-28 md:hidden" />}
 
         {/* ===== DIESES WOCHENENDE ===== */}
-        {!loading && weekendEventsForLayer2.length > 0 && (
-          <LazySection className="mt-8" fallback={<div className="mt-8 h-48 skeleton rounded-2xl" />}><div>
-            <div className="flex items-center justify-between mb-3 px-0.5">
-              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Dieses Wochenende</p>
-              <Link href="/explore" className="text-xs font-semibold text-kidgo-500 hover:text-kidgo-600 transition">
-                Alle →
-              </Link>
-            </div>
-            <div
-              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-            >
-              {weekendEventsForLayer2.map((event) => (
-                <Link
-                  key={event.id}
-                  href={`/events/${event.id}`}
-                  className="flex-shrink-0 w-44 group"
-                  onClick={() => { try { saveScrollPosition(window.location.pathname); } catch {} }}
-                >
-                  <div className="rounded-2xl overflow-hidden border border-[var(--border)] hover:border-[#5BBAA7]/40 transition-all hover:shadow-md" style={{ boxShadow: "0 2px 8px rgba(91,186,167,0.08)" }}>
-                    <div className="h-28 bg-gradient-to-br from-[#F5F0E8] to-kidgo-50 relative overflow-hidden">
-                      {event.kategorie_bild_url ? (
-                        <img src={event.kategorie_bild_url} alt={event.titel} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-                          </svg>
-                        </div>
-                      )}
-                      {event.datum && (
-                        <div className="absolute bottom-2 left-2">
-                          <span className="text-[10px] font-bold text-white bg-[#5BBAA7] rounded-full px-2 py-0.5">
-                            {new Date(event.datum + "T00:00:00").toLocaleDateString("de-CH", { weekday: "short", day: "numeric" })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3 bg-[var(--bg-card)]">
-                      <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
-                      {event.ort && <p className="text-[10px] text-[var(--text-muted)] mt-1 truncate">{event.ort.split(",")[0].trim()}</p>}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div></LazySection>
-        )}
+        {!loading && <WeekendSection weekendEvents={weekendEventsForLayer2} />}
 
         {/* ===== SAISONALE LANDING ===== */}
-        {!loading && allEventsPool.length > 0 && <LazySection fallback={<div className="mt-10 h-56 skeleton rounded-2xl" />}>{(() => {
-          const month = now.getMonth();
-          type SeasonCfg = { title: string; subtitle: string; gradFrom: string; gradTo: string; cats: string[]; io: string | null };
-          const cfg: SeasonCfg =
-            month <= 1  ? { title: "Gemütliche Wintertage",   subtitle: "Die schönsten Indoor-Aktivitäten für Kinder", gradFrom: "from-indigo-500", gradTo: "to-blue-400",    cats: ["Kreativ","Theater","Musik","Bildung"],           io: "indoor"  }
-          : month <= 2  ? { title: "Frühling naht!",           subtitle: "Natur erwacht — raus und entdecken",          gradFrom: "from-green-500",  gradTo: "to-emerald-400",  cats: ["Natur","Ausflug","Sport","Tiere"],                io: "outdoor" }
-          : month <= 4  ? { title: "Raus in die Natur",        subtitle: "Frühling in Zürich — beste Zeit für Abenteuer", gradFrom: "from-emerald-500", gradTo: "to-teal-400", cats: ["Natur","Ausflug","Sport","Tiere"],                io: "outdoor" }
-          : month <= 7  ? { title: "Sommer in Zürich",         subtitle: "Camps, Abenteuer & lange Sonnentage",         gradFrom: "from-amber-500",  gradTo: "to-orange-400",   cats: ["Feriencamp","Ausflug","Sport","Natur"],          io: "outdoor" }
-          : month <= 9  ? { title: "Goldener Herbst",          subtitle: "Herbstfarben entdecken und erleben",          gradFrom: "from-orange-500", gradTo: "to-amber-400",    cats: ["Natur","Ausflug","Bildung","Museum"],            io: null      }
-          :               { title: "Drinnen & Kreativ",        subtitle: "Warme Stunden mit Kunst, Musik und Theater",  gradFrom: "from-purple-500", gradTo: "to-rose-400",     cats: ["Kreativ","Theater","Musik","Tanz"],              io: "indoor"  };
-
-          const monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
-
-          const seasonEvents = allEventsPool
-            .filter((e) => {
-              const catOk = e.kategorien?.some((c) => cfg.cats.includes(c));
-              const ioOk = !cfg.io || !e.indoor_outdoor || e.indoor_outdoor === cfg.io || e.indoor_outdoor === "beides";
-              return catOk && ioOk;
-            })
-            .sort((a, b) => {
-              if (a.datum && !b.datum) return -1;
-              if (!a.datum && b.datum) return 1;
-              if (a.datum && b.datum) return a.datum.localeCompare(b.datum);
-              return 0;
-            })
-            .slice(0, 6);
-
-          if (seasonEvents.length === 0) return null;
-
-          return (
-            <div className="mt-8 card-enter">
-              <div className={`bg-gradient-to-r ${cfg.gradFrom} ${cfg.gradTo} rounded-2xl px-5 pt-5 pb-4 mb-3`}>
-                <p className="text-xs font-semibold text-white/70 uppercase tracking-wider mb-1">
-                  Saisontipp · {monthNames[month]}
-                </p>
-                <h2 className="text-xl font-bold text-white mb-0.5">{cfg.title}</h2>
-                <p className="text-white/80 text-sm">{cfg.subtitle}</p>
-              </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
-                {seasonEvents.map((e, idx) => (
-                  <Link
-                    key={e.id}
-                    href={`/events/${e.id}`}
-                    className="flex-shrink-0 w-48 snap-start bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] hover:border-kidgo-200 hover:shadow-md transition-all overflow-hidden group"
-                    style={{ animationDelay: `${idx * 50}ms` }}
-                  >
-                    <div className="h-24 overflow-hidden bg-[var(--bg-subtle)]">
-                      {e.kategorie_bild_url ? (
-                        <img src={e.kategorie_bild_url} alt={e.titel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-900/40 dark:to-teal-900/40" />
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="font-bold text-xs text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1">{e.titel}</p>
-                      {e.datum ? (
-                        <p className="text-xs font-medium text-kidgo-500">
-                          {new Date(e.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-green-600 font-medium">Ganzjährig</p>
-                      )}
-                      {e.ort && <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{e.ort.split(",")[0]}</p>}
-                    </div>
-                  </Link>
-                ))}
-                <Link
-                  href="/explore"
-                  className="flex-shrink-0 w-28 snap-start bg-[var(--bg-subtle)] border border-dashed border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-2 p-3 hover:border-kidgo-300 transition-all group"
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] group-hover:text-kidgo-500 transition-colors">
-                    <path d="M9 3v12M3 9h12"/>
-                  </svg>
-                  <p className="text-xs font-medium text-[var(--text-muted)] group-hover:text-kidgo-500 transition-colors text-center leading-tight">Alle entdecken</p>
-                </Link>
-              </div>
-            </div>
-          );
-        })()}</LazySection>}
+        {!loading && allEventsPool.length > 0 && (
+          <SeasonalSection allEventsPool={allEventsPool} now={now} />
+        )}
 
         {/* Link to explore */}
         <div className="mt-10 text-center">
@@ -3109,7 +1708,7 @@ export default function Home() {
             href="/explore"
             className="text-[var(--text-muted)] hover:text-kidgo-500 text-sm transition underline decoration-dotted underline-offset-4"
           >
-            Alle Events entdecken →
+            Alle Events entdecken â†’
           </Link>
         </div>
 

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase-browser";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { trackChatUsed } from "@/lib/gamification";
 import { trackEvent } from "@/lib/analytics";
+import { AnimalSVG } from "@/components/ich/AvatarAnimals";
 
 interface EventCard {
   id: string;
@@ -120,9 +121,17 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userAvatarId, setUserAvatarId] = useState<string | null>(null);
   const lastRequestRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("user_preferences");
+      if (raw) setUserAvatarId(JSON.parse(raw)?.avatar ?? null);
+    } catch {}
+  }, [open]);
 
   useEffect(() => {
     try {
@@ -251,7 +260,18 @@ export function ChatSheet({ open, onClose, weatherCode }: Props) {
           <div className="flex items-center gap-3">
             <KidgoAvatar />
             <div>
-              <h2 className="font-bold text-[var(--text-primary)] text-base leading-tight">Frag Kidgo</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-[var(--text-primary)] text-base leading-tight">Frag Kidgo</h2>
+                {userAvatarId && (
+                  <div
+                    className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0"
+                    style={{ background: "rgba(91,186,167,0.15)", border: "1.5px solid rgba(91,186,167,0.4)" }}
+                    title="Euer Familien-Avatar"
+                  >
+                    <AnimalSVG id={userAvatarId} />
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-[var(--text-muted)]">Dein Familien-Assistent für Zürich</p>
             </div>
           </div>

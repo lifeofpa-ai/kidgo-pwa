@@ -10,6 +10,7 @@ import { INTERESTS } from "@/lib/interests";
 import { getCategoryIcon } from "@/components/Icons";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { supabase } from "@/lib/supabase-browser";
+import { AnimalSVG, AvatarPicker, ANIMALS } from "@/components/ich/AvatarAnimals";
 
 const AGE_OPTIONS = [
   { key: "0-3", label: "0–3" },
@@ -24,9 +25,99 @@ const INTEREST_ICON_MAP: Record<string, string> = {
   indoor: "Bildung", kochen: "Kreativ", zirkus: "Tanz",
 };
 
+interface NotificationPrefs {
+  nearbyEvents: boolean;
+  weekendTips: boolean;
+  rainAlerts: boolean;
+  favoriteOrganizers: boolean;
+}
+
+const DEFAULT_NOTIFICATIONS: NotificationPrefs = {
+  nearbyEvents: true,
+  weekendTips: true,
+  rainAlerts: false,
+  favoriteOrganizers: false,
+};
+
+const NOTIFICATION_ITEMS: {
+  key: keyof NotificationPrefs;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    key: "nearbyEvents",
+    label: "Neue Events in der Nähe",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z"/>
+        <circle cx="8" cy="6" r="1.5"/>
+      </svg>
+    ),
+  },
+  {
+    key: "weekendTips",
+    label: "Wochenend-Tipps freitags",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="12" height="12" rx="2"/>
+        <path d="M5 1v4M11 1v4M2 7h12"/>
+      </svg>
+    ),
+  },
+  {
+    key: "rainAlerts",
+    label: "Wetter-Alerts bei Regen",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 9a5 5 0 0 0-9.9-1H3a3 3 0 0 0 0 6h10a3 3 0 0 0 0-6z"/>
+        <path d="M6 14l-1 2M10 14l-1 2"/>
+      </svg>
+    ),
+  },
+  {
+    key: "favoriteOrganizers",
+    label: "Lieblingsveranstalter",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 1l1.8 3.6L14 5.1l-3 2.9.7 4.1L8 10l-3.7 2.1.7-4.1L2 5.1l4.2-.5L8 1z"/>
+      </svg>
+    ),
+  },
+];
+
 interface Child {
   name: string;
   age_bucket: string;
+}
+
+function formatMemberSince(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+}
+
+function ToggleSwitch({ value, onToggle }: { value: boolean; onToggle: () => void }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={value}
+      onClick={onToggle}
+      className="relative flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5BBAA7]"
+      style={{
+        width: "48px",
+        height: "28px",
+        background: value ? "#5BBAA7" : "var(--border)",
+      }}
+    >
+      <span
+        className="absolute top-0.5 left-0.5 rounded-full bg-white shadow-sm transition-transform duration-200"
+        style={{
+          width: "24px",
+          height: "24px",
+          transform: value ? "translateX(20px)" : "translateX(0)",
+        }}
+      />
+    </button>
+  );
 }
 
 export default function IchPage() {
@@ -45,10 +136,25 @@ export default function IchPage() {
   const [interests, setInterests]       = useState<string[]>([]);
   const [radius, setRadius]             = useState(15);
 
-  // Keep ref current so we can read latest prefs in effects without including it in deps
+  // Avatar
+  const [avatarId, setAvatarId]         = useState<string | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  // Stats
+  const [ratingCount, setRatingCount]   = useState(0);
+  const [memberSince, setMemberSince]   = useState<string | null>(null);
+  const [favoriteCategory, setFavoriteCategory] = useState<string | null>(null);
+
+  // Feedback
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [showFeedback, setShowFeedback]     = useState(false);
+
+  // Notifications
+  const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_NOTIFICATIONS);
+  const [pushPermission, setPushPermission] = useState<string | null>(null);
+
   useEffect(() => { prefsRef.current = prefs; });
 
-  // Supabase profile wins on conflict — sync remote interests to local prefs once on load
   useEffect(() => {
     if (!profile || !prefsMounted) return;
     const remoteInterests = Array.isArray(profile.interests) ? (profile.interests as string[]) : null;
@@ -61,16 +167,72 @@ export default function IchPage() {
   useEffect(() => {
     setMounted(true);
     setIsDark(document.documentElement.classList.contains("dark"));
+
+    // Bookmarks
     try {
       const raw = localStorage.getItem("kidgo_bookmarks");
       if (raw) setBookmarkCount(JSON.parse(raw).length);
     } catch {}
+
+    // user_preferences extended fields
+    try {
+      const prefsRaw = localStorage.getItem("user_preferences");
+      const parsed = prefsRaw ? JSON.parse(prefsRaw) : {};
+
+      if (parsed.avatar) setAvatarId(parsed.avatar);
+
+      if (parsed.memberSince) {
+        setMemberSince(parsed.memberSince);
+      } else {
+        const today = new Date().toISOString().split("T")[0];
+        localStorage.setItem("user_preferences", JSON.stringify({ ...parsed, memberSince: today }));
+        setMemberSince(today);
+      }
+
+      if (parsed.notifications) {
+        setNotifications({ ...DEFAULT_NOTIFICATIONS, ...parsed.notifications });
+      }
+    } catch {}
+
+    // Rated events
+    try {
+      const likedRaw = localStorage.getItem("kidgo_liked_events");
+      if (likedRaw) {
+        const liked: Record<string, unknown>[] = JSON.parse(likedRaw);
+        if (Array.isArray(liked)) {
+          setRatingCount(liked.length);
+          const catCounts: Record<string, number> = {};
+          liked.forEach((e) => {
+            const cat = e.category as string | undefined;
+            if (cat) catCounts[cat] = (catCounts[cat] || 0) + 1;
+          });
+          const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+          if (topCat) setFavoriteCategory(topCat);
+        }
+      }
+    } catch {}
+
+    // Feedback timing
+    try {
+      const lastDate = localStorage.getItem("last_feedback_date");
+      const lastRating = localStorage.getItem("last_feedback_rating");
+      if (lastRating) setFeedbackRating(parseInt(lastRating, 10));
+      if (!lastDate) {
+        setShowFeedback(true);
+      } else {
+        const daysSince = (Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince >= 7) setShowFeedback(true);
+      }
+    } catch {}
+
+    // Push permission
+    if (typeof Notification !== "undefined") {
+      setPushPermission(Notification.permission);
+    }
   }, []);
 
-  // Sync edit state from prefs when opening edit mode
   useEffect(() => {
     if (editMode && prefsMounted) {
-      // Load children from profile or prefs
       const profileChildren = (profile?.children as unknown as Child[]) || [];
       setChildren(profileChildren.length > 0 ? profileChildren : []);
       setInterests(prefs.interests);
@@ -80,6 +242,13 @@ export default function IchPage() {
 
   const stats     = mounted ? getLocalStats(bookmarkCount) : null;
   const levelInfo = stats ? getLevelProgress(stats.visitedEventIds.length) : null;
+
+  // Derived favorite category label
+  const displayFavCategory = favoriteCategory
+    ?? (prefs.interests.length > 0
+      ? INTERESTS.find((i) => i.id === prefs.interests[0])?.label ?? null
+      : null)
+    ?? "Noch keine";
 
   const toggleTheme = () => {
     const html = document.documentElement;
@@ -100,8 +269,6 @@ export default function IchPage() {
     setSaving(true);
     const updatedPrefs = { ...prefs, interests, radius };
     setPrefs(updatedPrefs);
-
-    // Persist to Supabase if logged in
     if (user) {
       try {
         await supabase
@@ -111,9 +278,49 @@ export default function IchPage() {
         console.error("Profile save error:", err);
       }
     }
-
     setSaving(false);
     setEditMode(false);
+  };
+
+  const handleAvatarSelect = (id: string) => {
+    setAvatarId(id);
+    try {
+      const raw = localStorage.getItem("user_preferences");
+      const current = raw ? JSON.parse(raw) : {};
+      localStorage.setItem("user_preferences", JSON.stringify({ ...current, avatar: id }));
+    } catch {}
+  };
+
+  const handleFeedbackSelect = async (rating: number) => {
+    setFeedbackRating(rating);
+    try {
+      localStorage.setItem("last_feedback_rating", String(rating));
+      localStorage.setItem("last_feedback_date", new Date().toISOString());
+    } catch {}
+    if (user) {
+      try {
+        await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, recommendation_rating: rating }, { onConflict: "user_id" });
+      } catch {}
+    }
+  };
+
+  const handleNotificationToggle = (key: keyof NotificationPrefs) => {
+    const updated = { ...notifications, [key]: !notifications[key] };
+    setNotifications(updated);
+    try {
+      const raw = localStorage.getItem("user_preferences");
+      const current = raw ? JSON.parse(raw) : {};
+      localStorage.setItem("user_preferences", JSON.stringify({ ...current, notifications: updated }));
+    } catch {}
+  };
+
+  const requestPushPermission = async () => {
+    if (typeof Notification !== "undefined") {
+      const perm = await Notification.requestPermission();
+      setPushPermission(perm);
+    }
   };
 
   const sections = [
@@ -170,6 +377,15 @@ export default function IchPage() {
 
   return (
     <main className="min-h-screen bg-[#F8F5F0] dark:bg-[#1A1D1C] pb-24">
+      {/* Avatar picker overlay */}
+      {showAvatarPicker && (
+        <AvatarPicker
+          selectedId={avatarId}
+          onSelect={handleAvatarSelect}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white/95 dark:bg-[#1e2221]/95 backdrop-blur-md border-b border-[var(--border)] px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -185,7 +401,6 @@ export default function IchPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Dark mode toggle */}
             {mounted && (
               <button
                 onClick={toggleTheme}
@@ -213,17 +428,43 @@ export default function IchPage() {
         {/* Profile card */}
         {user && profile && (
           <div
-            className="mb-6 rounded-2xl p-5 text-white"
+            className="mb-4 rounded-2xl p-5 text-white"
             style={{ background: "linear-gradient(135deg, #5BBAA7 0%, #4A9E8E 100%)" }}
           >
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold flex-shrink-0">
-                {(profile.display_name || user.email || "?")[0].toUpperCase()}
-              </div>
+              {/* Avatar circle — tap to open picker */}
+              <button
+                onClick={() => setShowAvatarPicker(true)}
+                aria-label="Avatar ändern"
+                className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 hover:bg-white/30 transition active:scale-95 overflow-hidden relative group"
+              >
+                {avatarId ? (
+                  <div className="w-12 h-12">
+                    <AnimalSVG id={avatarId} />
+                  </div>
+                ) : (
+                  <span className="text-2xl font-bold">
+                    {(profile.display_name || user.email || "?")[0].toUpperCase()}
+                  </span>
+                )}
+                <div className="absolute inset-0 rounded-full bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.5 2.5a1.5 1.5 0 0 1 2.1 2.1L5 12.2l-3 .8.8-3 7.7-7.5z"/>
+                  </svg>
+                </div>
+              </button>
+
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-lg leading-tight truncate">
-                  {profile.display_name || user.email?.split("@")[0] || "Nutzer"}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-lg leading-tight truncate">
+                    {profile.display_name || user.email?.split("@")[0] || "Nutzer"}
+                  </p>
+                  {avatarId && (
+                    <span className="text-white/70 text-xs font-medium">
+                      {ANIMALS.find((a) => a.id === avatarId)?.label}
+                    </span>
+                  )}
+                </div>
                 {levelInfo && (
                   <div className="mt-1.5">
                     <p className="text-white/80 text-xs mb-1">
@@ -245,6 +486,77 @@ export default function IchPage() {
           </div>
         )}
 
+        {/* Familien-Statistik */}
+        {mounted && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3 px-0.5">Eure Aktivität</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  value: String(bookmarkCount),
+                  label: "Events gemerkt",
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 2h10a1 1 0 0 1 1 1v11l-6-3-6 3V3a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  value: String(ratingCount),
+                  label: "Events bewertet",
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 1l1.5 3 3.5.5-2.5 2.5.6 3.5L8 9l-3.1 1.5.6-3.5L3 4.5l3.5-.5L8 1z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  value: displayFavCategory,
+                  label: "Lieblingsaktivität",
+                  small: true,
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 14s-6-3.5-6-8a6 6 0 0 1 12 0c0 4.5-6 8-6 8z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  value: memberSince ? formatMemberSince(memberSince) : "Heute",
+                  label: "Dabei seit",
+                  small: true,
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="12" height="12" rx="2"/>
+                      <path d="M5 1v4M11 1v4M2 7h12"/>
+                    </svg>
+                  ),
+                },
+              ].map(({ value, label, icon, small }) => (
+                <div
+                  key={label}
+                  className="rounded-2xl p-4 backdrop-blur-sm bg-white/60 dark:bg-white/5 border border-[var(--border)]"
+                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center"
+                      style={{ background: "rgba(91,186,167,0.15)", color: "#5BBAA7" }}
+                    >
+                      {icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`font-bold text-[var(--text-primary)] leading-tight ${small ? "text-base" : "text-xl"} truncate`}>
+                        {value}
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">{label}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Not logged in hint */}
         {!authLoading && !user && (
           <div className="mb-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 text-center">
@@ -261,7 +573,7 @@ export default function IchPage() {
           </div>
         )}
 
-        {/* Familienprofil — always visible, inline editable */}
+        {/* Familienprofil */}
         {prefsMounted && (
           <div className="mb-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
@@ -289,7 +601,6 @@ export default function IchPage() {
             </div>
 
             {!editMode ? (
-              /* Summary view */
               <div className="px-5 py-4 space-y-3">
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1.5">Altersgruppen</p>
@@ -314,7 +625,6 @@ export default function IchPage() {
                 )}
               </div>
             ) : (
-              /* Edit view */
               <div className="px-5 py-5 space-y-6">
 
                 {/* Children */}
@@ -349,7 +659,6 @@ export default function IchPage() {
                         >
                           {AGE_OPTIONS.map(({ key, label }) => (
                             <option key={key} value={key}>{label}</option>
-
                           ))}
                         </select>
                         <button
@@ -435,7 +744,7 @@ export default function IchPage() {
         )}
 
         {/* Navigation sections */}
-        <div className="space-y-3">
+        <div className="space-y-3 mb-6">
           {sections.map(({ href, icon, label, desc, color }) => (
             <Link
               key={href}
@@ -461,8 +770,120 @@ export default function IchPage() {
           ))}
         </div>
 
+        {/* Benachrichtigungen */}
+        {mounted && (
+          <div className="mb-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-[var(--border)]">
+              <div className="w-8 h-8 rounded-lg bg-kidgo-50 flex items-center justify-center" style={{ color: "#5BBAA7" }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 1a5 5 0 0 1 5 5v3l1.5 2.5h-13L3 9V6a5 5 0 0 1 5-5z"/>
+                  <path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/>
+                </svg>
+              </div>
+              <p className="font-bold text-[var(--text-primary)] text-sm">Benachrichtigungen</p>
+            </div>
+
+            {/* Push permission hint */}
+            {pushPermission !== "granted" && (
+              <div
+                className="mx-4 mt-4 rounded-xl px-4 py-3 flex items-start gap-3"
+                style={{ background: "rgba(91,186,167,0.08)", border: "1px solid rgba(91,186,167,0.2)" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                  <circle cx="8" cy="8" r="7"/>
+                  <path d="M8 5v3M8 11h.01"/>
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-[#5BBAA7]">Push-Benachrichtigungen aktivieren</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">Damit du keine Tipps verpasst.</p>
+                </div>
+                <button
+                  onClick={requestPushPermission}
+                  className="text-xs font-bold text-white px-3 py-1.5 rounded-lg flex-shrink-0 transition active:scale-95"
+                  style={{ background: "#5BBAA7" }}
+                >
+                  Aktivieren
+                </button>
+              </div>
+            )}
+
+            <div className="px-5 py-2">
+              {NOTIFICATION_ITEMS.map(({ key, label, icon }, idx) => (
+                <div
+                  key={key}
+                  className={`flex items-center gap-3 py-3.5 ${idx < NOTIFICATION_ITEMS.length - 1 ? "border-b border-[var(--border)]" : ""}`}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center"
+                    style={{ background: "rgba(91,186,167,0.1)", color: "#5BBAA7" }}
+                  >
+                    {icon}
+                  </div>
+                  <p className="flex-1 text-sm font-medium text-[var(--text-primary)]">{label}</p>
+                  <ToggleSwitch
+                    value={notifications[key]}
+                    onToggle={() => handleNotificationToggle(key)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empfehlungs-Qualität Feedback */}
+        {mounted && showFeedback && (
+          <div
+            className="mb-6 rounded-2xl p-5 backdrop-blur-sm bg-white/60 dark:bg-white/5 border border-[var(--border)]"
+            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+          >
+            <div className="flex items-start gap-2 mb-3">
+              <div
+                className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center"
+                style={{ background: "rgba(91,186,167,0.15)", color: "#5BBAA7" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 1l1.5 3 3.5.5-2.5 2.5.6 3.5L8 9l-3.1 1.5.6-3.5L3 4.5l3.5-.5L8 1z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-[var(--text-primary)] text-sm">Wie gut passen unsere Vorschläge?</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Dein Feedback hilft uns, Kidgo zu verbessern.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-between gap-1 mt-4">
+              {[
+                { emoji: "😐", label: "Schlecht", rating: 1 },
+                { emoji: "🙂", label: "Ok", rating: 2 },
+                { emoji: "😊", label: "Gut", rating: 3 },
+                { emoji: "😃", label: "Super", rating: 4 },
+                { emoji: "🤩", label: "Perfekt", rating: 5 },
+              ].map(({ emoji, label, rating }) => (
+                <button
+                  key={rating}
+                  onClick={() => handleFeedbackSelect(rating)}
+                  className={`flex flex-col items-center gap-1 flex-1 py-2.5 rounded-2xl transition-all duration-150 active:scale-95 ${
+                    feedbackRating === rating
+                      ? "bg-[rgba(91,186,167,0.15)] ring-2 ring-[#5BBAA7]"
+                      : "hover:bg-[var(--bg-subtle)]"
+                  }`}
+                >
+                  <span className="text-2xl">{emoji}</span>
+                  <span className="text-[10px] font-medium text-[var(--text-muted)]">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {feedbackRating !== null && (
+              <p className="text-xs text-[#5BBAA7] text-center mt-3 font-semibold">
+                Danke für dein Feedback! 🙏
+              </p>
+            )}
+          </div>
+        )}
+
         {/* App info */}
-        <div className="mt-8 text-center text-xs text-[var(--text-muted)] space-y-1">
+        <div className="mt-2 text-center text-xs text-[var(--text-muted)] space-y-1">
           <div className="flex items-center justify-center gap-4">
             <Link href="/datenschutz" className="hover:text-kidgo-500 transition">Datenschutz</Link>
             <span>·</span>

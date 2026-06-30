@@ -786,9 +786,11 @@ export default function Home() {
         if (cached) {
           const eventsData = JSON.parse(cached) as KidgoEvent[];
           setAllEventsPool(eventsData);
-          const ageFiltered = eventsData.filter(
-            (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
-          );
+          const ageFiltered = selectedBuckets.length === 0
+            ? eventsData
+            : eventsData.filter(
+                (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
+              );
           setAllEvents(ageFiltered);
           const now = new Date();
           const scored: ScoredEvent[] = ageFiltered
@@ -809,9 +811,11 @@ export default function Home() {
     if (_eventsCache && _sourcesCache && Date.now() - _cacheTimestamp < EVENTS_CACHE_TTL) {
       setSources(_sourcesCache);
       setAllEventsPool(_eventsCache);
-      const ageFiltered = _eventsCache.filter(
-        (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
-      );
+      const ageFiltered = selectedBuckets.length === 0
+        ? _eventsCache
+        : _eventsCache.filter(
+            (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
+          );
       setAllEvents(ageFiltered);
       const now = new Date();
       const scored: ScoredEvent[] = ageFiltered
@@ -893,12 +897,14 @@ export default function Home() {
       }
       setSmallSourceIds(smallIds);
 
-      const ageFiltered = eventsData.filter(
-        (e) =>
-          !e.alters_buckets ||
-          e.alters_buckets.length === 0 ||
-          selectedBuckets.some((b) => e.alters_buckets.includes(b))
-      );
+      const ageFiltered = selectedBuckets.length === 0
+        ? eventsData
+        : eventsData.filter(
+            (e) =>
+              !e.alters_buckets ||
+              e.alters_buckets.length === 0 ||
+              selectedBuckets.some((b) => e.alters_buckets.includes(b))
+          );
       setAllEvents(ageFiltered);
 
       const now = new Date();

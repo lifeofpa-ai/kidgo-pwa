@@ -24,7 +24,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, jsonHeaders } from "../_shared/cors.ts";
 import { inferCategories, inferIndoorOutdoor } from "../_shared/category-map.ts";
 
-const SOURCE_KEY = "gz-zuerich";
 const BASE_URL   = "https://gz-zh.ch";
 
 // Known GZ location slugs (verified from standorte page + live crawl)
@@ -205,7 +204,7 @@ async function discoverEventUrls(): Promise<string[]> {
 // ─── Event page parser ────────────────────────────────────────────────────────
 
 interface ParsedEvent {
-  externalId:  string;
+  postId:      string;
   title:       string;
   description: string | null;
   datum:       string | null;
@@ -227,10 +226,10 @@ async function parseEventPage(url: string): Promise<ParsedEvent | null> {
     return null;
   }
 
-  // Post ID as stable external ID
+  // Post ID as stable identifier (not stored directly — anmelde_link is the dedup key)
   const postIdM = html.match(/postid-(\d+)/);
   if (!postIdM) return null;
-  const externalId = postIdM[1];
+  const postId = postIdM[1];
 
   // Title from <h1>
   const titleM = html.match(/<h1[^>]*>(.*?)<\/h1>/is);
@@ -267,7 +266,7 @@ async function parseEventPage(url: string): Promise<ParsedEvent | null> {
   const { min: alterVon, max: alterBis } = parseAgeRange(hinweisSection ?? description);
 
   return {
-    externalId,
+    postId,
     title,
     description,
     datum,
@@ -320,14 +319,13 @@ Deno.serve(async (req) => {
         const alters_buckets = ageToBuckets(p.alterVon, p.alterBis);
 
         return {
-          external_id:     p.externalId,
-          external_source: SOURCE_KEY,
           titel:           p.title,
           beschreibung:    p.description,
           datum:           p.datum,
           datum_ende:      null,
           ort:             p.ort,
           anmelde_link:    p.url,
+          quelle_url:      p.url,
           preis_chf:       p.preisCHF,
           alter_von:       p.alterVon,
           alter_bis:       p.alterBis,
@@ -369,15 +367,17 @@ Deno.serve(async (req) => {
       const batch = rows.slice(i, i + BATCH);
       const { data, error } = await supabase
         .from("events")
-        .upsert(batch, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+        .upsert(batch, { onConflict: "anmelde_link", ignoreDuplicates: true })
         .select("id");
 
       if (error) {
+        console.error("scrape-gz-zuerich batch upsert error:", error);
         for (const row of batch) {
-          const { data: s } = await supabase
+          const { data: s, error: rowErr } = await supabase
             .from("events")
-            .upsert(row, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+            .upsert(row, { onConflict: "anmelde_link", ignoreDuplicates: true })
             .select("id");
+          if (rowErr) console.error("scrape-gz-zuerich row upsert error:", rowErr, row.anmelde_link);
           inserted += s?.length ?? 0;
         }
         continue;

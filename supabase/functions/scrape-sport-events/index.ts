@@ -23,13 +23,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, jsonHeaders } from "../_shared/cors.ts";
 
-const SOURCE_KEY = "sport-events-zh";
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SportEvent {
-  external_id:  string;
-  source:       string;
   titel:        string;
   beschreibung: string;
   datum:        string | null;
@@ -123,25 +119,25 @@ function parseSpielplanHtml(
       .find((t) => !homeTeamPattern.test(t) && t.length > 2 && !/^\d/.test(t))
       ?? "Gegner";
 
-    const id = `${SOURCE_KEY}-${teamName.toLowerCase().replace(/\s+/g, "-")}-${datum}`;
+    // anmelde_link carries the unique DB constraint, so it must be distinct per
+    // game even though all games share the same ticket page — append the date
+    // as a query param (ignored by the ticket page, still resolves correctly).
+    const link = `${eventLink}?spiel=${datum}`;
 
     events.push({
-      external_id:  id,
-      source:       SOURCE_KEY,
       titel:        `${teamName} – ${opponent}`,
       beschreibung: `Heimspiel ${teamName}. Familienfreundliches Stadionerlebnis mit Familientickets.`,
       datum,
       ort:          venue,
-      anmelde_link: eventLink,
+      anmelde_link: link,
     });
   }
 
   // Deduplicate by date (one event per home-game date)
   const seen = new Set<string>();
   return events.filter((e) => {
-    const key = `${e.external_id}-${e.datum}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
+    if (seen.has(e.anmelde_link!)) return false;
+    seen.add(e.anmelde_link!);
     return true;
   });
 }
@@ -206,14 +202,13 @@ Deno.serve(async (req) => {
   // request body if you want to include them in a single run.
 
   const rows = allEvents.map((ev) => ({
-    external_id:     ev.external_id,
-    external_source: SOURCE_KEY,
     titel:           ev.titel,
     beschreibung:    ev.beschreibung,
     datum:           ev.datum,
     datum_ende:      null,
     ort:             ev.ort,
     anmelde_link:    ev.anmelde_link,
+    quelle_url:      ev.anmelde_link,
     preis_chf:       null,
     alter_von:       4,
     alter_bis:       12,
@@ -258,15 +253,17 @@ Deno.serve(async (req) => {
       const batch = rows.slice(i, i + BATCH);
       const { data, error } = await supabase
         .from("events")
-        .upsert(batch, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+        .upsert(batch, { onConflict: "anmelde_link", ignoreDuplicates: true })
         .select("id");
 
       if (error) {
+        console.error("scrape-sport-events batch upsert error:", error);
         for (const row of batch) {
-          const { data: s } = await supabase
+          const { data: s, error: rowErr } = await supabase
             .from("events")
-            .upsert(row, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+            .upsert(row, { onConflict: "anmelde_link", ignoreDuplicates: true })
             .select("id");
+          if (rowErr) console.error("scrape-sport-events row upsert error:", rowErr, row.anmelde_link);
           inserted += s?.length ?? 0;
         }
         continue;

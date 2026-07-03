@@ -1,6 +1,101 @@
-# Handover — 3. Juli 2026 (Update 2)
+# Handover — 3. Juli 2026 (Update 3)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
+
+## Update 3 (3. Juli, QA-Lauf + Fixes nach Priorität)
+
+Auftrag: "mach einen Lauf als Qualitätsmanager" → Befunde in `docs/qa-befunde-2026-07-03.md`,
+danach: "Mach das alles nach eingestufter Prio: Kritisch, Hoch, dann Mittel und Niedrig" —
+alles umgesetzt, in dieser Reihenfolge. Details:
+
+**KRITISCH — scrape-kinderthur Datumsbug:** Ursprüngliche QA-Diagnose war ungenau
+("alle 534 Events haben dasselbe falsche Datum") — Nachprüfung zeigte: 533 von 534
+hatten `datum = NULL` (nur 1 hatte zufällig einen echten Wert). Ursache: die
+deployte v1 suchte per Regex nach `TT.MM.JJJJ` im WP-API `content.rendered`-Feld,
+das aber nur Fliesstext ohne Datum enthält. Das echte Datum steckt in
+schema.org-Microdata (`itemprop="startDate"`) auf der Event-Detailseite selbst.
+Zufallsfund: eine **bereits im lokalen Repo liegende, nie deployte Fassung**
+(`supabase/functions/scrape-kinderthur/index.ts`) hatte dieses Problem schon
+korrekt gelöst — deployt war aber weiterhin v1. Diese lokale Fassung als
+gebündelte Version deployt (v2 hatte noch einen Bug: `class_list` ist ein Array,
+kein String → v3 gefixt). Dedup jetzt über `external_source`/`external_id`
+(Unique-Index existierte schon, war nur ungenutzt). Cron `kinderthur-weekly`
+(Mo 04:30 UTC) eingerichtet.
+Bestehende 533 NULL-Zeilen per neuer Funktion `backfill-kinderthur-dates`
+(Supabase-only, wie `backfill-gz-zuerich-ages` nicht im Repo) zurückbefüllt:
+**471 von 533 gefixt (88%)**, dann abgebrochen, weil kinderthur.ch nach ~450
+Detailseiten-Abrufen anfing zu raten-limiten (fetchErrors stiegen von 19→55 pro
+Batch). Rest (62) heilt sich über den neuen wöchentlichen Cron graduell selbst.
+**Nebenwirkung, erwartet:** ein Teil der neu zurückbefüllten Daten stellte sich
+als bereits vergangen heraus (341 kinderthur-Zeilen jetzt mit korrektem, aber
+in der Vergangenheit liegendem Datum) — das war vorher unsichtbar (NULL), jetzt
+korrekt sichtbar als "vergangen". Wird automatisch durch den neuen
+`cleanup-past-events-daily`-Cron (siehe unten) bereinigt, keine manuelle Aktion
+nötig.
+
+**HOCH:**
+- `assign-event-images`: existierte schon (Pexels-API, sauber gebaut), lief nur
+  in keinem Cron. Einmalig für alle 880 bildlosen Events durchlaufen lassen
+  (9 Batches à 100) → **0 Events ohne Bild**. Jetzt `assign-event-images-daily`
+  (05:00 UTC, 80/Tag) eingeplant, damit neue Events automatisch ein Bild kriegen.
+- `cleanup_past_events()`: löscht (nicht nur markiert) Events mit
+  `datum < heute`. War nie im Cron. Jetzt `cleanup-past-events-daily` (03:30 UTC).
+- **Cross-Source-Duplikat** Schellen-Ursli (eventfrog + bybalzer, identische
+  MAAG-Halle-Vorstellung): bybalzer-Zeile auf rejected gesetzt.
+- **Wichtige Korrektur der ursprünglichen QA-Diagnose:** Was im QA-Bericht als
+  "Harry-Potter 7x Duplikat" auftauchte, war beim Nachprüfen **kein Duplikat**,
+  sondern ein viel grösserer, bisher unentdeckter Bug: `consume-eventfrog-api`
+  setzt `region` **immer** hart auf "Zürich", unabhängig vom echten `ort` —
+  die 7 "Harry P.Otter"-Zeilen liefen tatsächlich zeitgleich in München,
+  Mannheim, Stuttgart, Linz, Wolfsberg, Zeltweg (alle DE/AT, keine einzige in
+  der Schweiz). Der bestehende `geo_filter_non_zh`-Trigger kannte nur andere
+  CH-Kantone als Ausschluss, keine Länder ausserhalb der Schweiz. Trigger um
+  DE/AT-Grossstädte + Länderworte erweitert (Migration `013`), dann alle
+  bereits importierten Verstösse rückwirkend auf `rejected` gesetzt:
+  **111 Events** (nicht nur die Harry-Potter-Reihe — auch diverse generische
+  München-Listings wie "Neueröffnung Anytime Fitness", "Yogastunden" etc., die
+  offenbar über denselben eventfrog-Feed mitgezogen wurden). `ort` bleibt das
+  einzig verlässliche Signal, `region` ist für Herkunfts-Checks nicht nutzbar.
+  → **Für nächste Session:** `consume-eventfrog-api` selbst reagiert diesen
+  hartcodierten `region`-Wert nicht mehr — Trigger fängt es jetzt ab, aber der
+  Importer könnte grundsätzlich sauberer gefiltert werden.
+- 3 Views mit `SECURITY DEFINER` (`events_mit_quelle`, `quellen_dashboard`,
+  `event_rating_summary`) auf `SECURITY INVOKER` umgestellt.
+
+**MITTEL:**
+- RLS-Performance: 6 echte Duplikat-Policies entfernt (v.a. `events`: 4
+  überlappende SELECT-true-Policies → 1), plus `auth.uid()`/`auth.role()` in
+  allen verbleibenden Policies in `(select ...)` gewrappt (Supabase
+  `auth_rls_initplan`-Fix — wird pro Query statt pro Zeile ausgewertet,
+  funktional identisch). Security-Advisor: von ~19 Einträgen auf 1
+  (Leaked-Password, siehe unten) runter.
+- `pipeline_runs` hatte RLS aktiv, aber 0 Policies → explizite
+  `service_role`-only-Policy ergänzt.
+- `cleanup_past_events()` war öffentlich per RPC aufrufbar (SECURITY DEFINER,
+  `anon`/`authenticated` hatten EXECUTE) → `REVOKE ... FROM PUBLIC` (Achtung:
+  `REVOKE FROM anon, authenticated` allein reichte nicht, Postgres grantet
+  EXECUTE per Default an PUBLIC, davon erben alle Rollen — musste explizit
+  von PUBLIC entzogen werden, per `get_advisors` verifiziert).
+- **Nicht automatisierbar:** "Leaked Password Protection" (Supabase Auth) ist
+  weiterhin deaktiviert — kein SQL/MCP-Tool dafür verfügbar in dieser Session,
+  braucht manuelles Umlegen im Dashboard unter Authentication > Policies (2 Min).
+
+**NIEDRIG:**
+- `search_path` für alle 11 gemeldeten Functions gesetzt.
+- Fehlender FK-Index `user_bookmarks.event_id` ergänzt. 4 gemeldete "ungenutzte"
+  Indizes bewusst nicht angefasst (bei 2 Nutzern noch keine Aussage möglich).
+- Tote State-Variablen `wochenplanerOpen`/`challengeAccepted`/
+  `showChallengeEvents` aus `app/page.tsx` entfernt (wurden nirgends gerendert).
+
+**Alle SQL-Änderungen** dokumentiert in `supabase/migrations/013_qa_pass_2026_07_03.sql`
+(live zuerst per `execute_sql` angewendet, danach in die Migration übertragen —
+gleiche Reihenfolge wie in Migration 012).
+
+**Verifiziert:** `get_advisors(security)` danach nur noch 1 Eintrag (Leaked
+Password, siehe oben) statt vorher ~19. `get_advisors(performance)` zeigt
+weiterhin die erwarteten `auth_rls_initplan`/`multiple_permissive_policies`-
+Reste, da nicht jede einzelne Tabelle/Policy angefasst wurde (nur die mit
+echten Duplikaten) — bewusste Abwägung Aufwand/Nutzen bei aktuell 2 Nutzern.
 
 ## Update 2 (3. Juli, "mach 1,2,3" + Phase 4)
 

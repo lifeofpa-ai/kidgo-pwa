@@ -406,16 +406,11 @@ export default function Home() {
   const [dismissProfile, setDismissProfile] = useState<DismissProfile | null>(null);
 
   // Sprint 11: Collapsible sections (all closed by default)
-  const [wochenplanerOpen, setWochenplanerOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
 
   // Feature 4: Streak
   const [visitCount, setVisitCount] = useState(0);
-
-  // Sprint 3: Challenge
-  const [challengeAccepted, setChallengeAccepted] = useState(false);
-  const [showChallengeEvents, setShowChallengeEvents] = useState(false);
 
   // Sprint 3: Offline + PWA install
   const [isOffline, setIsOffline] = useState(false);

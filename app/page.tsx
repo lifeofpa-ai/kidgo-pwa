@@ -38,7 +38,7 @@ import {
   saveDismissalLocally,
   saveDismissalToSupabase,
 } from "@/lib/dismiss-reasons";
-import { trackEvent, trackFirstBookmark } from "@/lib/analytics";
+import { trackEvent, trackFirstBookmark, initScrollDepthTracking } from "@/lib/analytics";
 import { PhoneIcon, WifiOffIcon } from "@/components/Icons";
 import {
   getContextMode,
@@ -450,6 +450,9 @@ export default function Home() {
       setShowProfileSetup(true);
     }
   }, [authLoading, user, profile]);
+
+  // Phase 4.3 measurement prep (2026-07-03): scroll-depth for the "Für dich" home page.
+  useEffect(() => initScrollDepthTracking("home"), []);
 
   // Sprint 10: Sync bookmarks from Supabase when user logs in
   useEffect(() => {

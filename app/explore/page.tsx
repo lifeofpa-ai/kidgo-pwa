@@ -10,7 +10,7 @@ import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
 import { ChatFAB } from "@/components/home/ChatFAB";
 import { ChatSheet } from "@/components/home/ChatSheet";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 
 const PAGE_SIZE = 15;
 
@@ -191,6 +191,9 @@ export default function ExplorePage() {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Phase 4.3 measurement prep (2026-07-03): scroll-depth for the Explore page.
+  useEffect(() => initScrollDepthTracking("explore"), []);
 
   useEffect(() => {
     fetch("https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m")

@@ -1,6 +1,71 @@
-# Handover — 3. Juli 2026 (Update)
+# Handover — 3. Juli 2026 (Update 2)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
+
+## Update 2 (3. Juli, "mach 1,2,3" + Phase 4)
+
+Nutzer-Auftrag war: "mach alles der Reihe nach: 1, 2 danach 3" (Reihenfolge aus dem
+vorherigen Update-Vorschlag unten). Ergebnisse:
+
+**1. scrape-feriennet-Korrektur:** Die Annahme im Update oben war **falsch**. Beim
+Nachprüfen per SQL-Gruppierung nach URL-Muster zeigte sich: `scrape-feriennet`
+(feriennet.projuventute.ch-URLs) hatte **0** NULL-Alter-Zeilen. Der tatsächliche
+Verursacher der 480 fehlenden Alterswerte war `scrape-ferienplausch-uster`
+(JSON-API, ferienplausch-uster.ch/kurs/...-URLs) — nicht der HTML-Scraper.
+Kein Code-Fix nötig; **480/480 Events per einmaligem SQL-Backfill** repariert
+(Join gegen die Live-JSON-API der Quelle). Damit ist auch dieser Block jetzt
+sauber.
+
+**2. UX-Redesign (`docs/ux-audit.md` Phase 1-3):** Geprüft statt blind neu gebaut
+— **bereits vollständig implementiert**. Bestätigt u.a.: 4-Tab-Bottom-Nav
+(`components/BottomNav.tsx`) exakt wie Audit-Wireframe, `app/page.tsx` auf 1736
+Zeilen runtergebrochen (Audit nannte 4000+) mit Hero/CardStack/Weekend/Seasonal-
+Komponentenstruktur, Explore-Seite mit List/Map-Toggle, Planer mit Wochen-Strip,
+Ich-Seite konsolidiert, kontextuelle Startseite (`lib/context-mode.ts`,
+Weekend/Rain/Evening/Holiday-Modi) — alles schon da. Keine Änderung vorgenommen,
+um keine Doppelarbeit zu machen. Zwei tote State-Variablen in `app/page.tsx`
+notiert als Cleanup-Kandidaten (`wochenplanerOpen`, `challengeAccepted`/
+`showChallengeEvents` — werden gesetzt, aber nirgends gerendert), nicht entfernt.
+
+**3. Repo-Aufräumen (25 unstaged Dateien):** Beim Prüfen zeigte sich: das bash-Tool
+zeigte 24-26 "geänderte" Dateien, aber `git diff --stat -w` (Whitespace ignorieren)
+bewies: 24 davon waren **reines Zeilenendezeichen-Rauschen** (CRLF-Normalisierung
+durch die Sandbox-Mount-Schicht), kein echter Inhalt. Ein frisches natives Git-GUI-
+Fenster (Rescan) zeigte tatsächlich nur **2** echte Dateien. **Wichtige Lektion:**
+`git status`/`git diff` über das bash-Tool auf diesem Repo ist auf diesem Sandbox-
+Mount nicht zuverlässig — bei Zweifel immer mit nativem Git-GUI oder dem Nutzer
+gegenchecken, nicht dem bash-Output blind vertrauen.
+
+**Phase 4 (Validation) — Blocker entdeckt:** Auf "Nein, starte Phase 4" hin geprüft:
+`auth.users` = 2 Nutzer, `user_bookmarks`/`event_reviews`/`event_dismissals`/
+`user_profiles`/`places` = 0 Zeilen, GA4 sendet nur clientseitig (kein Server-Log in
+Supabase). Phase 4 (A/B-Test, Analytics-Review, Interviews) braucht aber echten
+Traffic. Nutzer-Entscheidung: **"Noch nicht live — Messung vorbereiten"** statt eine
+Analyse aus 0 Datenpunkten zu erfinden. Umgesetzt:
+
+- **`docs/measurement-plan.md`** (neu): Event-Tracking-Checkliste (Ist/Soll gegen
+  Audit 4.1/4.3), GA4-Dashboard-Plan (5 konkrete Explorations, für später einzurichten),
+  Begründung warum ein rückwirkender A/B-Test "alt vs. neu" nicht mehr geht
+  (alte Seite existiert im Code nicht mehr) + Vorschlag für ein Feature-Flag-basiertes
+  A/B-Test-Muster für künftige Änderungen.
+- **`docs/user-interview-guide.md`** (neu): Recruiting-Nachricht, Interview-Skript
+  (Task "Finde ein Event für Samstag", think-aloud, Nachfragen), Auswertungsbogen —
+  für Phase 4.2. Das ist die einzige Phase-4-Massnahme, die **ohne** echten Traffic
+  sofort durchführbar ist (Patrick muss die Interviews selbst führen).
+- **Code-Änderung, `lib/analytics.ts`:** zwei bisher fehlende Metriken ergänzt —
+  `scroll_depth` (25/50/75/100%, aktiviert auf Home + Explore via neuen
+  `useEffect`-Hooks in `app/page.tsx`/`app/explore/page.tsx`) und
+  `time_to_first_interaction` (ms bis zum ersten Klick/Suche/Chat-Öffnen o.ä.,
+  zentral in `trackEvent()` eingebaut, kein Aufruf-Ort geändert). Beides war laut
+  Audit 4.1/4.3 gefordert, existierte aber noch nicht.
+- **Nicht gemacht (bewusst, siehe measurement-plan.md):** kein Heatmap-Tool
+  (z.B. Clarity) eingebunden — das ist eine Produktentscheidung (neues externes
+  Tool), keine reine Code-Ergänzung; sollte Patrick vor Go-Live selbst entscheiden.
+
+**Noch offen:** Diese Code-Änderungen (`lib/analytics.ts`, `app/page.tsx`,
+`app/explore/page.tsx`) sowie die zwei neuen Docs sind **noch nicht committet** —
+gleiches Git-Lock-Verhalten wie unten beschrieben ist zu erwarten; ggf. wieder
+Git GUI verwenden.
 
 ## Update (3. Juli, Fortsetzung nach PO-Priorität)
 

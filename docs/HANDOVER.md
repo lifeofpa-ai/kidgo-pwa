@@ -28,8 +28,24 @@ Produktion lief die ganze Zeit auf dem letzten guten Build vom 3. Juli
 zwar in Supabase live, aber nicht im Frontend-Code deployed.
 
 Fix: die tote Zeile `if (localStorage.getItem("kidgo_challenge_accepted") === "true")
-setChallengeAccepted(true);` entfernt. Mit `tsc --noEmit` lokal verifiziert (keine
-Fehler mehr). Ein Restposten: `app/datenschutz/page.tsx` listet
+setChallengeAccepted(true);` entfernt, committet als `2bd5430f` und gepusht. Vercel hat
+danach automatisch neu gebaut — **Build erfolgreich, jetzt live auf Production**
+(verifiziert im Vercel-Dashboard: `2bd5430` zeigt "Ready" + Production-Badge). Lokal
+vorab mit `tsc --noEmit` verifiziert (keine Fehler mehr).
+
+**Wichtige Korrektur beim Nachschauen in der Deployment-Historie:** Der Build war nicht
+erst seit `9c07e9f` kaputt, sondern schon seit `068df8d` ("fix(qa): kinderthur date bug,
+DE/AT geo-leak, image/cleanup...", 3. Juli, aus einer früheren Session/Update 3) —
+ebenfalls "Error" im Vercel-Log. D.h. die Produktion lief seit dem 3. Juli durchgehend
+auf dem letzten *davor* erfolgreichen Build (`f376229`), und alle Frontend-Änderungen
+aus mehreren Sessions seither (u.a. Task #34 Dead-Code-Cleanup, das den Fehler
+verursacht hat) wurden nie tatsächlich ausgeliefert, obwohl sie als "erledigt" markiert
+waren. **Prozess-Lücke:** Ein Commit/Push wurde bisher nicht automatisch gegen einen
+erfolgreichen Vercel-Build verifiziert. Empfehlung für künftige Sessions: nach jedem
+Push kurz das Vercel-Dashboard (oder `vercel build` lokal) prüfen, nicht nur den
+Git-Push selbst als Erfolgskriterium nehmen.
+
+Restposten (nicht kritisch): `app/datenschutz/page.tsx` listet
 `kidgo_challenge_accepted` noch als beschriebenen localStorage-Key in der
 Datenschutzerklärung — rein informativ, kein Code-Fehler, aber inzwischen ungenutzt
 (nicht in dieser Session bereinigt, da ausserhalb des akuten Build-Fehlers).

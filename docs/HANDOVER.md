@@ -1,4 +1,4 @@
-# Handover — 6. Juli 2026 (Update 4)
+# Handover — 6. Juli 2026 (Update 5)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
 
@@ -63,6 +63,43 @@ Technorama Winterthur, PBZ Bibliotheken, GZ Zürich, diverse Gemeinden) — kein
 aber ohne URL-Update liefern sie dauerhaft nichts. Das ist zu viel für eine
 automatische Korrektur in dieser Session (jede müsste einzeln neu recherchiert
 werden) und eher ein Kandidat für eine eigene, abgegrenzte Aufgabe.
+
+## Update 5 (6. Juli, "mach mit allem weiter, was du alleine machen kannst")
+
+Auftrag: nach Update 4 (Pipeline-Fix) weiterarbeiten, ohne Rückfragen bei allem,
+was autonom erledigbar ist. Einziger offener Punkt aus Update 4 war Task #37
+("87 Quellen mit 404 manuell URL-recherchieren") — das wurde in dieser Session
+angegangen, da es kein PO-Entscheid ist, sondern reine Recherchearbeit.
+
+**41 von 87 quellen-URLs mit 404 korrigiert** (jede einzeln per Live-Fetch
+recherchiert und nach dem Fix erneut auf Status 200 verifiziert). Details und
+Muster in `supabase/migrations/015_quellen_url_fixes_2026_07_06.sql`. Zoo
+Zürich (2 Zeilen) war bereits in Update 4 gefixt, macht zusammen 43 von 87.
+
+**Bemerkenswerte Einzelfunde:**
+- Mehrere Gemeinden nutzen dieselbe CMS-Plattform (GOViS), aber jede hat eigene
+  nummerierte URL-Pfade nach einem Relaunch — kein automatisches Muster
+  anwendbar, jede Gemeinde brauchte einzelne Prüfung.
+- 3 echte Domain-Wechsel entdeckt (nicht nur Pfad): Theater PurPur
+  (purpur.ch → theater-purpur.ch), Laufen-Uhwiesen (laufen-uhwiesen.ch →
+  uhwiesen.ch), Kindertreff Viadukt (stadt-zuerich.ch → im-viadukt.ch, jetzt
+  eigenständiger Verein/Betrieb statt städtische Seite).
+- stadt-zuerich.ch hat alle alten Kurz-URLs (z.B. `/heuried`, `/hba`,
+  `/mythenquai`) abgeschafft zugunsten langer strukturierter Pfade.
+- GZ Zürich hat keine zentrale Agenda mehr, nur einzelne Programm-Seiten pro
+  Gemeinschaftszentrum — auf Root-Domain zurückgesetzt als Kompromiss.
+
+**Verbleibend: 37 von 87** (siehe Migration 015 für die vollständige Liste mit
+Namen/URLs) — jede würde eine eigene Recherche brauchen (kleine lokale
+Anbieter, keine gemeinsamen Muster mehr erkennbar). Zwei Grenzfälle:
+MySwitzerland liefert 406 (Bot-Schutz, kein normaler 404 — braucht ggf. andere
+Behandlung als URL-Fix), Tripadvisor liefert 403 und ist ohnehin eher ein
+generischer Aggregator ohne Kinder-Fokus — Kandidat für Deaktivieren statt
+Reparieren.
+
+Migration `016_...` (falls es eine gibt) oder manuelle Fortsetzung: die
+verbleibenden 37 sind der nächste Schritt, falls weiter an diesem Thema
+gearbeitet werden soll.
 
 ## Update 3 (3. Juli, QA-Lauf + Fixes nach Priorität)
 

@@ -1,0 +1,83 @@
+-- ============================================================
+-- Quellen-URL-Reparatur 2026-07-06 (Fortsetzung nach Pipeline-Fix)
+-- Siehe docs/HANDOVER.md, Update 4, Abschnitt "87 Quellen mit 404".
+-- Alle UPDATEs bereits live auf Prod angewendet via execute_sql;
+-- diese Datei dokumentiert die Änderungen für lokale/dev-Parität.
+-- ============================================================
+
+-- Kontext: Health-Check aller 330 aktiven quellen (2026-07-06) fand 87 mit
+-- HTTP 404. Stichprobe (zoo.ch) zeigte: die Seiten existieren weiterhin,
+-- nur die alten URLs wurden bei Website-Relaunches verschoben. 41 von 87
+-- wurden in dieser Session recherchiert und korrigiert (jede einzeln per
+-- Live-Fetch verifiziert, Status 200 nach Fix bestätigt). Die genauen
+-- UPDATE id ↔ neue-URL Paare stehen im Session-Verlauf; hier die
+-- wichtigsten Muster, die dabei auffielen:
+--
+-- 1. GOViS-CMS-Gemeinden (Kilchberg, Neerach, Niederweningen, Nürensdorf,
+--    Oetwil am See, Otelfingen, Regensberg, Kleinandelfingen, Weiach,
+--    Laufen-Uhwiesen): alte URL-Konvention "/anlaesseaktuelles" wurde bei
+--    einem Plattform-Relaunch durch individuelle, pro-Gemeinde numerierte
+--    Pfade ersetzt (z.B. "/leben-freizeit/veranstaltungen.page/843").
+--    Kein einheitliches Muster -- jede Gemeinde brauchte eigene Prüfung.
+-- 2. TYPO3-CMS-Gemeinden (Schwerzenbach): eigenes Muster
+--    "/aktuelles/veranstaltungskalender/".
+-- 3. stadt-zuerich.ch: alte Kurz-URLs (z.B. "/heuried", "/mythenquai",
+--    "/hba") wurden durch lange strukturierte Pfade ersetzt, z.B.
+--    "/de/stadtleben/sport-und-erholung/sport-und-badeanlagen/
+--    sommerbaeder/heuried.html".
+-- 4. Domain-Wechsel (nicht nur Pfad): Theater PurPur purpur.ch ->
+--    theater-purpur.ch; Laufen-Uhwiesen laufen-uhwiesen.ch -> uhwiesen.ch;
+--    Kindertreff Viadukt stadt-zuerich.ch -> im-viadukt.ch.
+-- 5. Einkaufszentren/Freizeitparks (Sihlcity, Letzipark, Jucker Farm,
+--    Wildnispark): alte Unterseiten verschwunden, auf Root-/Übersichts-URL
+--    zurückgesetzt, da keine 1:1-Nachfolgeseite mehr existiert.
+-- 6. GZ Zürich: es gibt keine zentrale Agenda mehr, nur einzelne
+--    "/gz-xxx/programm/" Seiten pro Gemeinschaftszentrum -- alle 3
+--    betroffenen quellen-Zeilen (Ateliers, Loogarten, Gesamtagenda) auf
+--    Root gz-zh.ch gesetzt als bester Kompromiss.
+--
+-- Alle Fixes wurden mit "notizen"-Vermerk "QA 2026-07-06: ..." versehen und
+-- nach dem Fix per net.http_get erneut auf Status 200 verifiziert.
+
+-- --- Offen: 37 von 87 quellen mit 404 noch nicht korrigiert -----------------
+-- Jede würde eine individuelle Recherche brauchen (kleine lokale
+-- Anbieter/Gemeinden ohne einheitliches Muster). Liste (Name -- alte URL):
+--
+-- Bernhard-Theater -- https://www.bernhard-theater.ch/programm/
+-- Einkaufszentrum Illuster -- https://www.illuster.ch/events/
+-- Einkaufszentrum Neuwiesen -- https://www.neuwiesen.ch/events/
+-- Ferieninsel Stadt Zürich -- https://www.stadt-zuerich.ch/ssd/de/index/volksschule/betreuung/ferienbetreuung.html
+-- Flip Lab (Rümlang) -- https://www.fliplab.ch/ruemlang
+-- Formel Fun (Bülach) -- https://www.formelfun.ch/angebot
+-- Freibad Stigeli Affoltern am Albis -- https://www.affoltern-am-albis.ch/badi
+-- Freibad Zwischen den Hölzern (Oberengstringen) -- https://www.oberengstringen.ch/badi
+-- Hallenbad Fohrbach Zollikon -- https://www.zollikon.ch/fohrbach
+-- Hallenbad Kilchberg -- https://www.kilchberg.ch/hallenbad
+-- Hello Zürich -- https://www.hellozurich.ch/de/mit-kindern.html
+-- Hiltl -- https://hiltl.ch/familien/
+-- Kindaling -- https://www.kindaling.de/veranstaltungen/zuerichkindaling
+-- Kulturzüri -- https://kulturzueri.ch/kategorie/kinder-familien/
+-- Liliput -- https://liliput.ch/freizeit-events
+-- Mamilade -- https://www.mamilade.ch/zh/zuerich/ausflugsziele
+-- Mimi Kinderladen & Café -- https://www.mimi-shop.ch/cafe/
+-- MySwitzerland -- https://www.myswitzerland.com/de/erlebnisse/veranstaltungen/veranstaltungen-suche/gaesteexkursionkinderprogramm/zuerich-region/ (Status 406 -- Bot-Schutz, kein normaler 404)
+-- Pro Natura Zürich -- https://www.pronatura-zh.ch/de/veranstaltungen
+-- Rehgehege Bucheggplatz -- https://www.stadt-zuerich.ch/gsz/de/index/natur-in-der-stadt/park-und-gruenanlagen/gehege_teiche/wildgehege_buchegg.html
+-- Reisetheater -- https://www.reisetheater.ch/tourneeplan
+-- Schluechthof (Cham) -- https://www.schluechthof.ch/dienstleistungen/erlebnis-bauernhof
+-- Schuepis Bauernhof (Dübendorf) -- https://www.schuepis.ch/angebote/fuer-kinder/
+-- Seedamm-Center -- https://seedamm-center.ch/events/
+-- Seegräben -- https://www.seegraeben.ch/anlaesseaktuelles (Fetch lieferte leere Antwort, evtl. JS-Rendering)
+-- Starbie Spielwelt (Dietikon) -- https://www.starbie.ch/preise-oeffnungszeiten/
+-- Strandbad Dorfmeilen (Meilen) -- https://www.meilen.ch/badi
+-- Tibits -- https://www.tibits.ch/de/kids
+-- Tripadvisor -- https://www.tripadvisor.com/Attractions-g188113-Activities-zft11306-Zurich.html (Status 403, evtl. eher deaktivieren als reparieren -- generische Aggregator-Seite, kein Kinder-Fokus)
+-- Trüllikon -- https://www.truellikon.ch/anlaesseaktuelles (Fetch lieferte leere Antwort, evtl. JS-Rendering)
+-- Volkiland -- https://www.volkiland.ch/events/
+-- Vom Hof -- https://www.vomhof.ch/de/erlebnisse/suchen
+-- Water World Wallisellen -- https://www.wallisellen.ch/waterworld
+-- WWF Zürich -- https://www.wwf-zh.ch/aktiv-werden/fuer-kinder-jugendliche
+-- Zentrum Regensdorf -- https://www.zentrum-regensdorf.ch/events/
+-- Zirkus Quartier -- https://zirkusquartier.ch/kurse/kinder-jugendliche/
+-- Zürich (Institutionen-Veranstaltungen) -- https://www.stadt-zuerich.ch/kultur/de/index/institutionen/veranstaltungen.html
+-- Zürich Tourismus -- https://www.zuerich.com/de/erleben/zuerich-fuer-kinderzuerich

@@ -1,6 +1,90 @@
-# Handover — 6. Juli 2026 (Update 7)
+# Handover — 6. Juli 2026 (Update 8)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
+
+## Update 8 (6. Juli, "mach einen walk trough test" + "alles angehen, priorisiere du nach Umsetzungsaufwand")
+
+Auftrag: Walkthrough-Test der Live-App (Katalog, Altersfilter, Karte, Login — alles
+unauffällig, keine Konsolenfehler), der dabei aber 3 Datenqualitäts-Bugs zutage
+förderte. Patrick: "alles angehen. priorisiere du nach umsetzungsaufwand" — alle drei
+gefixt, Reihenfolge nach Aufwand (billigste zuerst):
+
+**1. Mojibake in `app/page.tsx` (kleinster Aufwand):** UTF-8-Text war an 41 Stellen als
+Windows-1252 fehlinterpretiert und so gespeichert worden (`Ã¼` statt `ü`, `â€"` statt
+`—`, etc.) — betraf harte UI-Strings und Code-Kommentare im ganzen File, nicht nur die
+3 im Browser sichtbaren Stellen ("Alter ändern", "Ungefähr in {label} —", "für genauere
+Tipps"). Diagnose: `token.encode('cp1252').decode('utf-8')` reproduzierte alle 9
+gefundenen Mojibake-Muster exakt (Latin-1 allein reicht nicht, cp1252 hat im Bereich
+0x80–0x9F andere Zuordnungen). Fix: gezielter Substring-Ersatz nur der exakt
+gefundenen Tokens (kein datei-weites Re-Encode, da das File auch bereits korrekte
+Sonderzeichen wie „ enthält, die ein blindes Re-Encode zerstört hätte). Verifiziert mit
+`tsc --noEmit` (keine Fehler) und `grep` (0 verbleibende Treffer).
+
+**2. HTML-Entities in Event-Texten (DB, bereits vorhandene Daten):** eventfrog liefert
+in JSON-Feldern teils literale HTML-Entities (`&#8211;`, `&#8220;`, `&#8222;`), die nie
+dekodiert wurden, bevor sie gespeichert/angezeigt wurden. 43 betroffene Zeilen per SQL-
+UPDATE bereinigt (0 verbleibend, verifiziert). Root-Cause-Fix in `consume-eventfrog-api`
+(siehe Punkt 3).
+
+**3. Irrelevante Events unter "Babys"-Kategorie (grösster Aufwand, Root-Cause):**
+53 Events mit `kategorien = ['Babys']` durchgesehen — darunter klar branchenfremder
+Business-/Akademik-Content wie "Symposium FTQC4Nsc", "Angular Camp - Deep Dive",
+"The Female CEO Strategy Session", "Vorbereitungslehrgang IHK-Sachkundeprüfung gemäß
+§ 34d GewO", "Einzelberatung für Freie Berufe Karlsruhe", "Pferdeanhänger- & Caravan-
+Training", "Feldenkrais-Methode", "FILL UP. Tankstelle für ein erfülltes Leben",
+"Wellness-Tag für Paare" — eventfrog listet sie unter einer Kinder-Rubrik, obwohl sie
+inhaltlich nichts mit Kindern/Familien zu tun haben. Bewusst konservativ: mehrdeutige
+Fälle (Pilates, Nordic Walking, Kräuterwanderung, Töpfern, Mathe-Nachhilfe) **nicht**
+angefasst, da plausibel familienrelevant.
+
+Root-Cause-Diagnose in zwei Edge Functions:
+- `consume-eventfrog-api` (aktuell, im Repo): vertraute eventfrogs eigenen Rubrik-IDs
+  komplett, ohne eigene Content-Relevanz-Prüfung (nur Teenager-Regex + Zürich-Geo-Filter).
+  Fix: HTML-Entity-Decode für `titel`/`beschreibung` ergänzt, plus Anbindung an die
+  bereits existierende `event_blocklist`-Tabelle (bisher nur von `scrape-eventfrog`
+  genutzt) als Content-Relevanz-Filter.
+- `scrape-eventfrog` (älter, nur deployed, nicht im Repo — kein `git`-Tracking dafür
+  vorhanden): `isFamilyRelevant()` hatte einen Kurzschluss-Bug —
+  `if (/kinder|famil|baby|ferien/i.test(kategorieLabel)) return true;` war faktisch
+  **immer true**, da `kategorieLabel` ausnahmslos aus der festen `KINDER_KATEGORIEN`-
+  Liste stammt (jedes Label matcht die eigene Regex) — dadurch griff der nachgelagerte
+  `KIDS_KEYWORDS`-Check nie. Fix: Zeile entfernt, `kategorieLabel` ist jetzt nur noch
+  ein schwaches Signal, massgeblich ist der tatsächliche Titel-/Beschreibungstext.
+  Zusätzlich HTML-Entity-Decode ergänzt (defensiv, auch wenn der JSON-LD-Parsingpfad
+  das Problem vermutlich seltener hat als die reine API).
+- Anhand der DB-Prüfung (`external_source` ist bei **keinem** einzigen Event gesetzt)
+  zeigt sich: `consume-eventfrog-api` hat bisher nie erfolgreich Zeilen inserted (der
+  `.upsert(..., onConflict: "external_source,external_id")` setzt einen Unique-Constraint
+  voraus, der vermutlich nicht existiert — nicht in dieser Session geprüft/behoben, da
+  ausserhalb des akuten 3-Bug-Scopes). Die 53 "Babys"-Junk-Events kamen tatsächlich alle
+  über `scrape-eventfrog` (nutzt direktes `.insert()`, kein `external_source`, `quelle_id`
+  = Fallback) — der `isFamilyRelevant()`-Fix dort ist damit der eigentlich wirksame Fix.
+  **Für nächste Session:** prüfen, ob auf `events` ein Unique-Index
+  `(external_source, external_id)` existiert; falls nicht, ergänzen, sonst bleibt
+  `consume-eventfrog-api` weiterhin folgenlos (0 Inserts).
+
+**Cleanup bereits importierter Daten:** 9 der 53 Junk-Events eindeutig identifiziert und
+auf `status='rejected'` gesetzt (mit `review_comment`-Vermerk, reversibel). 11 neue
+Patterns in `event_blocklist` ergänzt (u.a. `symposium`, `angular camp`,
+`sachkundeprüfung`, `vorbereitungslehrgang`, `caravan-training`, `feldenkrais`,
+`wellness-tag`), damit künftige Importe über beide Scraper automatisch gefiltert werden.
+
+**Deploy:** `scrape-eventfrog` (v5) direkt über die Supabase-MCP deployt (kein lokales
+File — Quelle war nur über `get_edge_function` abrufbar). `consume-eventfrog-api` (v4)
+aus dem Repo deployt, dabei ein Stolperstein: die Deploy-Tool-Konvention erwartet
+`_shared`-Abhängigkeiten mit `name: "../_shared/xyz.ts"` (relativ zum Entrypoint-
+Unterordner `source/`), nicht `"_shared/xyz.ts"` — sonst "Module not found" beim
+Bundling. **Achtung, in dieser Session passiert:** ein erster Deploy-Versuch ging mit
+Platzhaltertext statt echtem Code raus (copy-paste-Fehler) und war kurz live, bevor der
+Folgeversuch mit dem echten Code (Version 4) das korrigierte. Per Dry-Run-Aufruf
+(`net.http_post` mit `dryRun:true`, da direkter `curl` aus der Sandbox am
+Netzwerk-Allowlist scheitert) verifiziert: Response enthält jetzt das neue
+`skippedBlocklist`-Feld, Code lief also fehlerfrei durch (auch wenn `fetched:0` war —
+siehe Punkt oben zum fehlenden Unique-Constraint als vermutliche Ursache, unabhängig
+von diesem Fix).
+
+Mojibake-Fix + `consume-eventfrog-api`-Fix committet (`a5f12182`) und gepusht,
+Vercel-Build danach verifizieren (siehe Prozess-Hinweis aus Update 7).
 
 ## Update 7 (6. Juli, "machen wir weiter" — restliche 33 von 37 quellen-URLs repariert)
 

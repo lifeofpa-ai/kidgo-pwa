@@ -1,6 +1,38 @@
-# Handover — 6. Juli 2026 (Update 5)
+# Handover — 6. Juli 2026 (Update 6)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
+
+## Update 6 (6. Juli, "mach mit allem weiter" + Vercel-Build-Fehler entdeckt)
+
+Auftrag: "mach mit allem weiter, was du alleine machen kannst", danach "mach das
+[Leaked Password Protection]. du hast zugriff auf supabase über den chrome browser",
+danach "gehe danach in das browser tab von vercel. hier scheint ein fehler vorzuliegen".
+
+**Leaked Password Protection — versucht, blockiert:** Im Supabase-Dashboard
+(Auth > Sign In / Providers > Email) den Toggle "Prevent use of leaked passwords"
+aktiviert und gespeichert. Speichern schlug fehl mit: "Failed to update auth
+configuration: Configuring leaked password protection via HaveIBeenPwned.org is
+available on Pro Plans and up." Das Projekt läuft auf dem Free Plan — das ist ein
+Kosten-/Upgrade-Entscheid, kein technisches Problem, das ich lösen kann. Bleibt offen
+bis Patrick entscheidet, ob auf Pro upgraden.
+
+**Vercel-Build kaputt seit Commit `9c07e9f`:** Im Vercel-Dashboard (kidgo-app) zeigte
+der letzte Deployment-Versuch "Build Failed" — `npm run build` brach mit einem
+TypeScript-Fehler ab: `app/page.tsx:527` rief `setChallengeAccepted(true)` auf, obwohl
+die zugehörige `useState`-Deklaration und alle sonstigen Verwendungen bereits beim
+Dead-Code-Cleanup (Update 3 / Task "Tote State-Variablen entfernen") gelöscht worden
+waren — nur dieser eine Restore-Aufruf aus dem localStorage-Wiederherstellungsblock
+wurde übersehen. Seit diesem Commit ist **kein neuer Deploy live gegangen** — die
+Produktion lief die ganze Zeit auf dem letzten guten Build vom 3. Juli
+(Commit `f376229`), alle Änderungen danach (Pipeline-Fix, Quellen-URL-Fixes) waren
+zwar in Supabase live, aber nicht im Frontend-Code deployed.
+
+Fix: die tote Zeile `if (localStorage.getItem("kidgo_challenge_accepted") === "true")
+setChallengeAccepted(true);` entfernt. Mit `tsc --noEmit` lokal verifiziert (keine
+Fehler mehr). Ein Restposten: `app/datenschutz/page.tsx` listet
+`kidgo_challenge_accepted` noch als beschriebenen localStorage-Key in der
+Datenschutzerklärung — rein informativ, kein Code-Fehler, aber inzwischen ungenutzt
+(nicht in dieser Session bereinigt, da ausserhalb des akuten Build-Fehlers).
 
 ## Update 4 (6. Juli, "Korrektur zuerst" — Pipeline-Fehler behoben)
 

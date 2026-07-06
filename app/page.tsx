@@ -524,9 +524,6 @@ export default function Home() {
       }
     } catch {}
     try {
-      if (localStorage.getItem("kidgo_challenge_accepted") === "true") setChallengeAccepted(true);
-    } catch {}
-    try {
       const raw = localStorage.getItem("kidgo_recent_visits");
       if (raw) setRecentVisits(JSON.parse(raw));
     } catch {}

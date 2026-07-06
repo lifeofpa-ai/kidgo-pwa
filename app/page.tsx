@@ -1307,7 +1307,7 @@ export default function Home() {
                 disabled={selectedBuckets.length === 0}
                 className="w-full py-3.5 bg-kidgo-400 text-white rounded-2xl font-bold text-lg hover:bg-kidgo-500 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
               >
-                Empfehlungen anzeigen â†’
+                Empfehlungen anzeigen →
               </button>
               <button
                 onClick={() => { setMultiChild(false); setSelectedBuckets([]); }}
@@ -1406,7 +1406,7 @@ export default function Home() {
                   }}
                   className="text-kidgo-200 hover:text-white text-xl leading-none w-7 h-7 flex items-center justify-center"
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
             </div>
@@ -1510,7 +1510,7 @@ export default function Home() {
                 <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl pl-1 pr-3 py-1 text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700">
                   <WeatherIcon code={weatherCode} size={26} />
                   {weatherTemp !== null && (
-                    <span className="font-medium">{Math.round(weatherTemp)}Â°C</span>
+                    <span className="font-medium">{Math.round(weatherTemp)}°C</span>
                   )}
                 </div>
               )}
@@ -1702,7 +1702,7 @@ export default function Home() {
             href="/explore"
             className="text-[var(--text-muted)] hover:text-kidgo-500 text-sm transition underline decoration-dotted underline-offset-4"
           >
-            Alle Events entdecken â†’
+            Alle Events entdecken →
           </Link>
         </div>
 

@@ -49,6 +49,12 @@ Für MySwitzerland/Tripadvisor/Mimi ist noch keine Aktion (Pausieren/Löschen) a
 worden — das sind Datenumfang-Entscheidungen, die Patrick treffen sollte, kein technischer
 Fix. Liliput bleibt technisch offen, da nicht verifizierbar.
 
+**Nachtrag:** Patrick entschied "alle 3 deaktivieren" — MySwitzerland, Tripadvisor und
+Mimi Kinderladen & Café wurden auf `status='Pausiert'` gesetzt (reversibel, nichts
+gelöscht), mit `notizen`-Vermerk zur Begründung. Liliput bleibt als einziger offener
+Punkt aus den ursprünglich 87 quellen mit 404 übrig (technisch nicht automatisiert
+verifizierbar, URL unverändert).
+
 Auftrag: "mach mit allem weiter, was du alleine machen kannst", danach "mach das
 [Leaked Password Protection]. du hast zugriff auf supabase über den chrome browser",
 danach "gehe danach in das browser tab von vercel. hier scheint ein fehler vorzuliegen".

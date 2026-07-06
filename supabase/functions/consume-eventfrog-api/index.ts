@@ -88,6 +88,19 @@ interface PagedResponse<T> {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function decodeHtmlEntities(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
 function pickDe(v: unknown): string {
   if (!v) return "";
   if (typeof v === "string") return v;
@@ -247,10 +260,15 @@ Deno.serve(async (req) => {
     }
     const locationCache = await fetchLocations(apiKey, [...locationIds]);
 
+    // 2b. Load shared relevance blocklist (manually curated, see event_blocklist table)
+    const { data: blockRows } = await supabase.from("event_blocklist").select("pattern");
+    const blocklist = (blockRows ?? []).map((b: { pattern: string }) => String(b.pattern).toLowerCase());
+
     // 3. Filter + map to DB rows
     let skippedPast = 0;
     let skippedAdult = 0;
     let skippedOutsideZH = 0;
+    let skippedBlocklist = 0;
     const rows: Record<string, unknown>[] = [];
 
     for (const [, { ev, rubricId }] of eventMap) {
@@ -260,14 +278,23 @@ Deno.serve(async (req) => {
       // Skip past events
       if (ev.begin && new Date(ev.begin) < now) { skippedPast++; continue; }
 
-      const titel = pickDe(ev.title).trim();
+      const titel = decodeHtmlEntities(pickDe(ev.title).trim());
       if (!titel) continue;
 
-      const beschreibung = pickDe(ev.shortDescription) || null;
+      const beschreibung = decodeHtmlEntities(pickDe(ev.shortDescription)) || null;
       const fullText = `${titel} ${beschreibung ?? ""}`;
+      const fullTextLower = fullText.toLowerCase();
 
       // Skip events targeting 13+ audience
       if (ADULT_RX.test(fullText)) { skippedAdult++; continue; }
+
+      // Skip events matching the manually-curated relevance blocklist
+      // (QA 2026-07-06: eventfrog's own rubric IDs are trusted for the
+      // base category, but not independently checked for kid-relevance —
+      // this let business/academic content like "Symposium ..." or
+      // "Angular Camp ..." through whenever eventfrog listed it under a
+      // Kinder-rubric. The blocklist is shared with scrape-eventfrog.)
+      if (blocklist.some((p) => fullTextLower.includes(p))) { skippedBlocklist++; continue; }
 
       // Resolve primary location
       const locId = ev.locationIds?.[0];
@@ -308,6 +335,7 @@ Deno.serve(async (req) => {
       skippedPast,
       skippedAdult,
       skippedOutsideZH,
+      skippedBlocklist,
       rubrics:         rubricStats,
     };
 

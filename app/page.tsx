@@ -111,7 +111,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
   const ageBuckets: string[] = [];
   const childNames: Array<{ name: string; bucket: string }> = [];
 
-  const namedRegex = /([A-ZÃ„Ã–Ãœ][a-zÃ¤Ã¶Ã¼ÃŸ]+)\s*\((\d+)\)/g;
+  const namedRegex = /([A-ZÄÖÜ][a-zäöüß]+)\s*\((\d+)\)/g;
   let m: RegExpExecArray | null;
   while ((m = namedRegex.exec(query)) !== null) {
     const bucket = ageToBucket(parseInt(m[2]));
@@ -122,7 +122,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
   }
 
   if (ageBuckets.length === 0) {
-    const ageNumRegex = /(\d+)\s*[-â€“]?\s*j[Ã¤a]hr/gi;
+    const ageNumRegex = /(\d+)\s*[-–]?\s*j[äa]hr/gi;
     while ((m = ageNumRegex.exec(query)) !== null) {
       const bucket = ageToBucket(parseInt(m[1]));
       if (bucket && !ageBuckets.includes(bucket)) ageBuckets.push(bucket);
@@ -130,14 +130,14 @@ function parseNaturalQuery(query: string): ParsedQuery {
   }
 
   if (ageBuckets.length === 0) {
-    if (/kleinkind|baby|sÃ¤ugling/i.test(q)) ageBuckets.push("0-3");
+    if (/kleinkind|baby|säugling/i.test(q)) ageBuckets.push("0-3");
     if (/vorschul|kindergarten/i.test(q)) ageBuckets.push("4-6");
     if (/schulkind|grundschul/i.test(q)) ageBuckets.push("7-9");
   }
 
   let indoor: boolean | null = null;
   if (/regen|regnet|indoor|drinnen/i.test(q)) indoor = true;
-  if (/sonne|sonnig|schÃ¶nes?\s*wetter|outdoor|drauÃŸen|aussen/i.test(q)) indoor = false;
+  if (/sonne|sonnig|schönes?\s*wetter|outdoor|draußen|aussen/i.test(q)) indoor = false;
 
   const now = new Date();
   let dateFrom: Date | null = null;
@@ -162,7 +162,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
     dateTo = new Date(dateFrom);
     dateTo.setDate(dateTo.getDate() + 1);
     dateTo.setHours(23, 59, 59, 999);
-  } else if (/nÃ¤chste\s*woche/i.test(q)) {
+  } else if (/nächste\s*woche/i.test(q)) {
     const dow = now.getDay();
     const toMon = (8 - dow) % 7 || 7;
     dateFrom = new Date(todayStart);
@@ -173,8 +173,8 @@ function parseNaturalQuery(query: string): ParsedQuery {
   }
 
   const kwMap: Record<string, string[]> = {
-    Kreativ:     ["bastel", "malen", "kreativ", "kunst", "zeichn", "tÃ¶pfer"],
-    Sport:       ["sport", "turnen", "klettern", "schwimm", "fussball", "fuÃŸball"],
+    Kreativ:     ["bastel", "malen", "kreativ", "kunst", "zeichn", "töpfer"],
+    Sport:       ["sport", "turnen", "klettern", "schwimm", "fussball", "fußball"],
     Natur:       ["natur", "wald", "tiere", "zoo", "bauernhof"],
     Ausflug:     ["museum", "ausflug", "ausstellung"],
     Theater:     ["theater", "zirkus", "puppentheater"],
@@ -187,7 +187,7 @@ function parseNaturalQuery(query: string): ParsedQuery {
     if (kws.some((kw) => q.includes(kw))) keywords.push(cat);
   }
 
-  const freeOnly = /gratis|kostenlos|umsonst|gÃ¼nstig/i.test(q);
+  const freeOnly = /gratis|kostenlos|umsonst|günstig/i.test(q);
 
   return { ageBuckets, indoor, dateFrom, dateTo, keywords, freeOnly, childNames };
 }
@@ -233,7 +233,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
   if (total === 0) {
     const alts = [["Museum", "Outdoor"], ["Theater", "Gratis"], ["Sport", "Kreativ"], ["Ausflug", "Natur"]];
     const pair = alts[Math.floor(Date.now() / 1000) % alts.length];
-    return `Dazu habe ich leider nichts gefunden. Versuch mal "${pair[0]}" oder "${pair[1]}" â€” oder schau in alle Events.`;
+    return `Dazu habe ich leider nichts gefunden. Versuch mal "${pair[0]}" oder "${pair[1]}" — oder schau in alle Events.`;
   }
   const n = Math.min(3, total);
   const h = now.getHours();
@@ -243,7 +243,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
 
   if (parsed.childNames.length >= 2) {
     const names = parsed.childNames.map((c) => c.name).join(" und ");
-    return `FÃ¼r ${names}${weatherCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+    return `Für ${names}${weatherCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
   }
 
   if (parsed.dateFrom) {
@@ -252,13 +252,13 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
     const dateLabel = diff === 0 ? "heute" : diff === 1 ? "morgen" :
       parsed.dateFrom.toLocaleDateString("de-CH", { weekday: "long" });
     const kwCtx = parsed.keywords.length > 0 ? ` ${parsed.keywords[0].toLowerCase()}` : "";
-    return `FÃ¼r euren ${dateLabel}${kwCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
+    return `Für euren ${dateLabel}${kwCtx} habe ich ${n} ${n === 1 ? "Idee" : "Ideen"} gefunden:`;
   }
 
   if (parsed.keywords.length > 0) {
     const kw = parsed.keywords[0].toLowerCase();
     const ageCtx = parsed.ageBuckets.length > 0
-      ? ` fÃ¼r ${parsed.ageBuckets.map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b).join(" & ")}`
+      ? ` für ${parsed.ageBuckets.map((b) => AGE_BUCKETS.find((a) => a.key === b)?.label ?? b).join(" & ")}`
       : "";
     return `${n} ${kw}${ageCtx ? `-Ideen${ageCtx}` : " Tipps"} gefunden:`;
   }
@@ -268,7 +268,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
     const timeCtx = dow === 3 && h >= 11 && h <= 18 ? "Mittwochnachmittag" :
       (dow === 0 || dow === 6) ? "Wochenende" :
       h < 12 ? "Vormittag" : h < 17 ? "Nachmittag" : "Abend";
-    return `FÃ¼r ${labels}${weatherCtx} â€” ${n} ${n === 1 ? "Tipp" : "Tipps"} fÃ¼r euren ${timeCtx}:`;
+    return `Für ${labels}${weatherCtx} — ${n} ${n === 1 ? "Tipp" : "Tipps"} für euren ${timeCtx}:`;
   }
 
   if (parsed.freeOnly) {
@@ -278,7 +278,7 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
   const timeCtx = dow === 3 && h >= 11 && h <= 18 ? "Mittwochnachmittag" :
     (dow === 0 || dow === 6) ? "Wochenende" :
     h < 12 ? "Vormittag" : h < 17 ? "Nachmittag" : "Abend";
-  return `${n} ${n === 1 ? "Tipp" : "Tipps"} fÃ¼r euren ${timeCtx}${weatherCtx}:`;
+  return `${n} ${n === 1 ? "Tipp" : "Tipps"} für euren ${timeCtx}${weatherCtx}:`;
 }
 
 // ============================================================
@@ -563,7 +563,7 @@ export default function Home() {
       }
     }
 
-    // Push notifications â€” max once per day (spam protection)
+    // Push notifications — max once per day (spam protection)
     if ("Notification" in window && Notification.permission === "granted") {
       const today = new Date().toISOString().split("T")[0];
       const lastSent = localStorage.getItem("kidgo_push_last_sent");
@@ -644,7 +644,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Sprint 15: Weekend preview push â€” Friday 16:00+, max once per day
+  // Sprint 15: Weekend preview push — Friday 16:00+, max once per day
   useEffect(() => {
     if (!mounted || allEventsPool.length === 0) return;
     if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -692,7 +692,7 @@ export default function Home() {
     } catch {}
 
     const snapToZH = (lat: number, lon: number): { label: string; lat: number; lon: number } => {
-      let nearest = "ZÃ¼rich";
+      let nearest = "Zürich";
       let minDist = Infinity;
       for (const [city, [clat, clon]] of Object.entries(ZH_CITIES)) {
         const d = haversine(lat, lon, clat, clon);
@@ -771,10 +771,10 @@ export default function Home() {
     setDayPlan(null);
     setShowDayPlan(false);
 
-    // Dismissed IDs â€” read fresh from storage so fetch is always consistent
+    // Dismissed IDs — read fresh from storage so fetch is always consistent
     const currentDismissedIds = new Set([...getDismissedEventIds(), ...dismissedEventIds]);
 
-    // Sprint 3: Offline â€” serve cached events
+    // Sprint 3: Offline — serve cached events
     if (isOffline) {
       try {
         const cached = localStorage.getItem("kidgo_cached_events");
@@ -868,7 +868,7 @@ export default function Home() {
         localStorage.setItem("kidgo_cached_events", JSON.stringify(eventsData.slice(0, 50)));
       } catch {}
 
-      // Sprint 11: Social proof â€” aggregate bookmark counts
+      // Sprint 11: Social proof — aggregate bookmark counts
       try {
         
         const { data: bkData } = await supabase.rpc("get_event_bookmark_counts");
@@ -1081,7 +1081,7 @@ export default function Home() {
     setDismissingEventId(null);
   };
 
-  // Sprint 12: Card stack â€” animated swipe handlers
+  // Sprint 12: Card stack — animated swipe handlers
   const handleSwipeLeft = () => {
     if (recommendations.length === 0 || cardExiting || dismissingEventId) return;
     setSwipeOffset(0);
@@ -1262,7 +1262,7 @@ export default function Home() {
                 <button
                   key={bucket.key}
                   onClick={() => handleAgeSelect(bucket.key)}
-                  aria-label={`Altersgruppe ${bucket.label} auswÃ¤hlen`}
+                  aria-label={`Altersgruppe ${bucket.label} auswählen`}
                   aria-pressed={selected}
                   className={`relative p-5 rounded-2xl border-2 transition-all duration-200 text-left shadow-sm hover:shadow-md active:scale-95 bounce-hover ${
                     selected && multiChild
@@ -1458,7 +1458,7 @@ export default function Home() {
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)] flex-shrink-0"><path d="M9 2a5 5 0 0 1 5 5v3l1 1.5H3L4 10V7a5 5 0 0 1 5-5z"/><path d="M7.5 14a1.5 1.5 0 0 0 3 0"/></svg>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Events nicht verpassen</p>
-              <p className="text-xs text-[var(--text-muted)]">Erhalte Erinnerungen fÃ¼r gemerkten Events</p>
+              <p className="text-xs text-[var(--text-muted)]">Erhalte Erinnerungen für gemerkten Events</p>
             </div>
             <button
               onClick={() => {
@@ -1546,7 +1546,7 @@ export default function Home() {
             </div>
           )}
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight mb-1">
-            {contextMode === "evening" ? "FÃ¼r morgen geplant" : headline.title}
+            {contextMode === "evening" ? "Für morgen geplant" : headline.title}
           </h1>
           <p className="text-gray-500 text-sm mb-3">{headline.subtitle}</p>
 
@@ -1561,10 +1561,10 @@ export default function Home() {
             })}
             <button
               onClick={handleChangeAge}
-              aria-label="Altersgruppe Ã¤ndern"
+              aria-label="Altersgruppe ändern"
               className="text-xs text-gray-400 hover:text-kidgo-500 transition"
             >
-              Alter Ã¤ndern
+              Alter ändern
             </button>
           </div>
 
@@ -1574,7 +1574,7 @@ export default function Home() {
                 <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/><circle cx="6" cy="4" r="1"/>
               </svg>
               <span>
-                UngefÃ¤hr in {userLocation.label} â€”{" "}
+                Ungefähr in {userLocation.label} —{" "}
                 <button
                   onClick={() =>
                     navigator.geolocation?.getCurrentPosition((pos) =>
@@ -1590,7 +1590,7 @@ export default function Home() {
                 >
                   Standort aktivieren
                 </button>{" "}
-                fÃ¼r genauere Tipps
+                für genauere Tipps
               </span>
             </div>
           )}
@@ -1623,7 +1623,7 @@ export default function Home() {
               </HexIcon>
             </div>
             <p className="text-[var(--text-primary)] font-semibold mb-1">Keine aktuellen Events gefunden</p>
-            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren AktivitÃ¤ten</p>
+            <p className="text-[var(--text-muted)] text-sm mb-5">Schau im Katalog nach weiteren Aktivitäten</p>
             <Link href="/explore" className="bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
               Alle Events entdecken
             </Link>
@@ -1685,7 +1685,7 @@ export default function Home() {
           />
         )}
 
-        {/* Spacer for card stack action buttons â€” mobile only */}
+        {/* Spacer for card stack action buttons — mobile only */}
         {!loading && recommendations.length > 0 && <div className="mt-28 md:hidden" />}
 
         {/* ===== DIESES WOCHENENDE ===== */}

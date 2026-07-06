@@ -1,8 +1,53 @@
-# Handover — 6. Juli 2026 (Update 6)
+# Handover — 6. Juli 2026 (Update 7)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
 
-## Update 6 (6. Juli, "mach mit allem weiter" + Vercel-Build-Fehler entdeckt)
+## Update 7 (6. Juli, "machen wir weiter" — restliche 33 von 37 quellen-URLs repariert)
+
+Auftrag: Patrick entschied "wir können auch ohne leaked passwort protection weiterfahren"
+(Task Leaked Password Protection damit abgeschlossen, Free Plan bleibt) und wählte als
+nächsten Schritt "weitere quellen-URLs fixen" aus den in Migration 015 dokumentierten
+37 offenen 404ern.
+
+**Ergebnis: 33 von 37 repariert**, jede einzeln recherchiert (WebSearch), neue URL per
+`net.http_get` mit Browser-User-Agent verifiziert (Status 200), danach per UPDATE mit
+`notizen`-Vermerk "QA 2026-07-06: ..." live auf Prod angewendet. Am Ende nochmal alle 33
+neuen URLs in einem Rutsch erneut abgefragt — alle weiterhin 200 (bis auf einen einzelnen
+transienten Timeout bei Seegräben, das vorher schon sauber 200 lieferte, vermutlich nur
+ein langsamer Handshake in dem Moment).
+
+Auffällige Muster diesmal: mehrere echte Domain-Wechsel (affoltern-am-albis.ch ->
+stadtaffoltern.ch, wallisellen.ch -> sportanlagen-wallisellen.ch, volkiland.ch ohne www
++ /de-Suffix, schuepis.ch ohne www, zentrum-regensdorf.ch ohne www), mehrere Fälle wo die
+alte Unterseite verschwunden ist und nur noch die Root-Domain funktioniert (Illuster,
+Neuwiesen, Hello Zürich, Hiltl, Mamilade, Reisetheater, Schluechthof, Seegräben,
+Trüllikon, Vom Hof, Starbie), und zwei Fälle mit witzigen Alt-Datenfehlern: Zürich
+Tourismus hatte eine verdoppelte URL-Endung ("zuerich-fuer-kinderzuerich" statt
+"zuerich-fuer-kinder"), Kindaling einen falschen Slug ("zuerichkindaling" statt
+"zuerich").
+
+**Verbleibend: 4 von 37, bewusst nicht automatisch gefixt** (alle mit `notizen`-Vermerk
+in der DB dokumentiert, Entscheidung liegt bei Patrick):
+- **Liliput** (liliput.ch): blockt `net.http_get`-Anfragen konsequent mit Status 400
+  (auch mit zusätzlichen Browser-Headern) — vermutlich Bot-Schutz/WAF, der genau unseren
+  Verifikations-Client ablehnt. Die Seite selbst existiert und funktioniert laut
+  Suchergebnissen für normale Browser einwandfrei. Lässt sich mit den vorhandenen Tools
+  nicht automatisiert verifizieren; die eigentliche Scraper-Funktion (Deno `fetch`) könnte
+  trotzdem funktionieren, da sie ein anderes Anfrage-Fingerprint hat als `pg_net`. URL
+  unverändert gelassen.
+- **MySwitzerland**: weiterhin Status 406 (Bot-Schutz), kein normaler 404. Kandidat für
+  Deaktivieren statt Reparieren (bereits in Update 5 so eingeschätzt).
+- **Tripadvisor**: weiterhin Status 403. Generischer Aggregator ohne Kinder-Fokus,
+  ebenfalls Kandidat für Deaktivieren (bereits in Update 5 so eingeschätzt).
+- **Mimi Kinderladen & Café** (neu entdeckt): bei der Recherche stellte sich heraus, dass
+  dieser Standort in **Brunnen, Kanton Schwyz** liegt — nicht in Zürich/Region, wie der
+  Quellenname suggeriert. Vermutlich eine falsch zugeordnete Quelle aus einer früheren
+  Session. Reine Scope-Frage: entfernen, oder war die Aufnahme (z. B. als Tagesausflugs-
+  ziel) beabsichtigt? Nicht einseitig entschieden, nur dokumentiert.
+
+Für MySwitzerland/Tripadvisor/Mimi ist noch keine Aktion (Pausieren/Löschen) ausgeführt
+worden — das sind Datenumfang-Entscheidungen, die Patrick treffen sollte, kein technischer
+Fix. Liliput bleibt technisch offen, da nicht verifizierbar.
 
 Auftrag: "mach mit allem weiter, was du alleine machen kannst", danach "mach das
 [Leaked Password Protection]. du hast zugriff auf supabase über den chrome browser",

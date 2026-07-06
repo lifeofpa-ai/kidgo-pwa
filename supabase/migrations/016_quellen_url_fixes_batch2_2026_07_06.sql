@@ -1,0 +1,66 @@
+-- ============================================================
+-- Quellen-URL-Reparatur Batch 2, 2026-07-06 ("machen wir weiter")
+-- Siehe docs/HANDOVER.md, Update 7, für den vollen Kontext.
+-- Alle UPDATEs bereits live auf Prod angewendet via execute_sql;
+-- diese Datei dokumentiert die Änderungen für lokale/dev-Parität.
+-- ============================================================
+
+-- Kontext: Fortsetzung von Migration 015 (41 von 87 quellen mit 404
+-- repariert). Die restlichen 37 wurden in dieser Session einzeln
+-- recherchiert (WebSearch) und die neue URL jeweils per net.http_get
+-- mit Browser-User-Agent auf Status 200 verifiziert, bevor sie live
+-- übernommen wurde. 33 von 37 erfolgreich repariert.
+--
+-- Muster, die dabei auffielen:
+-- 1. Echte Domain-Wechsel: affoltern-am-albis.ch -> stadtaffoltern.ch
+--    (Freibad Stigeli), wallisellen.ch -> sportanlagen-wallisellen.ch
+--    (Water World), volkiland.ch -> volkiland.ch/de (ohne www),
+--    schuepis.ch (ohne www), zentrum-regensdorf.ch (ohne www).
+-- 2. Alte Unterseite verschwunden, nur noch Root-Domain funktioniert:
+--    Illuster, Neuwiesen, Hello Zürich, Hiltl, Mamilade, Reisetheater,
+--    Schluechthof, Seegräben, Trüllikon, Vom Hof, Starbie, Zollikon
+--    (Fohrbach-Bad bis vsl. Mai 2027 wegen Sanierung geschlossen,
+--    dediziertes badizollikon.ch antwortet nicht -- Gemeinde-Root als
+--    Platzhalter verwendet).
+-- 3. Zwei Alt-Datenfehler korrigiert: Zürich Tourismus hatte eine
+--    verdoppelte URL-Endung ("zuerich-fuer-kinderzuerich" statt
+--    "zuerich-fuer-kinder"), Kindaling einen falschen Slug
+--    ("zuerichkindaling" statt "zuerich").
+-- 4. Neue Zielseite gefunden statt nur Root: Bernhard-Theater
+--    (/spielplan/), Pro Natura (/kalender), Kilchberg-Hallenbad,
+--    Oberengstringen-Freibad, Meilen-Strandbad (/strandbaeder/9953),
+--    Tibits (Blogartikel über Kids-Lounge), WWF Zürich, Rehgehege
+--    Bucheggplatz (jetzt unter GZ Buchegg geführt), Seedamm-Center
+--    (/aktuell/), Zirkusquartier (/kurse/), Zürich Institutionen
+--    (/de/aktuell/veranstaltungen.html), Kulturzüri (/veranstaltungen/).
+--
+-- Alle Fixes wurden mit "notizen"-Vermerk "QA 2026-07-06: ..." versehen
+-- und nach dem Fix per net.http_get erneut auf Status 200 verifiziert
+-- (nochmal in einem zusammenhängenden Batch am Ende der Session).
+--
+-- Die konkreten UPDATE-Statements sind hier bewusst NICHT reproduziert
+-- (die IDs sind eine Momentaufnahme vom 2026-07-06); siehe Session-Log
+-- bzw. HANDOVER.md Update 7 für die Zusammenfassung.
+
+-- --- Verbleibend: 4 von 37, bewusst nicht automatisch gefixt ---------------
+--
+-- Liliput (liliput.ch): blockt net.http_get-Anfragen konsequent mit
+-- Status 400 (auch mit zusätzlichen Browser-Headern) -- vermutlich
+-- Bot-Schutz/WAF gegen unseren Verifikations-Client. Seite funktioniert
+-- laut Suchergebnissen für normale Browser einwandfrei; die eigentliche
+-- Scraper-Funktion (Deno fetch) könnte trotzdem funktionieren, da sie
+-- ein anderes Anfrage-Fingerprint hat als pg_net. URL unverändert.
+--
+-- MySwitzerland: weiterhin Status 406 (Bot-Schutz), kein normaler 404.
+-- Kandidat für Deaktivieren statt Reparieren (bereits in Update 5 so
+-- eingeschätzt) -- Entscheidung liegt bei Patrick.
+--
+-- Tripadvisor: weiterhin Status 403. Generischer Aggregator ohne
+-- Kinder-Fokus, ebenfalls Kandidat für Deaktivieren -- Entscheidung
+-- liegt bei Patrick.
+--
+-- Mimi Kinderladen & Café (neu entdeckt): Recherche ergab, dass dieser
+-- Standort in Brunnen, Kanton Schwyz liegt -- nicht in Zürich/Region.
+-- Vermutlich falsch zugeordnete Quelle aus einer früheren Session.
+-- Scope-Frage (entfernen oder beabsichtigt als Tagesausflugsziel?),
+-- nicht einseitig entschieden -- Entscheidung liegt bei Patrick.

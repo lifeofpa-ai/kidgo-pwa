@@ -1,6 +1,68 @@
-# Handover — 3. Juli 2026 (Update 3)
+# Handover — 6. Juli 2026 (Update 4)
 
 Stand am Ende dieser Session. Nächste Session: hier weiterlesen statt Repo neu zu explorieren.
+
+## Update 4 (6. Juli, "Korrektur zuerst" — Pipeline-Fehler behoben)
+
+Auftrag: "Lass uns die Arbeit wieder aufnehmen. Falls es was zu korrigieren gibt, dann
+das zuerst." Beim Nachprüfen der Cron-Läufe (siehe Update 3, offener Punkt) fiel auf:
+`kidgo-pipeline-weekly` (Mo 06:00 UTC) schlug seit Wochen faktisch fehl, ohne dass es
+auffiel, weil pg_cron nur meldet ob der SQL-Befehl fehlerfrei lief (also ob der
+`net.http_post`-Call abgesetzt werden konnte) — nicht ob der HTTP-Request selbst
+erfolgreich war.
+
+**Root Cause 1 — Plattform-Zeitlimit:** `pipeline-orchestrator` führte 6 Schritte
+sequenziell in einer einzigen Function-Invocation aus (scrape-batch, scrape-eventfrog,
+scrape-feriennet-Loop, consume-feed-Loop, assign-images-Loop, Archivierung). Die
+Edge-Function-Plattform killt eine Invocation nach ca. 150-160s Wandzeit unabhängig
+von im Code gesetzten `AbortSignal.timeout()`-Werten (die Logs zeigten einen
+nicht-standardmässigen `status_code: 546` nach exakt 161081ms). `scrape-batch` allein
+brauchte schon ~126s (330 aktive Quellen, sequenziell mit 1.5s Pause), liess also für
+die restlichen 5 Schritte praktisch kein Budget mehr übrig — der Lauf wurde regelmässig
+mitten in Schritt 1 abgewürgt.
+
+**Root Cause 2 — Redundanz:** Schritte 2 (scrape-eventfrog), 5 (assign-images) und 6
+(Archivierung) liefen bereits über eigene, granulare Crons (`eventfrog-daily`,
+`assign-event-images-daily`, `cleanup-past-events-daily` — alle aus Update 3). Der
+Orchestrator hat diese also doppelt und unnötig mitverarbeitet.
+
+**Root Cause 3 — Datenqualität bei `quellen`:** Health-Check aller 330 aktiven Quellen
+(direkter `net.http_get` mit Browser-Headern) ergab: 199 OK, 87 mit 404 (grösstenteils
+vermutlich verschobene URLs nach Website-Relaunches, stichprobenartig verifiziert an
+`zoo.ch` — Seite existiert, nur die alte `/event-kalender`-URL wurde beim Redesign
+verschoben), 43 mit echtem Netzwerkfehler (DNS nicht auflösbar, ungültiges
+SSL-Zertifikat, oder Timeout nach 8s TCP/SSL-Handshake — u.a. mehrere Gemeinde-Websites
+mit gleichem Muster). Die scrape-generic-500er in den Logs waren also grösstenteils
+**korrektes Verhalten** (tote Quelle → Fehler zurückgeben), keine Bugs im Scraper-Code.
+
+**Fixes umgesetzt:**
+1. 43 Quellen mit bestätigtem Netzwerkfehler (DNS/SSL/Timeout) auf `status='Pausiert'`
+   gesetzt, mit `notizen`-Vermerk "QA 2026-07-06 ... bis manuell geprüft" — reversibel,
+   nichts gelöscht. Die 87 Quellen mit 404 wurden **nicht** pausiert (zu viele davon
+   sind vermutlich nur verschobene URLs, kein Datenverlust-Risiko rechtfertigt aber
+   manuelle Prüfung — siehe Punkt unten).
+2. `kidgo-pipeline-weekly` umgebaut: läuft jetzt nur noch die **nicht** redundanten
+   Schritte (scrape-feriennet-Loop + consume-feed-Loop) via `skip_steps`-Parameter,
+   den `pipeline-orchestrator` schon unterstützte. Test-Lauf: 84s, alle 5 Teilschritte
+   erfolgreich (kein Code-Change nötig, nur Cron-Command angepasst).
+3. Neuer Cron `scrape-batch-weekly` (Mo 05:45 UTC): ruft `scrape-batch` jetzt direkt
+   und einzeln auf, mit eigenem vollem Zeitbudget statt hinter 5 anderen Schritten.
+4. Beide Crons (`kidgo-pipeline-weekly`, `scrape-batch-weekly`) haben jetzt
+   `timeout_milliseconds := 140000` (fehlte komplett vorher → Default 5000ms, viel zu
+   kurz, `net._http_response` blieb leer).
+5. `total_events`-Rückgang (1861 → 1259) gegengeprüft: 0 stale-but-approved (war
+   zwischenzeitlich auf 376 gesprungen, jetzt 0 dank `cleanup-past-events-daily`),
+   Rückgang erklärt sich durch die in Update 3 beschriebenen Aufräumaktionen
+   (Kinderthur-Backfill machte 341 Events nachträglich als "vergangen" sichtbar,
+   plus 111 geo-bereinigte DE/AT-Events, von denen ein Teil ebenfalls vergangen war
+   und automatisch gelöscht wurde) — kein unerwarteter Datenverlust.
+
+**Offen, für dich zu entscheiden:** Die 87 Quellen mit 404 sind wahrscheinlich
+grösstenteils einfach veraltete URLs nach Website-Relaunches (u.a. Zoo Zürich,
+Technorama Winterthur, PBZ Bibliotheken, GZ Zürich, diverse Gemeinden) — kein Bug,
+aber ohne URL-Update liefern sie dauerhaft nichts. Das ist zu viel für eine
+automatische Korrektur in dieser Session (jede müsste einzeln neu recherchiert
+werden) und eher ein Kandidat für eine eigene, abgegrenzte Aufgabe.
 
 ## Update 3 (3. Juli, QA-Lauf + Fixes nach Priorität)
 

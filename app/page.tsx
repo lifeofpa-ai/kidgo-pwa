@@ -323,7 +323,7 @@ function buildDayPlan(
 // ============================================================
 
 let _eventsCache: KidgoEvent[] | null = null;
-let _sourcesCache: { id: string; url: string | null; latitude: number | null; longitude: number | null }[] | null = null;
+let _sourcesCache: { id: string; url: string | null; latitude?: number | null; longitude?: number | null }[] | null = null;
 let _cacheTimestamp = 0;
 const EVENTS_CACHE_TTL = 5 * 60 * 1000;
 
@@ -368,7 +368,7 @@ export default function Home() {
   const [transitionClass, setTransitionClass] = useState("");
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<
-    { id: string; url: string | null; latitude: number | null; longitude: number | null }[]
+    { id: string; url: string | null; latitude?: number | null; longitude?: number | null }[]
   >([]);
 
   const [weatherCode, setWeatherCode] = useState<number | null>(null);

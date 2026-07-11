@@ -13,7 +13,7 @@ export interface KidgoEvent {
   alter_von: number | null;
   alter_bis: number | null;
   indoor_outdoor: string | null;
-  kategorie?: string | null;
+    kategorie: string | null;
   kategorien: string[] | null;
   preis_chf: number | null;
   anmelde_link: string | null;
@@ -59,10 +59,10 @@ export interface SmartCollection {
 }
 
 export interface EventSource {
-  id: string;
-  url: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
+        id: string;
+        url: string | null;
+    latitude: number | null;
+    longitude: number | null;
 }
 
 export interface UserLocation {

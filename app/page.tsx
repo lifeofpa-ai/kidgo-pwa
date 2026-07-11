@@ -828,10 +828,10 @@ export default function Home() {
     try {
       const todayStr = new Date().toISOString().split("T")[0];
 
-      const { data: sourcesData } = await supabase
+      const { data: sourcesDataRaw } = await supabase
         .from("quellen")
         .select("id, url");
-      setSources(sourcesData || []);
+      const sourcesData = (sourcesDataRaw || []).map((s) => ({ ...s, latitude: null, longitude: null })); setSources(sourcesData);
 
       const { data: serieData } = await supabase
         .from("events")
@@ -840,13 +840,14 @@ export default function Home() {
         .eq("status", "approved");
       setSeriesParentIds(new Set((serieData || []).map((e: { serie_id: string }) => e.serie_id)));
 
-      const { data: eventsData } = await supabase
+      const { data: eventsDataRaw } = await supabase
         .from("events")
         .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id")
         .eq("status", "approved")
         .is("serie_id", null)
         .or(`datum.is.null,datum.gte.${todayStr}`)
-        .order("datum", { ascending: true, nullsFirst: false });
+                .order("datum", { ascending: true, nullsFirst: false });
+            const eventsData = (eventsDataRaw || []).map((e) => ({ ...e, kategorie: null }));
 
       if (!eventsData || eventsData.length === 0) {
         setAllEvents([]);

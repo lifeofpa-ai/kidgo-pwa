@@ -830,7 +830,7 @@ export default function Home() {
 
       const { data: sourcesData } = await supabase
         .from("quellen")
-        .select("id, url, latitude, longitude");
+        .select("id, url");
       setSources(sourcesData || []);
 
       const { data: serieData } = await supabase
@@ -842,7 +842,7 @@ export default function Home() {
 
       const { data: eventsData } = await supabase
         .from("events")
-        .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorie,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id")
+        .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id")
         .eq("status", "approved")
         .is("serie_id", null)
         .or(`datum.is.null,datum.gte.${todayStr}`)

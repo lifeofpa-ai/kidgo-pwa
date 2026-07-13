@@ -491,7 +491,7 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* Row 3: Date + Sort */
+          {/* Row 3: Date + Sort */}
           <div className="flex flex-wrap gap-2 items-center justify-between">
             <div className="flex gap-1.5 flex-wrap">
               {([["all", "Alle"], ["today", "Heute"], ["weekend", "Wochenende"], ["week", "Woche"], ["month", "Monat"]] as ["all"|"today"|"weekend"|"week"|"month", string][]).map(([key, label]) => (

@@ -12,7 +12,7 @@ interface KidgoLogoProps {
   animated?: boolean;
 }
 
-// Widths defined so heights land at: xs≈22, sm≈45, md≈60, lg≈100, xl≈140
+// Widths defined so heights land at: xs=22, sm=45, md=60, lg=100, xl=140
 const SIZES = { xs: 36, sm: 72, md: 96, lg: 160, xl: 224 } as const;
 
 const SESSION_KEY = "kidgo_logo_animated";
@@ -33,12 +33,16 @@ export function KidgoLogo({
       if (sessionStorage.getItem(SESSION_KEY) === "1") return;
       sessionStorage.setItem(SESSION_KEY, "1");
     } catch {
-      // sessionStorage unavailable — still play, but only this render
+      // sessionStorage unavailable -- still play, but only this render
     }
     setPlay(true);
   }, [animated]);
 
-  const rootClass = `${className} ${play ? "kidgo-logo-animate" : ""}`.trim();
+  // kidgo-logo-breathe: gentle ambient float, always on (respects reduced-motion).
+  // kidgo-logo-hoverable: triggers the wink+smile on hover/focus, not just on mount.
+  const rootClass = `${className} kidgo-logo-breathe kidgo-logo-hoverable ${
+    play ? "kidgo-logo-animate" : ""
+  }`.trim();
 
   return (
     <svg
@@ -50,82 +54,94 @@ export function KidgoLogo({
       aria-label="Kidgo"
       role="img"
     >
-      {/* Teal background */}
-      <rect width="800" height="500" fill="#76C4B9" />
+      {/* Soft shadow so the mark lifts gently off whatever surface it sits on,
+          instead of carrying its own hard-edged background box. */}
+      <defs>
+        <filter id="kidgoLogoShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow
+            dx="0"
+            dy="3"
+            stdDeviation="5"
+            floodColor="var(--kidgo-teal)"
+            floodOpacity="0.18"
+          />
+        </filter>
+      </defs>
 
-      {/* Hexagon — cream */}
-      <path
-        d="M400 50 L616.5 175 V425 L400 550 L183.5 425 V175 Z"
-        fill="#F9F9E0"
-        transform="translate(0, -50)"
-      />
-
-      {/* Calendar icon group */}
-      <g fill="#76C4B9">
-        {/* Calendar body */}
-        <rect x="355" y="145" width="90" height="75" rx="10" />
-
-        {/* Left clip — "eye" with cream outline */}
-        <rect
-          className="kidgo-logo-eye"
-          x="370"
-          y="135"
-          width="10"
-          height="20"
-          rx="5"
-          stroke="#F9F9E0"
-          strokeWidth="3"
-        />
-
-        {/* Right clip — "eye" with cream outline */}
-        <rect
-          className="kidgo-logo-eye"
-          x="420"
-          y="135"
-          width="10"
-          height="20"
-          rx="5"
-          stroke="#F9F9E0"
-          strokeWidth="3"
-        />
-
-        {/* Mouth: checkmark (default, static) */}
+      <g filter="url(#kidgoLogoShadow)">
+        {/* Hexagon -- rounded corners, transparent background, brand tokens */}
         <path
-          className="kidgo-logo-mouth-check"
-          d="M380 185 l15 15 l25 -25"
-          stroke="#F9F9E0"
-          strokeWidth="8"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d="M 422.5 13 L 594 112 Q 616.5 125 616.5 151 L 616.5 349 Q 616.5 375 594 388 L 422.5 487 Q 400 500 377.5 487 L 206 388 Q 183.5 375 183.5 349 L 183.5 151 Q 183.5 125 206 112 L 377.5 13 Q 400 0 422.5 13 Z"
+          fill="var(--kidgo-cream)"
         />
 
-        {/* Mouth: smile (hidden unless animating) */}
-        <path
-          className="kidgo-logo-mouth-smile"
-          d="M378 185 Q400 212 422 185"
-          stroke="#F9F9E0"
-          strokeWidth="8"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0"
-        />
+        {/* Calendar icon group */}
+        <g fill="var(--kidgo-teal)">
+          {/* Calendar body */}
+          <rect x="355" y="145" width="90" height="75" rx="14" />
+
+          {/* Left clip -- "eye" with cream outline */}
+          <rect
+            className="kidgo-logo-eye"
+            x="370"
+            y="135"
+            width="10"
+            height="20"
+            rx="5"
+            stroke="var(--kidgo-cream)"
+            strokeWidth="3"
+          />
+
+          {/* Right clip -- "eye" with cream outline */}
+          <rect
+            className="kidgo-logo-eye"
+            x="420"
+            y="135"
+            width="10"
+            height="20"
+            rx="5"
+            stroke="var(--kidgo-cream)"
+            strokeWidth="3"
+          />
+
+          {/* Mouth: checkmark (default, static) */}
+          <path
+            className="kidgo-logo-mouth-check"
+            d="M380 185 l15 15 l25 -25"
+            stroke="var(--kidgo-cream)"
+            strokeWidth="8"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Mouth: smile (hidden unless animating) */}
+          <path
+            className="kidgo-logo-mouth-smile"
+            d="M378 185 Q400 212 422 185"
+            stroke="var(--kidgo-cream)"
+            strokeWidth="8"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0"
+          />
+        </g>
+
+        {/* KIDGO wordmark */}
+        <text
+          x="400"
+          y="355"
+          fontFamily="sans-serif"
+          fontWeight="bold"
+          fontSize="110"
+          textAnchor="middle"
+          fill="var(--kidgo-teal)"
+          style={{ letterSpacing: "2px" }}
+        >
+          KIDGO
+        </text>
       </g>
-
-      {/* KIDGO wordmark */}
-      <text
-        x="400"
-        y="355"
-        fontFamily="sans-serif"
-        fontWeight="bold"
-        fontSize="110"
-        textAnchor="middle"
-        fill="#76C4B9"
-        style={{ letterSpacing: "2px" }}
-      >
-        KIDGO
-      </text>
     </svg>
   );
 }

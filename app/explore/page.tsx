@@ -178,6 +178,7 @@ export default function ExplorePage() {
   const [indoorOutdoor, setIndoorOutdoor] = useState<IndoorOutdoor>("all");
   const [gratisOnly, setGratisOnly]       = useState(false);
   const [sortMode, setSortMode]           = useState<SortMode>("date-asc");
+  const [filtersExpanded, setFiltersExpanded] = useState(false); // v2: progressive disclosure — category/indoor-outdoor/gratis/date/sort start collapsed
   const [weatherCode, setWeatherCode]     = useState<number | null>(null);
 
   useEffect(() => {
@@ -299,6 +300,13 @@ export default function ExplorePage() {
     });
   };
 
+  // v2: count of collapsed-section filters (excludes age, which stays always-visible)
+  const collapsedFilterCount =
+    selectedCategories.length +
+    (indoorOutdoor !== "all" ? 1 : 0) +
+    (gratisOnly ? 1 : 0) +
+    (dateFilter !== "all" ? 1 : 0);
+
   const activeFilters = [
     ...selectedCategories,
     ...(selectedAgeBuckets.length > 0 ? [`${selectedAgeBuckets.length} Alter`] : []),
@@ -398,24 +406,7 @@ export default function ExplorePage() {
             )}
           </div>
 
-          {/* Category chips */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => { trackEvent("explore_filter", { filter_type: "category", value: cat, active: !selectedCategories.includes(cat) }); setSelectedCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]); }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
-                  selectedCategories.includes(cat)
-                    ? `${categoryColors[cat]?.split(" ").slice(0, 3).join(" ")} border-current shadow-sm font-semibold`
-                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Row 2: Age + Indoor/Outdoor + Gratis */}
+          {/* Age chips — always visible (single most-used filter, kept persistent per UX audit) */}
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex gap-1.5 flex-wrap items-center">
               <span className="text-xs text-[var(--text-muted)] font-medium">Alter:</span>
@@ -434,6 +425,43 @@ export default function ExplorePage() {
               ))}
             </div>
 
+            <button
+              onClick={() => setFiltersExpanded((v) => !v)}
+              aria-expanded={filtersExpanded}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition border bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500 ml-auto"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
+              {filtersExpanded ? "Weniger Filter" : "Mehr Filter"}
+              {collapsedFilterCount > 0 && (
+                <span className="bg-kidgo-500 text-white rounded-full text-[10px] leading-none px-1.5 py-0.5 font-semibold">{collapsedFilterCount}</span>
+              )}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${filtersExpanded ? "rotate-180" : ""}`}><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+            </button>
+          </div>
+
+          {/* Collapsible: Category chips, Indoor/Outdoor, Gratis, Date, Sort — hidden by default (v2, progressive disclosure) */}
+          {filtersExpanded && (
+          <div className="space-y-4 pt-1 border-t border-[var(--border)]">
+
+          {/* Category chips */}
+          <div className="flex flex-wrap gap-2 pt-3">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => { trackEvent("explore_filter", { filter_type: "category", value: cat, active: !selectedCategories.includes(cat) }); setSelectedCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
+                  selectedCategories.includes(cat)
+                    ? `${categoryColors[cat]?.split(" ").slice(0, 3).join(" ")} border-current shadow-sm font-semibold`
+                    : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Row 2: Indoor/Outdoor + Gratis */}
+          <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-1 bg-[var(--bg-subtle)] rounded-xl p-1 border border-[var(--border)]">
               {([["all", "Alle"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]] as [IndoorOutdoor, string][]).map(([val, label]) => (
                 <button
@@ -463,7 +491,7 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* Row 3: Date + Sort */}
+          {/* Row 3: Date + Sort */
           <div className="flex flex-wrap gap-2 items-center justify-between">
             <div className="flex gap-1.5 flex-wrap">
               {([["all", "Alle"], ["today", "Heute"], ["weekend", "Wochenende"], ["week", "Woche"], ["month", "Monat"]] as ["all"|"today"|"weekend"|"week"|"month", string][]).map(([key, label]) => (
@@ -496,6 +524,9 @@ export default function ExplorePage() {
               </div>
             )}
           </div>
+
+          </div>
+          )}
 
           {/* Active filter pills */}
           {activeFilters.length > 0 && (

@@ -798,3 +798,42 @@ html {
   animation: pageInV2 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
+
+
+/* ── KidgoLogo: ambient breathing (always on, very subtle) ── */
+@keyframes kidgoLogoBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-2px) scale(1.015); }
+}
+.kidgo-logo-breathe {
+  animation: kidgoLogoBreathe 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ── KidgoLogo: wink + smile on hover/focus (not just on mount) ── */
+.kidgo-logo-hoverable:hover .kidgo-logo-eye,
+.kidgo-logo-hoverable:focus-visible .kidgo-logo-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kidgoLogoBlink 300ms ease-in-out 1;
+}
+.kidgo-logo-hoverable:hover .kidgo-logo-mouth-check,
+.kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-check {
+  animation: kidgoLogoMouthCheck 500ms ease-in-out 1;
+}
+.kidgo-logo-hoverable:hover .kidgo-logo-mouth-smile,
+.kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-smile {
+  animation: kidgoLogoMouthSmile 500ms ease-in-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kidgo-logo-breathe,
+  .kidgo-logo-hoverable:hover .kidgo-logo-eye,
+  .kidgo-logo-hoverable:focus-visible .kidgo-logo-eye,
+  .kidgo-logo-hoverable:hover .kidgo-logo-mouth-check,
+  .kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-check,
+  .kidgo-logo-hoverable:hover .kidgo-logo-mouth-smile,
+  .kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-smile {
+    animation: none;
+  }
+}

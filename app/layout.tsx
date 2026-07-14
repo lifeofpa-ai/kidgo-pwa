@@ -27,11 +27,11 @@ export const metadata: Metadata = {
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich. Jetzt entdecken!",
       url: "https://app.kidgo.ch",
       siteName: "Kidgo",
-      locale: "de_CH",
+      locale: "de_CH", images: [{ url: "/og_default.png", width: 1200, height: 630, alt: "Kidgo" }],
         type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image", images: ["/og_default.png"],
     title: "Kidgo – Events für Kinder",
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich.",
   },

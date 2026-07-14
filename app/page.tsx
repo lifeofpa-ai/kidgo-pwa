@@ -97,8 +97,8 @@ function WeatherIcon({ code, size = 24 }: { code: number; size?: number }) {
   // Sonne (Clear / Mostly clear)
   return (
     <HexIcon size={size}>
-      <circle cx="12" cy="12" r="2.8"/>
-      <path d="M12 6.5v1.6M12 15.9v1.6M6.5 12h1.6M15.9 12h1.6M8 8l1.1 1.1M14.9 14.9L16 16M16 8l-1.1 1.1M9.1 14.9L8 16" stroke="#5BBAA7" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="2.8" fill="#E8A94A"/>
+      <path d="M12 6.5v1.6M12 15.9v1.6M6.5 12h1.6M15.9 12h1.6M8 8l1.1 1.1M14.9 14.9L16 16M16 8l-1.1 1.1M9.1 14.9L8 16" stroke="#E8A94A" strokeWidth="1.4" strokeLinecap="round"/>
     </HexIcon>
   );
 }

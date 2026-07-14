@@ -67,8 +67,9 @@ export function DesktopSideNav() {
     >
       {/* Logo */}
       <div className="px-5 pt-6 pb-5 border-b border-[var(--border)]">
-        <Link href="/" aria-label="Startseite">
-          <KidgoLogo size="sm" />
+                    <Link href="/" aria-label="Startseite" className="flex items-center gap-2">
+                                <KidgoLogo size="sm" />
+                                <span className="text-sm font-semibold text-[var(--text-primary)]">Kidgo</span>
         </Link>
       </div>
 

@@ -14,10 +14,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (!supabaseUrl) return staticRoutes;
 
   const supabase = createClient(supabaseUrl, supabaseKey);
+    const todayStr = new Date().toISOString().slice(0, 10);
     const { data: events } = await supabase
       .from("events")
       .select("id, created_at")
       .eq("status", "approved")
+        .or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`)
       .order("created_at", { ascending: false })
       .limit(5000);
 

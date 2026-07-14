@@ -12,7 +12,7 @@ import { ChatFAB } from "@/components/home/ChatFAB";
 import { ChatSheet } from "@/components/home/ChatSheet";
 import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
 
 type ViewMode     = "list" | "map";
 type SortMode     = "date-asc" | "date-desc" | "newest";
@@ -601,7 +601,7 @@ export default function ExplorePage() {
           ) : (() => {
             const dateFiltered     = filterByDate(events);
             const futureEvents     = applySort(dateFiltered.filter((e) => e.datum));
-            const allYearActivities = applySort(dateFiltered.filter((e) => !e.datum));
+            const currentSeason = getCurrentSeason(); const allYearActivities = applySort(dateFiltered.filter((e) => !e.datum && (!e.saison_tags || e.saison_tags.length === 0 || e.saison_tags.includes(currentSeason))));
 
             return (
               <div className="space-y-10">

@@ -391,7 +391,7 @@ export default function IchPage() {
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" aria-label="Startseite">
-              <KidgoLogo size="sm" animated />
+                          <KidgoLogo size="sm" />
             </Link>
             <div>
               <h1 className="font-bold text-[var(--text-primary)] text-base leading-tight">Mein Bereich</h1>

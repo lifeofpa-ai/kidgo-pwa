@@ -4,7 +4,7 @@ import EventDetailClient from "./EventDetailClient";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const BASE_URL = "https://kidgo-app.vercel.app";
+const BASE_URL = "https://app.kidgo.ch";
 
 export async function generateMetadata({
   params,
@@ -43,6 +43,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: { canonical: url },
     openGraph: {
       title: event.titel,
       description,

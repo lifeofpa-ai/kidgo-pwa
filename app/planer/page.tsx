@@ -85,8 +85,7 @@ export default function PlanerPage() {
       <div className="sticky top-0 z-30 bg-white/95 dark:bg-[#1e2221]/95 backdrop-blur-md border-b border-[var(--border)] px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <Link href="/" aria-label="Startseite">
-            <KidgoLogo size="sm" animated />
-          </Link>
+            <KidgoLogo size="sm" />          </Link>
           <div>
             <h1 className="font-bold text-[var(--text-primary)] text-base leading-tight">Planer</h1>
             <p className="text-xs text-[var(--text-muted)]">Deine Woche auf einen Blick</p>

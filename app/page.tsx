@@ -845,8 +845,8 @@ export default function Home() {
         .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id,saison_tags")
         .eq("status", "approved")
         .is("serie_id", null)
-        .or(`datum.is.null,datum.gte.${todayStr}`)
-                .order("datum", { ascending: true, nullsFirst: false });
+        .or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`)
+        .order("datum", { ascending: true, nullsFirst: false });
             const currentSeasonHome = ((): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; })(); const eventsData = (eventsDataRaw || []).map((e) => ({ ...e, kategorie: null })).filter((e: any) => e.datum || !e.saison_tags || e.saison_tags.length === 0 || e.saison_tags.includes(currentSeasonHome));
 
       if (!eventsData || eventsData.length === 0) {

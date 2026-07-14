@@ -18,16 +18,17 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
+    metadataBase: new URL("https://app.kidgo.ch"),
   title: "Kidgo – Events & Aktivitäten für Kinder in der Schweiz",
   description: "Entdecke die besten Events, Kurse und Ausflüge für Kinder in der Region Zürich. Täglich aktuell, kostenlos und einfach filterbar.",
   keywords: ["Kinder", "Events", "Zürich", "Aktivitäten", "Familie", "Ausflug", "Feriencamp", "Schweiz"],
   openGraph: {
     title: "Kidgo – Events für Kinder",
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich. Jetzt entdecken!",
-    url: "https://kidgo-app.vercel.app",
-    siteName: "Kidgo",
-    locale: "de_CH",
-    type: "website",
+      url: "https://app.kidgo.ch",
+      siteName: "Kidgo",
+      locale: "de_CH",
+        type: "website",
   },
   twitter: {
     card: "summary",

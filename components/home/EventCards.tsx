@@ -386,8 +386,8 @@ export function RecommendationCard({
                 </span>
               )}
             </div>
-            {entdeckerScore !== undefined && (
-              <span className="flex-shrink-0 text-xs text-kidgo-400 font-medium">{entdeckerScore}/10</span>
+            {isGeheimtipp && entdeckerScore !== undefined && (
+              <span className="flex-shrink-0 text-xs text-purple-600 font-medium" title="Geheimtipp-Score: wie selten dieser Tipp ist">{entdeckerScore}/10</span>
             )}
           </div>
 

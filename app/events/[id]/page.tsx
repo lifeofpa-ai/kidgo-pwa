@@ -68,5 +68,41 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <EventDetailClient id={id} />;
-}
+  let jsonLd: Record<string, unknown> | null = null;
+  if (supabaseUrl) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: event } = await supabase
+    .from("events")
+    .select("titel, beschreibung, kategorie_bild_url, datum, datum_ende, ort, preis_chf")
+    .eq("id", id)
+    .single();
+    if (event) {
+      const eventUrl = `${BASE_URL}/events/${id}`;
+      jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        name: event.titel,
+        description: event.beschreibung ? event.beschreibung.replace(/\n/g, " ").trim().slice(0, 500) : undefined,
+        startDate: event.datum || undefined,
+        endDate: event.datum_ende || event.datum || undefined,
+        eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+        eventStatus: "https://schema.org/EventScheduled",
+        image: event.kategorie_bild_url ? [event.kategorie_bild_url] : undefined,
+        location: event.ort ? { "@type": "Place", name: event.ort, address: event.ort } : undefined,
+        offers: (event.preis_chf !== null && event.preis_chf !== undefined) ? { "@type": "Offer", price: event.preis_chf, priceCurrency: "CHF", availability: "https://schema.org/InStock", url: eventUrl } : undefined,
+        url: eventUrl,
+      };
+    }
+  }
+return (
+  <div>
+    {jsonLd && (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+    )}
+  <EventDetailClient id={id} />
+  </div>
+  );
+  }

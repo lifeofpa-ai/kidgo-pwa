@@ -38,7 +38,7 @@ export async function generateMetadata({
   const url = `${BASE_URL}/events/${id}`;
   const images = event.kategorie_bild_url
     ? [{ url: event.kategorie_bild_url, width: 1200, height: 630, alt: event.titel }]
-    : [];
+    : [{ url: "/og_default.png", width: 1200, height: 630, alt: "Kidgo" }];
 
   return {
     title,

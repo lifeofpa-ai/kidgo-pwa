@@ -885,6 +885,8 @@ export default function IchPage() {
         {/* App info */}
         <div className="mt-2 text-center text-xs text-[var(--text-muted)] space-y-1">
           <div className="flex items-center justify-center gap-4">
+            <Link href="/feedback" className="hover:text-kidgo-500 transition">Feedback</Link>
+            <span>·</span>
             <Link href="/datenschutz" className="hover:text-kidgo-500 transition">Datenschutz</Link>
             <span>·</span>
             <Link href="/impressum" className="hover:text-kidgo-500 transition">Impressum</Link>

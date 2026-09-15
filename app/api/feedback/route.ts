@@ -2,16 +2,25 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Bewusst LAZY instanziiert (nicht auf Modul-Ebene): createClient() wirft
+// sofort, wenn SUPABASE_SERVICE_ROLE_KEY fehlt - und Next.js fuehrt beim
+// Build ("Collecting page data") jede Route-Datei einmal aus, unabhaengig
+// vom Ziel-Environment. Auf Modul-Ebene instanziiert hat das schon bei
+// fehlendem Env-Var im Preview-Build den ganzen Deploy crashen lassen.
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const NOTIFY_TO = process.env.FEEDBACK_NOTIFY_EMAIL || "contact@kidgo.ch";
 const ALLOWED_CATEGORIES = ["idea", "bug", "other"] as const;
 
 export async function POST(req: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
   let body: { message?: string; email?: string; category?: string };
   try {
     body = await req.json();

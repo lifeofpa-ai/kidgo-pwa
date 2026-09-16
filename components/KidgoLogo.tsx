@@ -132,8 +132,8 @@ export function KidgoLogo({
         <text
           x="400"
           y="355"
-          fontFamily="sans-serif"
-          fontWeight="bold"
+          fontFamily="var(--font-nunito), sans-serif"
+          fontWeight="800"
           fontSize="110"
           textAnchor="middle"
           fill="var(--kidgo-teal)"

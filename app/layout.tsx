@@ -3,7 +3,7 @@ import Script from "next/script";
 import { Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { BottomNav } from "@/components/BottomNav";
-import { DesktopSideNav } from "@/components/DesktopSideNav";
+import { DesktopTopNav } from "@/components/DesktopTopNav";
 import { KidgoFooter } from "@/components/KidgoFooter";
 import { PageTransitionWrapper } from "@/components/PageTransitionWrapper";
 import { SwipeBackGate } from "@/components/SwipeBackGate";
@@ -18,17 +18,17 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-    metadataBase: new URL("https://app.kidgo.ch"),
+  metadataBase: new URL("https://app.kidgo.ch"),
   title: "Kidgo – Events & Aktivitäten für Kinder in der Schweiz",
   description: "Entdecke die besten Events, Kurse und Ausflüge für Kinder in der Region Zürich. Täglich aktuell, kostenlos und einfach filterbar.",
   keywords: ["Kinder", "Events", "Zürich", "Aktivitäten", "Familie", "Ausflug", "Feriencamp", "Schweiz"],
   openGraph: {
     title: "Kidgo – Events für Kinder",
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich. Jetzt entdecken!",
-      url: "https://app.kidgo.ch",
-      siteName: "Kidgo",
-      locale: "de_CH", images: [{ url: "/og_default.png", width: 1200, height: 630, alt: "Kidgo" }],
-        type: "website",
+    url: "https://app.kidgo.ch",
+    siteName: "Kidgo",
+    locale: "de_CH", images: [{ url: "/og_default.png", width: 1200, height: 630, alt: "Kidgo" }],
+    type: "website",
   },
   twitter: {
     card: "summary_large_image", images: ["/og_default.png"],
@@ -58,12 +58,12 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              try {
-                var t = localStorage.getItem('kidgo_theme');
-                var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                if (dark) document.documentElement.classList.add('dark');
-              } catch(e) {}
-            `,
+try {
+  var t = localStorage.getItem('kidgo_theme');
+  var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.documentElement.classList.add('dark');
+} catch(e) {}
+`,
           }}
         />
       </head>
@@ -82,8 +82,8 @@ gtag('config', 'G-LFZ63YFTRR');`}
           Zum Inhalt springen
         </a>
         <AuthProvider>
-          <DesktopSideNav />
-          <div className="md:pl-56">
+          <DesktopTopNav />
+          <div className="md:pt-16">
             <ClientProviders>
               <PageTransitionWrapper>{children}</PageTransitionWrapper>
             </ClientProviders>

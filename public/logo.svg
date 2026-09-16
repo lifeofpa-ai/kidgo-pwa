@@ -1,14 +1,12 @@
-<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
-  <rect width="800" height="500" fill="#76C4B9"/>
-  
-  <path d="M400 50 L616.5 175 V425 L400 550 L183.5 425 V175 Z" fill="#F9F9E0" transform="translate(0, -50)"/>
-  
-  <g fill="#76C4B9">
-    <rect x="355" y="145" width="90" height="75" rx="10"/>
-    <rect x="370" y="135" width="10" height="20" rx="5"/>
-    <rect x="420" y="135" width="10" height="20" rx="5"/>
-    <path d="M380 185 l15 15 l25 -25" stroke="#F9F9E0" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kidgo">
+  <rect width="800" height="500" fill="#5BBAA7"/>
+  <path d="M 422.5 13 L 594 112 Q 616.5 125 616.5 151 L 616.5 349 Q 616.5 375 594 388 L 422.5 487 Q 400 500 377.5 487 L 206 388 Q 183.5 375 183.5 349 L 183.5 151 Q 183.5 125 206 112 L 377.5 13 Q 400 0 422.5 13 Z" fill="#F5F0E8"/>
+  <g fill="#5BBAA7">
+    <rect x="355" y="145" width="90" height="75" rx="14"/>
+    <rect x="370" y="135" width="10" height="20" rx="5" stroke="#F5F0E8" stroke-width="3"/>
+    <rect x="420" y="135" width="10" height="20" rx="5" stroke="#F5F0E8" stroke-width="3"/>
+    <path d="M380 185 l15 15 l25 -25" stroke="#F5F0E8" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  
-  <text x="400" y="355" font-family="sans-serif" font-weight="bold" font-size="110" text-anchor="middle" fill="#76C4B9" style="letter-spacing: 2px;">KIDGO</text>
+  <text x="400" y="355" font-family="'Nunito', sans-serif" font-weight="800" font-size="108"
+        text-anchor="middle" fill="#5BBAA7" letter-spacing="1">KIDGO</text>
 </svg>

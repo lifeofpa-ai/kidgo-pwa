@@ -64,7 +64,7 @@ export function OnboardingWalkthrough() {
       role="dialog"
       aria-modal="true"
       aria-label="Willkommen bei Kidgo"
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm"
     >
       <div className="relative w-full md:max-w-sm bg-white dark:bg-[#1e2221] rounded-t-2xl md:rounded-2xl px-6 pt-6 pb-8 md:pb-6">
         <button

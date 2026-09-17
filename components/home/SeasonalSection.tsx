@@ -16,17 +16,19 @@ type SeasonCfg = {
   gradTo: string;
   cats: string[];
   io: string | null;
+  /** 0-indexed month (Jan=0) in which this season's window ends, inclusive. */
+  endMonth: number;
 };
 
 const MONTH_NAMES = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 
 function getSeasonConfig(month: number): SeasonCfg {
-  if (month <= 1)  return { title: "Gemütliche Wintertage",   subtitle: "Die schönsten Indoor-Aktivitäten für Kinder", gradFrom: "from-indigo-500", gradTo: "to-blue-400",    cats: ["Kreativ","Theater","Musik","Bildung"],           io: "indoor"  };
-  if (month <= 2)  return { title: "Frühling naht!",           subtitle: "Natur erwacht — raus und entdecken",          gradFrom: "from-green-500",  gradTo: "to-emerald-400",  cats: ["Natur","Ausflug","Sport","Tiere"],                io: "outdoor" };
-  if (month <= 4)  return { title: "Raus in die Natur",        subtitle: "Frühling in Zürich — beste Zeit für Abenteuer", gradFrom: "from-emerald-500", gradTo: "to-teal-400", cats: ["Natur","Ausflug","Sport","Tiere"],                io: "outdoor" };
-  if (month <= 7)  return { title: "Sommer in Zürich",         subtitle: "Camps, Abenteuer & lange Sonnentage",         gradFrom: "from-amber-500",  gradTo: "to-orange-400",   cats: ["Feriencamp","Ausflug","Sport","Natur"],          io: "outdoor" };
-  if (month <= 9)  return { title: "Goldener Herbst",          subtitle: "Herbstfarben entdecken und erleben",          gradFrom: "from-orange-500", gradTo: "to-amber-400",    cats: ["Natur","Ausflug","Bildung","Museum"],            io: null      };
-  return             { title: "Drinnen & Kreativ",        subtitle: "Warme Stunden mit Kunst, Musik und Theater",  gradFrom: "from-purple-500", gradTo: "to-rose-400",     cats: ["Kreativ","Theater","Musik","Tanz"],              io: "indoor"  };
+  if (month <= 1)  return { title: "Gemütliche Wintertage",   subtitle: "Die schönsten Indoor-Aktivitäten für Kinder", gradFrom: "from-indigo-500", gradTo: "to-blue-400",    cats: ["Kreativ","Theater","Musik","Bildung"],           io: "indoor",  endMonth: 1  };
+  if (month <= 2)  return { title: "Frühling naht!",           subtitle: "Natur erwacht — raus und entdecken",          gradFrom: "from-green-500",  gradTo: "to-emerald-400",  cats: ["Natur","Ausflug","Sport","Tiere"],                io: "outdoor", endMonth: 2  };
+  if (month <= 4)  return { title: "Raus in die Natur",        subtitle: "Frühling in Zürich — beste Zeit für Abenteuer", gradFrom: "from-emerald-500", gradTo: "to-teal-400", cats: ["Natur","Ausflug","Sport","Tiere"],                io: "outdoor", endMonth: 4  };
+  if (month <= 7)  return { title: "Sommer in Zürich",         subtitle: "Camps, Abenteuer & lange Sonnentage",         gradFrom: "from-amber-500",  gradTo: "to-orange-400",   cats: ["Feriencamp","Ausflug","Sport","Natur"],          io: "outdoor", endMonth: 7  };
+  if (month <= 9)  return { title: "Goldener Herbst",          subtitle: "Herbstfarben entdecken und erleben",          gradFrom: "from-orange-500", gradTo: "to-amber-400",    cats: ["Natur","Ausflug","Bildung","Museum"],            io: null,      endMonth: 9  };
+  return             { title: "Drinnen & Kreativ",        subtitle: "Warme Stunden mit Kunst, Musik und Theater",  gradFrom: "from-purple-500", gradTo: "to-rose-400",     cats: ["Kreativ","Theater","Musik","Tanz"],              io: "indoor",  endMonth: 11 };
 }
 
 export function SeasonalSection({ allEventsPool, now }: SeasonalSectionProps) {
@@ -35,11 +37,20 @@ export function SeasonalSection({ allEventsPool, now }: SeasonalSectionProps) {
   const month = now.getMonth();
   const cfg = getSeasonConfig(month);
 
+  // Bound events to the current season's window (e.g. "Goldener Herbst" must not
+  // pull in Natur/Ausflug-category events dated for January or February) — the
+  // category/indoor-outdoor filters alone don't constrain the date at all, so
+  // without this, a thin near-term supply let far-future, off-season events
+  // (sorted first because there weren't enough in-season ones) leak into the tip.
+  const seasonEnd = new Date(now.getFullYear(), cfg.endMonth + 1, 0, 23, 59, 59, 999);
+
   const seasonEvents = allEventsPool
     .filter((e) => {
       const catOk = e.kategorien?.some((c) => cfg.cats.includes(c));
       const ioOk = !cfg.io || !e.indoor_outdoor || e.indoor_outdoor === cfg.io || e.indoor_outdoor === "beides";
-      return catOk && ioOk;
+      if (!catOk || !ioOk) return false;
+      if (!e.datum) return true; // ganzjährig — always in-season
+      return new Date(e.datum + "T00:00:00") <= seasonEnd;
     })
     .sort((a, b) => {
       if (a.datum && !b.datum) return -1;

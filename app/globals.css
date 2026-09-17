@@ -290,6 +290,33 @@ body,
   touch-action: pan-y;
 }
 
+/* ── Sprint B (17.09.2026): first-time swipe gesture hint ──
+   Shown once (kidgo_swipe_hint_seen) on top of the card stack so new
+   users discover that cards are swipeable, not just tappable via the
+   two buttons below. Fades itself out and is also dismissed early on
+   the first real touch. */
+@keyframes swipeHintOnboardingFade {
+  0%, 78% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+@keyframes swipeHintNudgeLeft {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(-7px); }
+}
+@keyframes swipeHintNudgeRight {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(7px); }
+}
+.swipe-hint-onboarding {
+  animation: swipeHintOnboardingFade 3.4s ease-in-out forwards;
+}
+.swipe-hint-nudge-left {
+  animation: swipeHintNudgeLeft 1.3s ease-in-out infinite;
+}
+.swipe-hint-nudge-right {
+  animation: swipeHintNudgeRight 1.3s ease-in-out infinite;
+}
+
 /* ── Tutorial slide animation ── */
 @keyframes tutorialSlideIn {
   from { opacity: 0; transform: translateY(20px); }

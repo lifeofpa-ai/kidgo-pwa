@@ -350,6 +350,32 @@ export default function Home() {
   const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
   const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
 
+  // Sprint B (17.09.2026): one-time hint teaching that cards are swipeable
+  const [showSwipeOnboarding, setShowSwipeOnboarding] = useState(false);
+  const swipeOnboardingChecked = useRef(false);
+  const swipeOnboardingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissSwipeOnboarding = () => {
+    if (!showSwipeOnboarding) return;
+    setShowSwipeOnboarding(false);
+    if (swipeOnboardingTimer.current) clearTimeout(swipeOnboardingTimer.current);
+  };
+  useEffect(() => {
+    if (swipeOnboardingChecked.current || recommendations.length === 0) return;
+    swipeOnboardingChecked.current = true;
+    try {
+      if (!localStorage.getItem("kidgo_swipe_hint_seen")) {
+        localStorage.setItem("kidgo_swipe_hint_seen", "true");
+        setShowSwipeOnboarding(true);
+        swipeOnboardingTimer.current = setTimeout(() => setShowSwipeOnboarding(false), 3500);
+      }
+    } catch {
+      // Private-Mode o.ä. - Hint einfach nicht anzeigen statt zu blockieren
+    }
+    return () => {
+      if (swipeOnboardingTimer.current) clearTimeout(swipeOnboardingTimer.current);
+    };
+  }, [recommendations.length]);
+
   // Sprint 12: Card stack animation
   const [cardExiting, setCardExiting] = useState(false);
   const [exitDirection, setExitDirection] = useState<"left" | "right">("left");
@@ -1078,6 +1104,7 @@ export default function Home() {
   // Cycle card without dismiss (used by explicit "next" button when overlay is not wanted)
   const handleCycleCard = () => {
     if (recommendations.length < 2 || cardExiting) return;
+    dismissSwipeOnboarding();
     setExitDirection("left");
     setCardExiting(true);
     setSwipeOffset(0);
@@ -1091,6 +1118,7 @@ export default function Home() {
 
   const handleSwipeRight = () => {
     if (recommendations.length === 0 || cardExiting) return;
+    dismissSwipeOnboarding();
     setSwipeHint(null);
     const top = recommendations[0];
     try { (navigator as any).vibrate?.(10); } catch {}
@@ -1107,6 +1135,7 @@ export default function Home() {
 
   const handleRecTouchStart = (e: React.TouchEvent) => {
     if (cardExiting) return;
+    dismissSwipeOnboarding();
     const t = e.touches[0];
     swipeTouchStart.current = { x: t.clientX, y: t.clientY };
     setSwipeOffset(0);
@@ -1654,6 +1683,7 @@ export default function Home() {
             bookmarks={bookmarks}
             swipeOffset={swipeOffset}
             swipeHint={swipeHint}
+            showSwipeOnboarding={showSwipeOnboarding}
             cardExiting={cardExiting}
             exitDirection={exitDirection}
             cardIndex={cardIndex}

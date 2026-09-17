@@ -94,7 +94,12 @@ export function ExploreMapView({ events, height = "58vh" }: ExploreMapViewProps)
       let count = 0;
 
       for (const ev of events) {
-        const coords = getCoords(ev.ort);
+        // Prefer the event's own geocoded coordinates (set by the
+        // geocode-events edge function for ~94% of approved events) over
+        // the old 9-city name match, which silently dropped every event
+        // whose `ort` wasn't one of those 9 towns.
+        const hasGeocode = typeof ev.lat === "number" && typeof ev.lng === "number";
+        const coords: [number, number] | null = hasGeocode ? [ev.lat, ev.lng] : getCoords(ev.ort);
         if (!coords) continue;
         const key = coords.join(",");
         const n = coordCount[key] || 0;

@@ -19,6 +19,7 @@ interface CardStackProps {
   bookmarks: CompactEvent[];
   swipeOffset: number;
   swipeHint: "left" | "right" | null;
+  showSwipeOnboarding?: boolean;
   cardExiting: boolean;
   exitDirection: "left" | "right";
   cardIndex: number;
@@ -47,6 +48,7 @@ export function CardStack({
   bookmarks,
   swipeOffset,
   swipeHint,
+  showSwipeOnboarding = false,
   cardExiting,
   exitDirection,
   cardIndex,
@@ -158,6 +160,31 @@ export function CardStack({
           >
             <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-red-400" : "bg-green-500"}`}>
               {swipeHint === "left" ? "Nicht interessiert" : "Gemerkt"}
+            </div>
+          </div>
+        )}
+
+        {/* First-time swipe gesture hint (Sprint B, 17.09.2026): shown once
+            so new users learn cards can be swiped, not just tapped via the
+            buttons below. Hidden as soon as a real drag starts (swipeHint
+            takes over) or the parent's own timer/first-touch clears it. */}
+        {showSwipeOnboarding && !swipeHint && (
+          <div
+            className="swipe-hint-onboarding absolute inset-x-0 top-0 rounded-2xl pointer-events-none flex items-center justify-between px-5"
+            style={{ height: "200px", zIndex: recommendations.length + 3 }}
+            aria-hidden="true"
+          >
+            <div className="swipe-hint-nudge-left flex flex-col items-start gap-1.5">
+              <span className="text-2xl leading-none text-red-400">←</span>
+              <span className="px-3 py-1 rounded-full bg-red-400 text-white text-xs font-bold shadow-lg whitespace-nowrap">
+                Nicht interessiert
+              </span>
+            </div>
+            <div className="swipe-hint-nudge-right flex flex-col items-end gap-1.5">
+              <span className="text-2xl leading-none text-green-500">→</span>
+              <span className="px-3 py-1 rounded-full bg-green-500 text-white text-xs font-bold shadow-lg whitespace-nowrap">
+                Gemerkt
+              </span>
             </div>
           </div>
         )}

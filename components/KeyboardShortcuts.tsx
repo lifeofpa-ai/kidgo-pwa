@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * Global keyboard shortcuts (Desktop):
- *   "/"      → focus the search/chat input
+ *   "/"      → focus the search input
  *   "Escape" → close any open modal/popup
  *   "b"      → toggle bookmark on currently focused/visible event detail
  *
@@ -20,7 +20,6 @@ export function KeyboardShortcuts() {
 
     const SEARCH_TARGET_IDS = [
       "kidgo-search-input",
-      "kidgo-chat-input",
       "kidgo-explore-search",
     ];
 

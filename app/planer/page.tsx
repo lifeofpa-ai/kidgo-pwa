@@ -183,16 +183,17 @@ export default function PlanerPage() {
                         <div className="w-full h-full flex items-center justify-center">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BBAA7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-                        </svg>
+                          </svg>
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-[var(--text-primary)] text-sm leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors">
-                      {ev.titel}
-                    </p>
-                    {ev.ort && (
-                      <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate flex items-center gap-1">
-                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                        {ev.titel}
+                      </p>
+                      {ev.ort && (
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate flex items-center gap-1">
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M6 1a3 3 0 0 1 3 3c0 2.5-3 7-3 7S3 6.5 3 4a3 3 0 0 1 3-3z"/>
                             <circle cx="6" cy="4" r="1"/>
                           </svg>

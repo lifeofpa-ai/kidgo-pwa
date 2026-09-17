@@ -8,8 +8,6 @@ import { getCategoryIcon } from "@/components/Icons";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
-import { ChatFAB } from "@/components/home/ChatFAB";
-import { ChatSheet } from "@/components/home/ChatSheet";
 import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 
 const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
@@ -173,7 +171,6 @@ export default function ExplorePage() {
   const [visibleCountFuture, setVisibleCountFuture]   = useState(PAGE_SIZE);
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
   const [selectedAgeBuckets, setSelectedAgeBuckets]   = useState<string[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
   const [selectedCategories, setSelectedCategories]   = useState<string[]>([]);
   const [indoorOutdoor, setIndoorOutdoor] = useState<IndoorOutdoor>("all");
   const [gratisOnly, setGratisOnly]       = useState(false);
@@ -674,8 +671,6 @@ export default function ExplorePage() {
         </button>
       )}
 
-      <ChatFAB onClick={() => setChatOpen(true)} />
-      <ChatSheet open={chatOpen} onClose={() => setChatOpen(false)} />
     </main>
   );
 }

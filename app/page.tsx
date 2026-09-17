@@ -27,8 +27,6 @@ import {
   type PreferenceProfile,
   type DismissProfile,
 } from "@/lib/preferences";
-import { ChatSheet } from "@/components/home/ChatSheet";
-import { ChatFAB } from "@/components/home/ChatFAB";
 import {
   type DismissReason,
   type EventMeta,
@@ -406,7 +404,6 @@ export default function Home() {
   const [dismissProfile, setDismissProfile] = useState<DismissProfile | null>(null);
 
   // Sprint 11: Collapsible sections (all closed by default)
-  const [chatOpen, setChatOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
 
   // Feature 4: Streak
@@ -486,19 +483,6 @@ export default function Home() {
     scrollRestored.current = true;
     restoreScrollPosition(window.location.pathname);
   }, [mounted, loading, recommendations.length]);
-
-  // Sprint 21: Listen for "/" keyboard shortcut to open + focus chat
-  useEffect(() => {
-    const onFocusSearch = () => {
-      setChatOpen(true);
-      setTimeout(() => {
-        document.getElementById("kidgo-chat-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        setTimeout(() => document.getElementById("kidgo-chat-input")?.focus(), 220);
-      }, 100);
-    };
-    window.addEventListener("kidgo:shortcut:focus-search", onFocusSearch);
-    return () => window.removeEventListener("kidgo:shortcut:focus-search", onFocusSearch);
-  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -1722,11 +1706,8 @@ export default function Home() {
         </button>
       )}
 
-      {/* Chat FAB */}
-      <ChatFAB onClick={() => setChatOpen(true)} />
     </main>
 
-    <ChatSheet open={chatOpen} onClose={() => setChatOpen(false)} weatherCode={weatherCode} />
     </>
   );
 }

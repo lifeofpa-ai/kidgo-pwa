@@ -620,12 +620,12 @@ export default function ExplorePage() {
                         <button
                           onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
                           className="px-6 py-2.5 border border-[var(--kidgo-teal)] text-[var(--kidgo-teal)] text-sm font-semibold rounded-full hover:bg-[var(--accent-light)] transition-all duration-200 ease-out"
-                      >
-                        {futureEvents.length - visibleCountFuture} weitere laden
-                      </button>
-                    </div>
-                  )}
-                </section>
+                        >
+                          {futureEvents.length - visibleCountFuture} weitere laden
+                        </button>
+                      </div>
+                    )}
+                  </section>
                 )}
 
                 {allYearActivities.length > 0 && (
@@ -658,7 +658,7 @@ export default function ExplorePage() {
               </div>
             );
           })()
-        }
+        )}
       </div>
 
       {showScrollTop && viewMode === "list" && (
@@ -670,6 +670,7 @@ export default function ExplorePage() {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 12V4M4 8l4-4 4 4"/></svg>
         </button>
       )}
+
     </main>
   );
 }

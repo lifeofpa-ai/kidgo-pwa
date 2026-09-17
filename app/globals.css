@@ -278,6 +278,16 @@ body,
 /* ── Card stack ── */
 .card-stack-top {
   will-change: transform;
+  /* Sprint 34: without this, the browser treats horizontal drags on this
+     card as its own native pan/edge-navigation gesture (e.g. the
+     back-swipe gesture on Android Chrome / mobile WKWebViews), which wins
+     the touch sequence away from our JS swipe handler — in practice this
+     made left-swipes (dismiss) work while right-swipes (bookmark) were
+     silently swallowed, since only left-edge rightward drags are claimed
+     for back-navigation. touch-action: pan-y restricts native touch
+     handling on this element to vertical scrolling only, so horizontal
+     drags are reserved for our own swipe-to-bookmark/dismiss logic. */
+  touch-action: pan-y;
 }
 
 /* ── Tutorial slide animation ── */

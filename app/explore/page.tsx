@@ -8,8 +8,6 @@ import { getCategoryIcon } from "@/components/Icons";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
-import { ChatFAB } from "@/components/home/ChatFAB";
-import { ChatSheet } from "@/components/home/ChatSheet";
 import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 
 const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
@@ -173,7 +171,6 @@ export default function ExplorePage() {
   const [visibleCountFuture, setVisibleCountFuture]   = useState(PAGE_SIZE);
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
   const [selectedAgeBuckets, setSelectedAgeBuckets]   = useState<string[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
   const [selectedCategories, setSelectedCategories]   = useState<string[]>([]);
   const [indoorOutdoor, setIndoorOutdoor] = useState<IndoorOutdoor>("all");
   const [gratisOnly, setGratisOnly]       = useState(false);
@@ -623,12 +620,12 @@ export default function ExplorePage() {
                         <button
                           onClick={() => setVisibleCountFuture((v) => v + PAGE_SIZE)}
                           className="px-6 py-2.5 border border-[var(--kidgo-teal)] text-[var(--kidgo-teal)] text-sm font-semibold rounded-full hover:bg-[var(--accent-light)] transition-all duration-200 ease-out"
-                        >
-                          {futureEvents.length - visibleCountFuture} weitere laden
-                        </button>
-                      </div>
-                    )}
-                  </section>
+                      >
+                        {futureEvents.length - visibleCountFuture} weitere laden
+                      </button>
+                    </div>
+                  )}
+                </section>
                 )}
 
                 {allYearActivities.length > 0 && (
@@ -661,7 +658,7 @@ export default function ExplorePage() {
               </div>
             );
           })()
-        )}
+        }
       </div>
 
       {showScrollTop && viewMode === "list" && (
@@ -673,9 +670,6 @@ export default function ExplorePage() {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 12V4M4 8l4-4 4 4"/></svg>
         </button>
       )}
-
-      <ChatFAB onClick={() => setChatOpen(true)} />
-      <ChatSheet open={chatOpen} onClose={() => setChatOpen(false)} />
     </main>
   );
 }

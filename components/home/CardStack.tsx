@@ -140,6 +140,48 @@ export function CardStack({
                     bookmarkCount={bookmarkCounts.get(event.id)}
                   />
                 </div>
+
+                {/* Real-time swipe feedback (18.09.2026): stamp + color wash live
+                    on the card itself, scaling with drag distance — attached to
+                    the card's own transform (not a fixed-position overlay like
+                    the old pill), so it visibly tracks the drag like a Tinder
+                    stamp. Shows on every swipe, every time, not just first-use. */}
+                {swipeHint && !isDismissingStack && (() => {
+                  const intensity = Math.min(Math.abs(swipeOffset) / 100, 1);
+                  const isRight = swipeHint === "right";
+                  return (
+                    <>
+                      <div
+                        className="absolute inset-0 rounded-xl pointer-events-none"
+                        aria-hidden="true"
+                        style={{
+                          backgroundColor: isRight ? "rgb(34,197,94)" : "rgb(248,113,113)",
+                          opacity: intensity * 0.28,
+                          transition: "opacity 0.05s linear",
+                        }}
+                      />
+                      <div
+                        className={`absolute top-5 ${isRight ? "right-5" : "left-5"} pointer-events-none select-none`}
+                        aria-hidden="true"
+                        style={{
+                          opacity: intensity,
+                          transform: `scale(${0.8 + intensity * 0.2}) rotate(${isRight ? 10 : -10}deg)`,
+                          transition: "opacity 0.05s linear, transform 0.05s linear",
+                        }}
+                      >
+                        <div
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border-[3px] bg-white/95 font-extrabold text-base uppercase tracking-wide shadow-lg ${
+                            isRight ? "border-green-500 text-green-500" : "border-red-400 text-red-400"
+                          }`}
+                        >
+                          <span aria-hidden="true">{isRight ? "♥" : "✕"}</span>
+                          <span>{isRight ? "Gemerkt" : "Nope"}</span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
                 {isDismissingStack && (
                   <DismissOverlay
                     reasons={dismissReasons}
@@ -151,18 +193,6 @@ export function CardStack({
             </div>
           );
         })()}
-
-        {/* Swipe hint */}
-        {swipeHint && (
-          <div
-            className={`absolute top-0 left-0 right-0 rounded-2xl pointer-events-none flex items-center ${swipeHint === "left" ? "justify-end pr-6" : "justify-start pl-6"}`}
-            style={{ height: "200px", zIndex: recommendations.length + 2 }}
-          >
-            <div className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg ${swipeHint === "left" ? "bg-red-400" : "bg-green-500"}`}>
-              {swipeHint === "left" ? "Nicht interessiert" : "Gemerkt"}
-            </div>
-          </div>
-        )}
 
         {/* First-time swipe gesture hint (Sprint B, 17.09.2026): shown once
             so new users learn cards can be swiped, not just tapped via the

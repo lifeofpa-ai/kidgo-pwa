@@ -34,7 +34,7 @@ const TOTAL_STEPS = 4;
 
 export function OnboardingFlow() {
   const { prefs, setPrefs, markOnboarded } = useUserPrefs();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [step, setStep]           = useState(0);
   const [ages, setAges]           = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
@@ -80,18 +80,23 @@ export function OnboardingFlow() {
       Notification.requestPermission().catch(() => {});
     }
 
-    // Persist to Supabase if logged in
+    // Persist to Supabase if logged in — inkl. onboarding_state.flow_completed,
+    // damit das Intro auf einem neuen Gerät nach Login nicht erneut erscheint.
     if (user) {
       try {
         await supabase.from("user_profiles").upsert(
-          { user_id: user.id, interests },
+          {
+            user_id: user.id,
+            interests,
+            onboarding_state: { ...(profile?.onboarding_state || {}), flow_completed: true },
+          },
           { onConflict: "user_id" }
         );
       } catch {}
     }
 
     markOnboarded();
-  }, [prefs, setPrefs, ages, interests, radius, markOnboarded, user]);
+  }, [prefs, setPrefs, ages, interests, radius, markOnboarded, user, profile]);
 
   const glassCard = (active: boolean) => ({
     background: active ? "rgba(91,186,167,0.2)" : "rgba(255,255,255,0.05)",

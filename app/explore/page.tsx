@@ -9,6 +9,7 @@ import { safeExternalUrl } from "@/lib/safe-url";
 import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
 import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
+import { hikingEventAllowed } from "@/lib/interests";
 
 const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
 
@@ -240,7 +241,16 @@ export default function ExplorePage() {
 
       const { data: allEvents, error: eventsError } = await q.order("datum", { ascending: true, nullsFirst: true });
       if (eventsError) throw eventsError;
-      if (allEvents) setEvents(allEvents);
+      if (allEvents) {
+        // Familienwanderungen-Ausnahme (2026-09-20): nur für Nutzer mit
+        // Natur-Interesse sichtbar — siehe lib/interests.ts hikingEventAllowed.
+        let interests: string[] = [];
+        try {
+          const raw = localStorage.getItem("kidgo_interests");
+          if (raw) interests = JSON.parse(raw);
+        } catch {}
+        setEvents(allEvents.filter((e) => hikingEventAllowed(e, interests)));
+      }
     } catch (err) {
       console.error(err);
       setError("Fehler beim Laden der Events");

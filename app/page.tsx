@@ -35,7 +35,9 @@ import {
   getDismissedEventIds,
   saveDismissalLocally,
   saveDismissalToSupabase,
+  loadDismissalsFromSupabase,
 } from "@/lib/dismiss-reasons";
+import { hikingEventAllowed } from "@/lib/interests";
 import { trackEvent, trackFirstBookmark, initScrollDepthTracking } from "@/lib/analytics";
 import { PhoneIcon, WifiOffIcon } from "@/components/Icons";
 import {
@@ -330,7 +332,7 @@ const EVENTS_CACHE_TTL = 5 * 60 * 1000;
 // ============================================================
 
 export default function Home() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, markOnboardingFlag } = useAuth();
   const { prefs, mounted: prefsMounted } = useUserPrefs();
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -361,11 +363,15 @@ export default function Home() {
   };
   useEffect(() => {
     if (swipeOnboardingChecked.current || recommendations.length === 0) return;
+    if (authLoading) return; // erst entscheiden, wenn wir profile.onboarding_state kennen
     swipeOnboardingChecked.current = true;
+    // Account-weite Wiedererkennung: auf anderem Gerät bereits gesehen.
+    if (profile?.onboarding_state?.swipe_hint_seen) return;
     try {
       if (!localStorage.getItem("kidgo_swipe_hint_seen")) {
         localStorage.setItem("kidgo_swipe_hint_seen", "true");
         setShowSwipeOnboarding(true);
+        if (user) markOnboardingFlag("swipe_hint_seen");
         swipeOnboardingTimer.current = setTimeout(() => setShowSwipeOnboarding(false), 3500);
       }
     } catch {
@@ -374,7 +380,7 @@ export default function Home() {
     return () => {
       if (swipeOnboardingTimer.current) clearTimeout(swipeOnboardingTimer.current);
     };
-  }, [recommendations.length]);
+  }, [recommendations.length, authLoading, profile?.onboarding_state?.swipe_hint_seen, user, markOnboardingFlag]);
 
   // Sprint 12: Card stack animation
   const [cardExiting, setCardExiting] = useState(false);
@@ -462,9 +468,16 @@ export default function Home() {
   const [badgeQueue, setBadgeQueue]         = useState<BadgeDef[]>([]);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
-  // Sprint 10: Show profile setup when user logs in without profile
+  // Sprint 10: Show profile setup when user logs in with an incomplete profile
+  // (2026-09-20 fix: auth-context always upserts a stub row on SIGNED_IN, so
+  // `profile === null` almost never happens — check for an empty/undismissed
+  // profile instead, so the modal actually opens for new accounts).
   useEffect(() => {
-    if (!authLoading && user && profile === null) {
+    if (authLoading || !user || !profile) return;
+    const hasName = !!profile.display_name;
+    const hasChildren = Array.isArray(profile.children) && profile.children.length > 0;
+    const dismissed = !!profile.onboarding_state?.profile_setup_dismissed;
+    if (!hasName && !hasChildren && !dismissed) {
       setShowProfileSetup(true);
     }
   }, [authLoading, user, profile]);
@@ -497,6 +510,36 @@ export default function Home() {
           return merged;
         });
       });
+  }, [user]);
+
+  // 2026-09-20: Account-Interessen in die lokale Empfehlungs-Logik einspeisen.
+  // Vorher landete `profile.interests` (aus ProfileSetupModal/OnboardingFlow)
+  // nie in `userInterests` — dadurch hatte ein Login auf einem neuen Gerät
+  // keinen Einfluss auf die Personalisierung ("von Nutzern lernen").
+  useEffect(() => {
+    if (!profile?.interests || profile.interests.length === 0) return;
+    setUserInterests((prev) => Array.from(new Set([...prev, ...profile.interests!])));
+    try { localStorage.setItem("kidgo_interests", JSON.stringify(profile.interests)); } catch {}
+  }, [profile?.interests]);
+
+  // 2026-09-20: Abgelehnte Events aus Supabase nachladen und mit den lokalen
+  // Ablehnungen mergen. `loadDismissalsFromSupabase` existierte bereits,
+  // wurde aber nirgends aufgerufen — dadurch verpufften Ablehnungsgründe auf
+  // einem neuen Gerät komplett.
+  useEffect(() => {
+    if (!user) return;
+    loadDismissalsFromSupabase(supabase, user.id).then((serverDismissals) => {
+      if (serverDismissals.length === 0) return;
+      const local = getPastDismissals();
+      const localIds = new Set(local.map((d) => d.eventId));
+      const merged = [...local, ...serverDismissals.filter((d) => !localIds.has(d.eventId))];
+      setDismissProfile(buildDismissProfile(merged));
+      setDismissedEventIds((prev) => {
+        const next = new Set(prev);
+        for (const d of merged) next.add(d.eventId);
+        return next;
+      });
+    });
   }, [user]);
 
   // Sprint 21: Restore scroll position when returning from detail page
@@ -789,7 +832,9 @@ export default function Home() {
       try {
         const cached = localStorage.getItem("kidgo_cached_events");
         if (cached) {
-          const eventsData = JSON.parse(cached) as KidgoEvent[];
+          const eventsDataRaw = JSON.parse(cached) as KidgoEvent[];
+          // Familienwanderungen-Ausnahme: nur für Nutzer mit Natur-Interesse sichtbar.
+          const eventsData = eventsDataRaw.filter((e) => hikingEventAllowed(e, userInterests));
           setAllEventsPool(eventsData);
           const ageFiltered = selectedBuckets.length === 0
             ? eventsData
@@ -815,10 +860,12 @@ export default function Home() {
     // Sprint 4: 5-minute in-memory cache
     if (_eventsCache && _sourcesCache && Date.now() - _cacheTimestamp < EVENTS_CACHE_TTL) {
       setSources(_sourcesCache);
-      setAllEventsPool(_eventsCache);
+      // Familienwanderungen-Ausnahme: nur für Nutzer mit Natur-Interesse sichtbar.
+      const cachedVisible = _eventsCache.filter((e) => hikingEventAllowed(e, userInterests));
+      setAllEventsPool(cachedVisible);
       const ageFiltered = selectedBuckets.length === 0
-        ? _eventsCache
-        : _eventsCache.filter(
+        ? cachedVisible
+        : cachedVisible.filter(
             (e) => !e.alters_buckets || e.alters_buckets.length === 0 || selectedBuckets.some((b) => e.alters_buckets!.includes(b))
           );
       setAllEvents(ageFiltered);
@@ -867,7 +914,10 @@ export default function Home() {
         return;
       }
 
-      setAllEventsPool(eventsData);
+      // Familienwanderungen-Ausnahme: nur für Nutzer mit Natur-Interesse sichtbar
+      // (siehe lib/interests.ts hikingEventAllowed) — gilt für allEventsPool und
+      // damit auch für SeasonalSection/Weekend/Überraschung, die direkt daraus lesen.
+      setAllEventsPool(eventsData.filter((e) => hikingEventAllowed(e, userInterests)));
 
       // Sprint 4: Populate module-level cache
       _eventsCache = eventsData;
@@ -903,9 +953,10 @@ export default function Home() {
       }
       setSmallSourceIds(smallIds);
 
+      const hikingVisibleEvents = eventsData.filter((e) => hikingEventAllowed(e, userInterests));
       const ageFiltered = selectedBuckets.length === 0
-        ? eventsData
-        : eventsData.filter(
+        ? hikingVisibleEvents
+        : hikingVisibleEvents.filter(
             (e) =>
               !e.alters_buckets ||
               e.alters_buckets.length === 0 ||

@@ -33,8 +33,8 @@ export const INTERESTS: InterestDef[] = [
   {
     id: "natur",
     label: "Natur & Tiere",
-    categories: ["Natur", "Tiere"],
-    keywords: ["natur", "wald", "tiere", "zoo", "bauernhof", "pflanzen"],
+    categories: ["Natur", "Tiere", "Wandern"],
+    keywords: ["natur", "wald", "tiere", "zoo", "bauernhof", "pflanzen", "wandern", "wanderung", "bergsee", "bergbahn", "alpine", "alpin", "wasserfall"],
   },
   {
     id: "wissen",
@@ -73,6 +73,28 @@ export const INTERESTS: InterestDef[] = [
     keywords: ["zirkus", "akrobatik", "jonglier", "artistik", "zirkusschule"],
   },
 ];
+
+// ============================================================
+// Familienwanderungen-Ausnahme (2026-09-20)
+// ============================================================
+// Wanderungen ausserhalb des ZH-Einzugsgebiets (event_typ = "wanderung_ausnahme")
+// sind eine bewusste, eng gefasste Expansion (max. 2 Autostunden ab Zürich,
+// Zentral-/Ostschweiz). Sie sollen NICHT allen Nutzenden angezeigt werden,
+// sondern nur denen, die laut Profil/Interessen-Präferenzen Interesse an
+// Natur & Wandern signalisiert haben — siehe Konzept "Familien- &
+// Kinderwanderungen". Dasselbe Muster (gezielte Kategorie-Freischaltung über
+// ein Interesse) lässt sich künftig auf weitere Expansionsschritte anwenden.
+export function isHikingException(event: { event_typ?: string | null }): boolean {
+  return event.event_typ === "wanderung_ausnahme";
+}
+
+export function hikingEventAllowed(
+  event: { event_typ?: string | null },
+  interests: string[]
+): boolean {
+  if (!isHikingException(event)) return true;
+  return interests.includes("natur");
+}
 
 export function eventMatchesInterests(
   event: {

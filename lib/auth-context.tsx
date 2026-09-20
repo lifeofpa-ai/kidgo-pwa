@@ -10,12 +10,24 @@ import {
 import { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-browser";
 
+// Account-weite Onboarding-Erkennung (2026-09-20): Flags, die verhindern, dass
+// bereits gesehene Intros/Hinweise auf einem neuen Gerät nach Login erneut
+// erscheinen. Ergänzt die geräte-lokalen localStorage-Flags, ersetzt sie nicht.
+export interface OnboardingState {
+  flow_completed?: boolean; // OnboardingFlow (Alter/Interessen/Radius)
+  walkthrough_seen?: boolean; // OnboardingWalkthrough (3 USP-Slides)
+  swipe_hint_seen?: boolean; // Swipe-Hinweis auf den Empfehlungs-Karten
+  profile_setup_dismissed?: boolean; // ProfileSetupModal übersprungen
+  [key: string]: boolean | undefined;
+}
+
 export interface UserProfile {
   user_id: string;
   display_name: string | null;
   children: Array<{ name: string; age_bucket: string }>;
   interests: string[] | null;
   created_at: string;
+  onboarding_state: OnboardingState | null;
 }
 
 interface AuthContextType {
@@ -25,6 +37,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  markOnboardingFlag: (flag: keyof OnboardingState) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -34,6 +47,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
+  markOnboardingFlag: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -96,9 +110,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // Account-weite Onboarding-Erkennung: Flag optimistisch lokal setzen und
+  // in user_profiles.onboarding_state mergen, damit ein zurückkehrender
+  // Nutzer dasselbe Intro/den Hinweis auf einem anderen Gerät nicht erneut
+  // sieht. Schreibt NUR die onboarding_state-Spalte, andere Profilfelder
+  // bleiben unangetastet.
+  const markOnboardingFlag = async (flag: keyof OnboardingState) => {
+    if (!user) return;
+    setProfile((prev) => {
+      const nextState = { ...(prev?.onboarding_state || {}), [flag]: true };
+      if (prev) return { ...prev, onboarding_state: nextState };
+      return prev;
+    });
+    try {
+      const currentState = profile?.onboarding_state || {};
+      await supabase.from("user_profiles").upsert(
+        { user_id: user.id, onboarding_state: { ...currentState, [flag]: true } },
+        { onConflict: "user_id" }
+      );
+    } catch {}
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, loading, signOut, refreshProfile }}
+      value={{ user, session, profile, loading, signOut, refreshProfile, markOnboardingFlag }}
     >
       {children}
     </AuthContext.Provider>

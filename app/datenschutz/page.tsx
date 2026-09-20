@@ -21,7 +21,7 @@ export default function DatenschutzPage() {
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Datenschutzerklärung</h1>
-        <p className="text-sm text-gray-400 mb-10">Stand: April 2026 · Gemäss Schweizer DSG</p>
+        <p className="text-sm text-gray-400 mb-10">Stand: September 2026 · Gemäss Schweizer DSG</p>
 
         <div className="space-y-8 text-sm text-gray-600 leading-relaxed">
           <section aria-labelledby="grundsatz-heading">
@@ -70,6 +70,51 @@ export default function DatenschutzPage() {
 
           <div className="border-t border-gray-100" role="separator" />
 
+          <section aria-labelledby="konto-heading">
+            <h2 id="konto-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Konto &amp; Personalisierung</h2>
+            <p className="mb-3">
+              Wenn du dich mit deiner E-Mail-Adresse anmeldest (Login per Magic-Link), speichern
+              wir zusätzlich zu den lokalen Daten oben die folgenden Angaben in unserer Datenbank,
+              verknüpft mit deinem Konto. Das ermöglicht es kidgo, dich wiederzuerkennen und dir
+              passendere Vorschläge zu machen — eines der zentralen Versprechen der App:
+            </p>
+            <ul className="space-y-2">
+              {[
+                { key: "user_profiles", desc: "Dein Anzeigename, das Alter deiner Kinder und deine gewählten Interessen (z. B. Natur, Sport, Musik)" },
+                { key: "user_bookmarks", desc: "Deine Merkliste — welche Events du gespeichert hast" },
+                { key: "event_dismissals", desc: "Welche Events du weggewischt/abgelehnt hast und aus welchem Grund (z. B. „zu weit weg\", „falsches Alter\") — hilft uns, dir ähnliche Events künftig seltener zu zeigen" },
+                { key: "user_profiles.onboarding_state", desc: "Ob du die Einführung, den Kurz-Rundgang, den Wisch-Hinweis oder das Profil-Setup bereits gesehen bzw. übersprungen hast — damit dir das nicht bei jedem Login oder auf einem neuen Gerät erneut angezeigt wird" },
+              ].map(({ key, desc }) => (
+                <li key={key} className="flex items-start gap-3">
+                  <code className="flex-shrink-0 bg-gray-50 border border-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded font-mono">
+                    {key}
+                  </code>
+                  <span className="text-gray-500">{desc}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4">
+              Diese Daten werden ausschliesslich verwendet, um dir innerhalb der App passendere
+              Empfehlungen zu zeigen (z.&nbsp;B. basierend auf deinen Interessen oder zuvor
+              abgelehnten Kategorien), und nicht an Dritte weitergegeben oder zu anderen Zwecken
+              ausgewertet. Ohne Login funktioniert kidgo weiterhin vollständig, dann verbleiben
+              alle Einstellungen — wie im Abschnitt „Lokaler Speicher" beschrieben — nur auf
+              deinem Gerät.
+            </p>
+            <p className="mt-3 text-gray-400">
+              Du kannst jederzeit die vollständige Löschung deines Kontos und aller damit
+              verknüpften Daten verlangen — schreib uns dazu einfach an{" "}
+              <a
+                href="mailto:contact@kidgo.ch"
+                className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
+              >
+                contact@kidgo.ch
+              </a>.
+            </p>
+          </section>
+
+          <div className="border-t border-gray-100" role="separator" />
+
           <section aria-labelledby="drittdienste-heading">
             <h2 id="drittdienste-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Drittdienste</h2>
             <div className="space-y-5">
@@ -78,7 +123,9 @@ export default function DatenschutzPage() {
                 <p>
                   Die Event-Daten werden in einer Supabase-Datenbank (Supabase Inc., USA) gespeichert.
                   Bei der Nutzung der App wird eine anonyme Datenbankabfrage gesendet. Es werden
-                  keine personenbezogenen Daten übertragen. Datenschutzerklärung:{" "}
+                  keine personenbezogenen Daten übertragen — mit Ausnahme deiner Konto-Daten,
+                  wenn du eingeloggt bist (siehe Abschnitt „Konto &amp; Personalisierung" oben).
+                  Datenschutzerklärung:{" "}
                   <a
                     href="https://supabase.com/privacy"
                     target="_blank"

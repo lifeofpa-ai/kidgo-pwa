@@ -133,7 +133,7 @@ function InterestIcon({ id, selected }: { id: string; selected: boolean }) {
 }
 
 export function ProfileSetupModal({ onComplete }: Props) {
-  const { user, refreshProfile } = useAuth();
+  const { user, refreshProfile, markOnboardingFlag } = useAuth();
   const [step, setStep]                 = useState<"profile" | "interests">("profile");
   const [displayName, setDisplayName]   = useState("");
   const [children, setChildren]         = useState<Child[]>([{ name: "", age_bucket: "4-6", _key: newChildKey() }]);
@@ -149,6 +149,13 @@ export function ProfileSetupModal({ onComplete }: Props) {
     setSelectedInterests((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  };
+
+  // Komplettes Überspringen (Schritt 1): merkt sich das dauerhaft im Konto,
+  // damit das Setup nicht bei jedem Login erneut aufpoppt.
+  const skipAll = async () => {
+    if (user) await markOnboardingFlag("profile_setup_dismissed");
+    onComplete();
   };
 
   const save = async (interests: string[]) => {
@@ -265,7 +272,7 @@ export function ProfileSetupModal({ onComplete }: Props) {
 
             <div className="flex gap-2">
               <button
-                onClick={onComplete}
+                onClick={skipAll}
                 className="flex-1 border border-[var(--border)] rounded-xl py-2.5 text-sm text-[var(--text-muted)] hover:border-[var(--border-strong)] transition"
               >
                 Überspringen

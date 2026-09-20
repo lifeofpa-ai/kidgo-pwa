@@ -16,6 +16,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useUserPrefs } from "@/lib/user-prefs-context";
+import { useAuth } from "@/lib/auth-context";
 
 const STORAGE_KEY = "kidgo_onboarding_seen_v1";
 
@@ -36,23 +37,27 @@ const slides = [
 
 export function OnboardingWalkthrough() {
   const { prefs, mounted: prefsMounted } = useUserPrefs();
+  const { user, profile, markOnboardingFlag } = useAuth();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
     if (!prefsMounted || !prefs.onboarded) return;
+    // Bereits übers Konto als gesehen bekannt (anderes Gerät) — nicht erneut zeigen.
+    if (profile?.onboarding_state?.walkthrough_seen) return;
     try {
       if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
     } catch {
       // Private-Mode o.ä. - Onboarding einfach nicht blockierend anzeigen
     }
-  }, [prefsMounted, prefs.onboarded]);
+  }, [prefsMounted, prefs.onboarded, profile?.onboarding_state?.walkthrough_seen]);
 
   const close = () => {
     setVisible(false);
     try {
       localStorage.setItem(STORAGE_KEY, "1");
     } catch {}
+    if (user) markOnboardingFlag("walkthrough_seen");
   };
 
   if (!visible) return null;

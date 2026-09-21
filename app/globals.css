@@ -2,17 +2,878 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Font Fallback (for cases where Google Fonts can't be fetched) ── */
-@layer base {
-  :root {
-    --font-nunito: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  }
-}
-
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-button, input, optgroup, select, textarea { font-family: inherit; }
-p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
+html, body { width: 100%; height: 100%; }
+
+/* ── Design Tokens ── */
+:root {
+  /* Semantic tokens */
+  --bg-page: #FAFAF8;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #EFF8F6;
+  --bg-input: #EFF8F6;
+  --text-primary: #2D3436;
+  --text-secondary: #636e72;
+  --text-muted: #b2bec3;
+  --border: #dfe6e9;
+  --border-strong: #b2bec3;
+  --accent: #5BBAA7;
+  --accent-light: #EFF8F6;
+  --shadow-sm: 0 1px 3px 0 rgba(91,186,167,0.08), 0 1px 2px -1px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 8px -2px rgba(91,186,167,0.10), 0 2px 4px -2px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 24px -5px rgba(91,186,167,0.12), 0 4px 8px -4px rgba(0,0,0,0.08);
+  --kidgo-gradient: linear-gradient(135deg, #5BBAA7, #4A9E8E);
+
+  /* Named brand tokens */
+  --kidgo-teal: #5BBAA7;
+  --kidgo-teal-dark: #4A9E8E;
+  --kidgo-teal-light: #8DD4C5;
+  --kidgo-cream: #F5F0E8;
+  --kidgo-text: #2D3436;
+  --kidgo-bg: #FAFAF8;
+  --kidgo-border: #dfe6e9;
+  --kidgo-card: #FFFFFF;
+
+  /* System font stack (Google Fonts removed 21.09.2026 — build was failing to fetch Nunito) */
+  --font-nunito: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+}
+
+.dark {
+  --bg-page: #1A1D1C;
+  --bg-card: #252928;
+  --bg-subtle: #2d3330;
+  --bg-input: #2d3330;
+  --text-primary: #E8E6E3;
+  --text-secondary: #a0b0ae;
+  --text-muted: #607872;
+  --border: #3d4a47;
+  --border-strong: #4e5e5b;
+  --accent: #7CCBB9;
+  --accent-light: #1a2e2a;
+  --shadow-sm: 0 1px 3px 0 rgba(0,0,0,0.25), 0 1px 2px -1px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 8px -2px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 24px -5px rgba(0,0,0,0.5), 0 4px 8px -4px rgba(0,0,0,0.3);
+
+  /* Named brand tokens – dark */
+  --kidgo-teal: #7CCBB9;
+  --kidgo-teal-dark: #5BBAA7;
+  --kidgo-teal-light: #4A9E8E;
+  --kidgo-bg: #1A1D1C;
+  --kidgo-border: #3d4a47;
+  --kidgo-card: #252928;
+}
+
+/* ── Smooth theme transition ── */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+body,
+.bg-white,
+.bg-gray-50,
+.text-gray-800,
+.text-gray-900 {
+  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease;
+}
+
+/* ── Dark mode overrides ── */
+.dark body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+/* Main page backgrounds */
+.dark main {
+  background: var(--bg-page) !important;
+}
+
+/* Gradient backgrounds → flat dark (preserve intentionally coloured banners) */
+.dark .bg-gradient-to-br:not(.preserve-gradient),
+.dark .bg-gradient-to-r:not(.preserve-gradient) {
+  background: var(--bg-subtle) !important;
+}
+
+/* Card surfaces */
+.dark .bg-white { background-color: var(--bg-card) !important; }
+.dark .bg-gray-50 { background-color: var(--bg-subtle) !important; }
+.dark .bg-kidgo-50,
+.dark .bg-amber-50,
+.dark .bg-orange-50,
+.dark .bg-rose-50 { background-color: var(--bg-subtle) !important; }
+.dark .bg-kidgo-100,
+.dark .bg-orange-100,
+.dark .bg-amber-100 { background-color: #1a3530 !important; }
+.dark .bg-green-50 { background-color: #0f1f0f !important; }
+.dark .bg-sky-50 { background-color: #0a1a2a !important; }
+.dark .bg-purple-50 { background-color: #1a0a2a !important; }
+.dark .bg-blue-100 { background-color: #0a1a2a !important; }
+.dark .bg-teal-100 { background-color: #0f2520 !important; }
+
+/* Text */
+.dark .text-gray-900,
+.dark .text-gray-800 { color: var(--text-primary) !important; }
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500 { color: var(--text-secondary) !important; }
+.dark .text-gray-400,
+.dark .text-gray-300 { color: var(--text-muted) !important; }
+
+/* Borders */
+.dark .border-gray-100,
+.dark .border-gray-200 { border-color: var(--border) !important; }
+.dark .border-gray-300 { border-color: var(--border-strong) !important; }
+
+/* Inputs */
+.dark input[type="text"],
+.dark textarea {
+  background-color: var(--bg-input) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+.dark input[type="text"]::placeholder,
+.dark textarea::placeholder { color: var(--text-muted) !important; }
+
+/* ── Skip to content ── */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 0 0 0.5rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: top 200ms ease;
+}
+.skip-to-content:focus { top: 0; }
+
+/* ── Focus styles ── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Animations ── */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-enter {
+  animation: cardEnter 200ms ease-out both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fadeIn 250ms ease-out both;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #dff2ee 25%, #c4e8e2 50%, #dff2ee 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #1e2e2b 25%, #263530 50%, #1e2e2b 75%);
+  background-size: 800px 100%;
+}
+
+/* 3D flip for surprise card */
+@keyframes flipIn {
+  from {
+    transform: perspective(600px) rotateY(90deg);
+    opacity: 0;
+  }
+  to {
+    transform: perspective(600px) rotateY(0deg);
+    opacity: 1;
+  }
+}
+.flip-in {
+  animation: flipIn 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Bounce on hover for age buttons */
+@keyframes bounceIn {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.bounce-hover:hover {
+  animation: bounceIn 0.3s ease;
+}
+
+/* Page slide transitions */
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInFromLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutToLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-24px); }
+}
+.page-slide-in {
+  animation: slideInFromRight 250ms ease-out both;
+}
+.page-slide-back {
+  animation: slideInFromLeft 250ms ease-out both;
+}
+
+/* ── Page transitions ── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.page-enter {
+  animation: pageIn 250ms ease-out both;
+}
+
+/* ── Glassmorphism header ── */
+.glass-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(248, 245, 240, 0.82);
+  border-bottom: 1px solid rgba(91, 186, 167, 0.12);
+}
+.dark .glass-header {
+  background: rgba(26, 29, 28, 0.88);
+  border-bottom: 1px solid rgba(91, 186, 167, 0.18);
+}
+
+/* ── Pull-to-refresh logo spin ── */
+@keyframes logoSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.logo-spin {
+  animation: logoSpin 0.9s linear infinite;
+}
+
+/* ── Empty state float ── */
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+.empty-float {
+  animation: emptyFloat 3s ease-in-out infinite;
+}
+
+/* ── Card stack ── */
+.card-stack-top {
+  will-change: transform;
+  /* Sprint 34: without this, the browser treats horizontal drags on this
+     card as its own native pan/edge-navigation gesture (e.g. the
+     back-swipe gesture on Android Chrome / mobile WKWebViews), which wins
+     the touch sequence away from our JS swipe handler — in practice this
+     made left-swipes (dismiss) work while right-swipes (bookmark) were
+     silently swallowed, since only left-edge rightward drags are claimed
+     for back-navigation. touch-action: pan-y restricts native touch
+     handling on this element to vertical scrolling only, so horizontal
+     drags are reserved for our own swipe-to-bookmark/dismiss logic. */
+  touch-action: pan-y;
+}
+
+/* ── Sprint B (17.09.2026): first-time swipe gesture hint ──
+   Shown once (kidgo_swipe_hint_seen) on top of the card stack so new
+   users discover that cards are swipeable, not just tappable via the
+   two buttons below. Fades itself out and is also dismissed early on
+   the first real touch. */
+@keyframes swipeHintOnboardingFade {
+  0%, 78% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+@keyframes swipeHintNudgeLeft {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(-7px); }
+}
+@keyframes swipeHintNudgeRight {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(7px); }
+}
+.swipe-hint-onboarding {
+  animation: swipeHintOnboardingFade 3.4s ease-in-out forwards;
+}
+.swipe-hint-nudge-left {
+  animation: swipeHintNudgeLeft 1.3s ease-in-out infinite;
+}
+.swipe-hint-nudge-right {
+  animation: swipeHintNudgeRight 1.3s ease-in-out infinite;
+}
+
+/* ── Tutorial slide animation ── */
+@keyframes tutorialSlideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Logo pulse loader ── */
+@keyframes logoPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(0.88); }
+}
+.logo-pulse {
+  animation: logoPulse 1.4s ease-in-out infinite;
+}
+
+/* ── Skeleton → card crossfade ── */
+@keyframes cardReveal {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.card-reveal {
+  animation: cardReveal 0.4s ease-out both;
+}
+
+/* ── KidgoLogo: wink + smile (plays once on mount) ── */
+/* Timing: 1s idle → 300ms blink → 500ms smile → static forever */
+@keyframes kidgoLogoBlink {
+  0%, 100% { transform: scaleY(1); }
+  50%       { transform: scaleY(0.1); }
+}
+@keyframes kidgoLogoMouthCheck {
+  /* checkmark: visible at start/end, hidden while smile is shown */
+  0%, 100% { opacity: 1; }
+  20%, 80% { opacity: 0; }
+}
+@keyframes kidgoLogoMouthSmile {
+  /* smile: hidden at start/end, visible mid-animation */
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+}
+.kidgo-logo-animate .kidgo-logo-eye {
+  /* fill-box centers scaleY on each eye's own bounds */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kidgoLogoBlink 300ms ease-in-out 1s 1 both;
+}
+.kidgo-logo-animate .kidgo-logo-mouth-check {
+  animation: kidgoLogoMouthCheck 500ms ease-in-out 1.3s 1 both;
+}
+.kidgo-logo-animate .kidgo-logo-mouth-smile {
+  animation: kidgoLogoMouthSmile 500ms ease-in-out 1.3s 1 both;
+}
+
+/* ── Typography hierarchy ── */
+.kidgo-h1 {
+  font-size: 1.5rem;       /* 24px */
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.kidgo-h2 {
+  font-size: 1.125rem;     /* 18px */
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.kidgo-body {
+  font-size: 0.9375rem;    /* 15px */
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.kidgo-caption {
+  font-size: 0.75rem;      /* 12px */
+  font-weight: 300;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ── Category color borders ── */
+.cat-border-sport    { border-left: 3px solid #3B82F6; }
+.cat-border-kreativ  { border-left: 3px solid #EC4899; }
+.cat-border-musik    { border-left: 3px solid #8B5CF6; }
+.cat-border-natur    { border-left: 3px solid #22C55E; }
+.cat-border-museum   { border-left: 3px solid #F59E0B; }
+.cat-border-theater  { border-left: 3px solid #EF4444; }
+.cat-border-camp     { border-left: 3px solid #06B6D4; }
+.cat-border-default  { border-left: 3px solid #5BBAA7; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .card-enter,
+  .fade-in,
+  .flip-in,
+  .bounce-hover:hover,
+  .page-slide-in,
+  .page-slide-back,
+  .page-enter,
+  .empty-float,
+  .logo-spin,
+  .kidgo-logo-animate .kidgo-logo-eye,
+  .kidgo-logo-animate .kidgo-logo-mouth-check,
+  .kidgo-logo-animate .kidgo-logo-mouth-smile {
+    animation: none;
+    transition: none;
+  }
+  .skeleton {
+    animation: none;
+    background: #e8f4f1;
+  }
+  .dark .skeleton {
+    background: #2d3330;
+  }
+  .logo-pulse {
+    animation: none;
+  }
+  .card-reveal {
+    animation: none;
+  }
+}
+
+/* ── Unified teal focus for all form inputs ── */
+input[type]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgb(91 186 167 / 0.2) !important;
+  outline: none !important;
+}
+
+/* ── Button utilities ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--kidgo-teal);
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  transition: background-color 200ms ease-out, transform 100ms ease-out;
+  border: none;
+}
+.btn-primary:hover { background-color: var(--kidgo-teal-dark); }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: transparent;
+  color: var(--kidgo-teal);
+  border: 1px solid var(--kidgo-teal);
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  transition: background-color 200ms ease-out, transform 100ms ease-out;
+}
+.btn-secondary:hover { background-color: rgba(91, 186, 167, 0.1); }
+.btn-secondary:active { transform: scale(0.98); }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: transparent;
+  color: var(--kidgo-teal);
+  border: none;
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: background-color 200ms ease-out;
+}
+.btn-ghost:hover { background-color: rgba(91, 186, 167, 0.05); }
+
+/* ── Card hover ── */
+.card-hover {
+  transition: box-shadow 200ms ease-out, transform 200ms ease-out;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.card-hover:active { transform: scale(0.98); }
+
+/* ── Dark mode image filter ── */
+.dark img { filter: brightness(0.9); }
+.dark img:hover { filter: brightness(1); }
+
+/* ── Dismiss Overlay ── */
+@keyframes dismissEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dismissExit {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(10px); }
+}
+
+.dismiss-overlay {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 20;
+  border-radius: 0 0 1rem 1rem;
+  padding: 1rem 1rem 1.25rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.72);
+  border-top: 1px solid rgba(91, 186, 167, 0.25);
+  box-shadow: 0 -4px 20px rgba(91, 186, 167, 0.12);
+}
+.dark .dismiss-overlay {
+  background: rgba(37, 41, 40, 0.88);
+  border-top: 1px solid rgba(91, 186, 167, 0.22);
+}
+.dismiss-overlay--enter { animation: dismissEnter 300ms ease-out both; }
+.dismiss-overlay--exit  { animation: dismissExit  280ms ease-in  both; }
+
+.dismiss-overlay__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.625rem;
+}
+
+.dismiss-overlay__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+}
+
+.dismiss-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid rgba(91, 186, 167, 0.4);
+  background: rgba(91, 186, 167, 0.06);
+  color: var(--text-primary);
+  transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.dismiss-chip:active { transform: scale(0.96); }
+.dismiss-chip--active {
+  background: rgba(91, 186, 167, 0.22);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.dark .dismiss-chip {
+  border-color: rgba(91, 186, 167, 0.3);
+  background: rgba(91, 186, 167, 0.08);
+}
+.dark .dismiss-chip--active {
+  background: rgba(91, 186, 167, 0.2);
+  border-color: var(--accent);
+}
+
+.dismiss-chip__icon { font-size: 0.9rem; line-height: 1; }
+
+.dismiss-overlay__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
+}
+
+.dismiss-overlay__cancel {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  min-height: 44px;
+  transition: color 150ms ease;
+}
+.dismiss-overlay__cancel:hover { color: var(--text-secondary); }
+
+.dismiss-overlay__submit {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  min-height: 44px;
+  transition: opacity 150ms ease, transform 120ms ease;
+}
+.dismiss-overlay__submit:hover  { opacity: 0.9; }
+.dismiss-overlay__submit:active { transform: scale(0.97); }
+
+/* Card dimming when dismiss overlay is active */
+.card-dimmed { opacity: 0.28; pointer-events: none; transition: opacity 250ms ease; }
+
+/* ── Scrollbar hide utility ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Staggered fade-in for lists ── */
+@keyframes staggerFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-fade > * {
+  animation: staggerFade 0.3s ease-out both;
+}
+.stagger-fade > *:nth-child(1)  { animation-delay: 0ms;   }
+.stagger-fade > *:nth-child(2)  { animation-delay: 60ms;  }
+.stagger-fade > *:nth-child(3)  { animation-delay: 120ms; }
+.stagger-fade > *:nth-child(4)  { animation-delay: 180ms; }
+.stagger-fade > *:nth-child(5)  { animation-delay: 240ms; }
+.stagger-fade > *:nth-child(6)  { animation-delay: 300ms; }
+
+/* ── Hex design utilities ── */
+.hex-shape {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.hex-badge {
+  clip-path: polygon(14% 0%, 86% 0%, 100% 50%, 86% 100%, 14% 100%, 0% 50%);
+}
+
+/* ── Hex background texture ── */
+.hex-texture {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='70'%3E%3Cpath d='M20 2L38 12v26L20 48 2 38V12z' fill='none' stroke='%235BBAA7' stroke-width='0.7' opacity='0.5'/%3E%3Cpath d='M20 48L38 58v12H2V58z' fill='none' stroke='%235BBAA7' stroke-width='0.7' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: 40px 70px;
+  background-repeat: repeat;
+}
+
+/* ── Teal gradient button ── */
+.btn-primary {
+  background: linear-gradient(135deg, var(--kidgo-teal), var(--kidgo-teal-dark)) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--kidgo-teal-dark), #3A8275) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Cream card ── */
+.cream-card {
+  background-color: var(--kidgo-cream);
+  border-color: rgba(91, 186, 167, 0.2);
+}
+.dark .cream-card {
+  background-color: var(--bg-subtle);
+}
+
+/* ── Gradient left border (for challenge/section banners) ── */
+.teal-gradient-left {
+  position: relative;
+  padding-left: 0;
+}
+.teal-gradient-left::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(to bottom, #5BBAA7, #4A9E8E);
+}
+
+/* ── Photo hover treatment ── */
+.photo-cell img {
+  transition: transform 300ms ease-out, filter 300ms ease-out;
+}
+.group:hover .photo-cell img {
+  transform: scale(1.04);
+  filter: brightness(1.05);
+}
+.dark .photo-cell img {
+  filter: brightness(0.85);
+}
+.dark .group:hover .photo-cell img {
+  filter: brightness(0.95);
+}
+
+/* ── Hexagon divider ── */
+.hex-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+.hex-divider::before,
+.hex-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Sprint 21: Double-tap heart burst ── */
+@keyframes heartPop {
+  0%   { transform: scale(0);   opacity: 0; }
+  30%  { transform: scale(1.2); opacity: 1; }
+  60%  { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(0.85); opacity: 0; }
+}
+.heart-burst {
+  animation: heartPop 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: transform, opacity;
+}
+
+/* ── Sprint 21: Quick-actions popup ── */
+@keyframes quickPopupIn {
+  from { opacity: 0; transform: translate(-50%, -100%) scale(0.92); }
+  to   { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+}
+.quick-popup {
+  animation: quickPopupIn 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+@keyframes quickPopupBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.quick-popup-backdrop {
+  animation: quickPopupBackdropIn 160ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart-burst,
+  .quick-popup,
+  .quick-popup-backdrop {
+    animation: none;
+  }
+}
+
+/* ── Badge confetti ── */
+@keyframes kidgo-confetti-fall {
+  0%   { transform: translateY(-8px) rotate(0deg) scale(1);   opacity: 1; }
+  100% { transform: translateY(110px) rotate(400deg) scale(0.4); opacity: 0; }
+}
+.kidgo-confetti {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  animation: kidgo-confetti-fall 1.6s ease-in forwards;
+}
+
+/* ── Sprint 33: Touch feedback, smooth scroll, snap utilities ── */
+
+/* Remove tap flash and 300ms delay on all interactive elements */
+button,
+a,
+[role="button"],
+summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Smooth scroll for the whole page */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Touch-card: subtle scale feedback on tap */
+.touch-card {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.touch-card:active {
+  transform: scale(0.97);
+}
+
+/* Horizontal scroll snap helper */
+.snap-scroll {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.snap-item {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Enhanced page-enter: slightly stronger fade-up */
+@keyframes pageInV2 {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: pageInV2 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+
+
+/* ── KidgoLogo: ambient breathing (always on, very subtle) ── */
+@keyframes kidgoLogoBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-2px) scale(1.015); }
+}
+.kidgo-logo-breathe {
+  animation: kidgoLogoBreathe 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ── KidgoLogo: wink + smile on hover/focus (not just on mount) ── */
+.kidgo-logo-hoverable:hover .kidgo-logo-eye,
+.kidgo-logo-hoverable:focus-visible .kidgo-logo-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kidgoLogoBlink 300ms ease-in-out 1;
+}
+.kidgo-logo-hoverable:hover .kidgo-logo-mouth-check,
+.kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-check {
+  animation: kidgoLogoMouthCheck 500ms ease-in-out 1;
+}
+.kidgo-logo-hoverable:hover .kidgo-logo-mouth-smile,
+.kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-smile {
+  animation: kidgoLogoMouthSmile 500ms ease-in-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kidgo-logo-breathe,
+  .kidgo-logo-hoverable:hover .kidgo-logo-eye,
+  .kidgo-logo-hoverable:focus-visible .kidgo-logo-eye,
+  .kidgo-logo-hoverable:hover .kidgo-logo-mouth-check,
+  .kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-check,
+  .kidgo-logo-hoverable:hover .kidgo-logo-mouth-smile,
+  .kidgo-logo-hoverable:focus-visible .kidgo-logo-mouth-smile {
+    animation: none;
+  }
+}

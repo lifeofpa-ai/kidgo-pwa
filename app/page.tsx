@@ -382,6 +382,17 @@ export default function Home() {
     };
   }, [recommendations.length, authLoading, profile?.onboarding_state?.swipe_hint_seen, user, markOnboardingFlag]);
 
+  // 21.09.2026: persistent swipe affordance. The one-time onboarding hint
+  // above is fragile — it's cancelled by the very first touch (even a tap
+  // that never becomes a drag) and never shown again, so most users never
+  // actually see it demonstrate the gesture. This second, much subtler
+  // hint (small edge chevrons on the card, see CardStack) stays visible on
+  // every card — not just once — until the user has completed one real
+  // swipe (past the drag threshold in handleRecTouchEnd), so the "you can
+  // swipe this" signal survives an accidental tap and keeps showing until
+  // it's actually been learned by doing.
+  const [hasSwipedBefore, setHasSwipedBefore] = useState(true);
+
   // Sprint 12: Card stack animation
   const [cardExiting, setCardExiting] = useState(false);
   const [exitDirection, setExitDirection] = useState<"left" | "right">("left");
@@ -583,6 +594,9 @@ export default function Home() {
     try {
       const raw = localStorage.getItem("kidgo_bookmarks");
       if (raw) setBookmarks(JSON.parse(raw));
+    } catch {}
+    try {
+      setHasSwipedBefore(localStorage.getItem("kidgo_has_swiped") === "1");
     } catch {}
     try {
       const raw = localStorage.getItem("kidgo_interests");
@@ -1210,6 +1224,10 @@ export default function Home() {
     setSwipeOffset(0);
     setSwipeHint(null);
     if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 60) return;
+    if (!hasSwipedBefore) {
+      setHasSwipedBefore(true);
+      try { localStorage.setItem("kidgo_has_swiped", "1"); } catch {}
+    }
     if (dx < 0) handleSwipeLeft();
     else handleSwipeRight();
   };
@@ -1735,6 +1753,7 @@ export default function Home() {
             swipeOffset={swipeOffset}
             swipeHint={swipeHint}
             showSwipeOnboarding={showSwipeOnboarding}
+            showPersistentSwipeHint={!hasSwipedBefore}
             cardExiting={cardExiting}
             exitDirection={exitDirection}
             cardIndex={cardIndex}

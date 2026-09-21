@@ -320,6 +320,41 @@ body,
   animation: swipeHintNudgeRight 1.3s ease-in-out infinite;
 }
 
+/* ── Persistent swipe affordance (21.09.2026) ──
+   The one-time hint above is cancelled by the very first touch (even a
+   tap that never becomes a drag) and never returns, so most users never
+   actually see it demonstrate the gesture. These small edge chevrons are
+   much subtler but stay on every card until the user has completed one
+   real swipe (see kidgo_has_swiped in app/page.tsx), so the "this card
+   can be swiped" signal survives an accidental tap. */
+@keyframes swipeAffordancePulse {
+  0%, 100% { opacity: 0.32; transform: translateY(-50%) scale(0.92); }
+  50%       { opacity: 0.85; transform: translateY(-50%) scale(1.06); }
+}
+.swipe-affordance-edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(45, 52, 54, 0.08);
+  color: var(--text-muted);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  animation: swipeAffordancePulse 2.6s ease-in-out infinite;
+}
+.dark .swipe-affordance-edge {
+  background: rgba(255, 255, 255, 0.1);
+}
+.swipe-affordance-left { left: 8px; }
+.swipe-affordance-right { right: 8px; }
+
 /* ── Tutorial slide animation ── */
 @keyframes tutorialSlideIn {
   from { opacity: 0; transform: translateY(20px); }
@@ -424,9 +459,15 @@ body,
   .logo-spin,
   .kidgo-logo-animate .kidgo-logo-eye,
   .kidgo-logo-animate .kidgo-logo-mouth-check,
-  .kidgo-logo-animate .kidgo-logo-mouth-smile {
+  .kidgo-logo-animate .kidgo-logo-mouth-smile,
+  .swipe-hint-nudge-left,
+  .swipe-hint-nudge-right,
+  .swipe-affordance-edge {
     animation: none;
     transition: none;
+  }
+  .swipe-affordance-edge {
+    opacity: 0.55;
   }
   .skeleton {
     animation: none;

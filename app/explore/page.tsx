@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
@@ -53,12 +54,18 @@ function EventCard({ event, source, serienCount, formatDate }: {
   serienCount: number;
   formatDate: (d: string, e?: string | null) => string;
 }) {
+  const router = useRouter();
   const [imgErr, setImgErr] = useState(false);
   const cat    = event.kategorien?.[0] || event.kategorie || "";
   const isNew  = event.created_at && new Date(event.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const isFree = event.preis_chf === 0;
   const isCamp = event.event_typ === "camp" || event.kategorien?.includes("Feriencamp");
   const ctaUrl = safeExternalUrl(event.anmelde_link || source?.url);
+
+  const goToDetail = () => {
+    trackEvent("event_click", { event_id: event.id, source: "explore" });
+    router.push(`/events/${event.id}`);
+  };
 
   const catBorderColors: Record<string, string> = {
     "Sport": "#3B82F6", "Kreativ": "#EC4899", "Musik": "#8B5CF6",
@@ -70,7 +77,11 @@ function EventCard({ event, source, serienCount, formatDate }: {
 
   return (
     <div
-      className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] hover:shadow-md transition-all duration-200 ease-out overflow-hidden group flex flex-col hover:-translate-y-0.5 active:scale-[0.99]"
+      role="link"
+      tabIndex={0}
+      onClick={goToDetail}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToDetail(); } }}
+      className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] hover:shadow-md transition-all duration-200 ease-out overflow-hidden group flex flex-col hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer"
       style={{ borderLeft: `3px solid ${leftBorderColor}` }}
     >
       <div className="h-48 overflow-hidden bg-[var(--bg-subtle)] flex-shrink-0 rounded-t-xl photo-cell">
@@ -100,11 +111,9 @@ function EventCard({ event, source, serienCount, formatDate }: {
           {event.indoor_outdoor === "outdoor" && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">Outdoor</span>}
         </div>
 
-        <Link href={`/events/${event.id}`} className="block flex-1" onClick={() => trackEvent("event_click", { event_id: event.id, source: "explore" })}>
-          <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2 group-hover:text-kidgo-500 transition-colors line-clamp-2">
-            {event.titel}
-          </h3>
-        </Link>
+        <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-2 group-hover:text-kidgo-500 transition-colors line-clamp-2">
+          {event.titel}
+        </h3>
 
         <div className="space-y-1 text-xs text-[var(--text-secondary)] mb-3">
           {event.datum  && <p className="font-medium text-kidgo-500">{formatDate(event.datum, event.datum_ende)}</p>}
@@ -134,6 +143,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
             href={ctaUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="mt-auto inline-block text-xs font-semibold text-kidgo-500 hover:text-kidgo-600 border border-kidgo-200 bg-kidgo-50 hover:bg-kidgo-100 px-3 py-1.5 rounded-full transition"
           >
             Zur Webseite

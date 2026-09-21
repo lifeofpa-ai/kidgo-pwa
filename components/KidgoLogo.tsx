@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 interface KidgoLogoProps {
   size?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -24,6 +24,12 @@ export function KidgoLogo({
 }: KidgoLogoProps) {
   const w = SIZES[size];
   const h = Math.round(w * (500 / 800));
+
+  // Unique per component instance -- multiple <KidgoLogo> render simultaneously
+  // (desktop side nav, mobile bottom nav, footer, etc.). A hardcoded id here
+  // produced duplicate SVG ids in the DOM, which is invalid markup and was
+  // the likely cause of the logo silently failing to paint on some pages.
+  const filterId = `kidgoLogoShadow-${useId()}`;
 
   // Only animate on first mount per session, and only on client.
   const [play, setPlay] = useState(false);
@@ -57,7 +63,7 @@ export function KidgoLogo({
       {/* Soft shadow so the mark lifts gently off whatever surface it sits on,
           instead of carrying its own hard-edged background box. */}
       <defs>
-        <filter id="kidgoLogoShadow" x="-30%" y="-30%" width="160%" height="160%">
+        <filter id={filterId} x="-30%" y="-30%" width="160%" height="160%">
           <feDropShadow
             dx="0"
             dy="3"
@@ -68,7 +74,7 @@ export function KidgoLogo({
         </filter>
       </defs>
 
-      <g filter="url(#kidgoLogoShadow)">
+      <g filter={`url(#${filterId})`}>
         {/* Hexagon -- rounded corners, transparent background, brand tokens */}
         <path
           d="M 422.5 13 L 594 112 Q 616.5 125 616.5 151 L 616.5 349 Q 616.5 375 594 388 L 422.5 487 Q 400 500 377.5 487 L 206 388 Q 183.5 375 183.5 349 L 183.5 151 Q 183.5 125 206 112 L 377.5 13 Q 400 0 422.5 13 Z"

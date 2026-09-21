@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
 
-export default function ResetPasswordPage() {
+function ResetPasswordInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const configured = isSupabaseConfigured();
 
@@ -17,6 +18,30 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [exchanging, setExchanging] = useState(true);
+  const [linkError, setLinkError] = useState(false);
+  const exchangedRef = useRef(false);
+
+  // Der Reset-Link landet mit ?code=... auf dieser Seite (PKCE-Flow).
+  // Den Code tauschen wir hier direkt gegen eine Session ein — dieselbe
+  // Technik wie in app/auth/callback/route.ts, nur clientseitig, da wir
+  // ohne Query-Parameter auf der Redirect-URL-Allowlist bleiben wollen.
+  useEffect(() => {
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
+
+    const code = searchParams.get("code");
+    if (!code) {
+      setExchanging(false);
+      return;
+    }
+
+    const supabase = createClient();
+    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+      if (error) setLinkError(true);
+      setExchanging(false);
+    });
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +68,8 @@ export default function ResetPasswordPage() {
     setLoading(false);
   };
 
+  const stillLoading = authLoading || exchanging;
+
   return (
     <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
       <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border)] p-8 w-full max-w-sm">
@@ -58,7 +85,7 @@ export default function ResetPasswordPage() {
           </div>
         )}
 
-        {authLoading ? null : done ? (
+        {stillLoading ? null : done ? (
           <div className="text-center">
             <div className="text-4xl mb-3">✅</div>
             <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">
@@ -74,7 +101,7 @@ export default function ResetPasswordPage() {
               Weiter zum Dashboard
             </button>
           </div>
-        ) : !user ? (
+        ) : linkError || !user ? (
           <div className="text-center">
             <div className="text-4xl mb-3">⚠️</div>
             <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">
@@ -136,5 +163,15 @@ export default function ResetPasswordPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <main id="main-content" className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" />
+    }>
+      <ResetPasswordInner />
+    </Suspense>
   );
 }

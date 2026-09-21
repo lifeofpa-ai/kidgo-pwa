@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSideNav } from "@/components/DesktopSideNav";
@@ -10,12 +9,6 @@ import { SwipeBackGate } from "@/components/SwipeBackGate";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
-
-const nunito = Nunito({
-  variable: "--font-nunito",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
 
 export const metadata: Metadata = {
     metadataBase: new URL("https://app.kidgo.ch"),
@@ -71,7 +64,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${nunito.variable} ${nunito.className} antialiased`}>
+      <body className="antialiased">
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-LFZ63YFTRR"
           strategy="afterInteractive"

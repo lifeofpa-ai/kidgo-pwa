@@ -20,6 +20,7 @@ interface CardStackProps {
   swipeOffset: number;
   swipeHint: "left" | "right" | null;
   showSwipeOnboarding?: boolean;
+  showPersistentSwipeHint?: boolean;
   cardExiting: boolean;
   exitDirection: "left" | "right";
   cardIndex: number;
@@ -49,6 +50,7 @@ export function CardStack({
   swipeOffset,
   swipeHint,
   showSwipeOnboarding = false,
+  showPersistentSwipeHint = false,
   cardExiting,
   exitDirection,
   cardIndex,
@@ -181,6 +183,21 @@ export function CardStack({
                     </>
                   );
                 })()}
+
+                {/* Persistent swipe affordance (21.09.2026): the one-time
+                    onboarding overlay below is cancelled by the very first
+                    touch, even a tap that never becomes a drag, so it often
+                    never gets to teach anything. These small edge chevrons
+                    are far subtler but stay on every card — not just once —
+                    until the user has completed one real swipe, so the
+                    "this card can be swiped" signal doesn't vanish before
+                    it's been learned. */}
+                {showPersistentSwipeHint && !swipeHint && !isDismissingStack && !cardExiting && (
+                  <>
+                    <span className="swipe-affordance-edge swipe-affordance-left" aria-hidden="true">‹</span>
+                    <span className="swipe-affordance-edge swipe-affordance-right" aria-hidden="true">›</span>
+                  </>
+                )}
 
                 {isDismissingStack && (
                   <DismissOverlay

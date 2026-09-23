@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { createClient } from "@supabase/supabase-js";
 
-const BASE_URL = "https://app.kidgo.ch";
+const BASE_URL = "https://kidgo.ch";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const staticRoutes: MetadataRoute.Sitemap = [

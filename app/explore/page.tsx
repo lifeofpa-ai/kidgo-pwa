@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
@@ -11,6 +11,22 @@ import { ExploreMapView } from "@/components/ExploreMapView";
 import { LazySection } from "@/components/home/LazySection";
 import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 import { hikingEventAllowed } from "@/lib/interests";
+import { useAuth } from "@/lib/auth-context";
+
+// Persists filters/search/pagination/scroll across a visit to an event detail
+// and back, so "Alle Events" resumes where the user left off instead of
+// restarting from the top (Patrick, 23.09.2026). Session-only by design —
+// a fresh app session starts clean.
+const EXPLORE_STATE_KEY = "kidgo_explore_state";
+
+function saveExploreState(partial: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.sessionStorage.getItem(EXPLORE_STATE_KEY);
+    const prev = raw ? JSON.parse(raw) : {};
+    window.sessionStorage.setItem(EXPLORE_STATE_KEY, JSON.stringify({ ...prev, ...partial }));
+  } catch {}
+}
 
 const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
 
@@ -64,6 +80,7 @@ function EventCard({ event, source, serienCount, formatDate }: {
 
   const goToDetail = () => {
     trackEvent("event_click", { event_id: event.id, source: "explore" });
+    saveExploreState({ scrollY: window.scrollY });
     router.push(`/events/${event.id}`);
   };
 
@@ -169,6 +186,7 @@ function SkeletonCard() {
 }
 
 export default function ExplorePage() {
+  const { profile } = useAuth();
   const [mounted, setMounted]     = useState(false);
   const [viewMode, setViewMode]   = useState<ViewMode>("list");
   const [search, setSearch]       = useState("");
@@ -189,6 +207,12 @@ export default function ExplorePage() {
   const [filtersExpanded, setFiltersExpanded] = useState(false); // v2: progressive disclosure — category/indoor-outdoor/gratis/date/sort start collapsed
   const [weatherCode, setWeatherCode]     = useState<number | null>(null);
 
+  // Restore-from-sessionStorage bookkeeping (see EXPLORE_STATE_KEY above).
+  const isRestoringRef    = useRef(false); // true only through the first post-hydration search
+  const hadSavedStateRef  = useRef(false); // true once this tab has visited Explore before
+  const scrollRestoreRef  = useRef<number | null>(null);
+  const childDefaultAppliedRef = useRef(false);
+
   useEffect(() => {
     setMounted(true);
 
@@ -196,10 +220,68 @@ export default function ExplorePage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("view") === "map") setViewMode("map");
 
+    // Restore previous Explore session (search/filters/pagination/scroll) so
+    // returning from an event detail resumes where the user left off instead
+    // of restarting from the top (Patrick, 23.09.2026).
+    try {
+      const raw = window.sessionStorage.getItem(EXPLORE_STATE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        hadSavedStateRef.current = true;
+        isRestoringRef.current = true;
+        if (typeof saved.search === "string") setSearch(saved.search);
+        if (Array.isArray(saved.selectedAgeBuckets)) setSelectedAgeBuckets(saved.selectedAgeBuckets);
+        if (Array.isArray(saved.selectedCategories)) setSelectedCategories(saved.selectedCategories);
+        if (saved.indoorOutdoor) setIndoorOutdoor(saved.indoorOutdoor);
+        if (typeof saved.gratisOnly === "boolean") setGratisOnly(saved.gratisOnly);
+        if (saved.dateFilter) setDateFilter(saved.dateFilter);
+        if (saved.sortMode) setSortMode(saved.sortMode);
+        if (typeof saved.filtersExpanded === "boolean") setFiltersExpanded(saved.filtersExpanded);
+        if (typeof saved.visibleCountFuture === "number") setVisibleCountFuture(saved.visibleCountFuture);
+        if (typeof saved.visibleCountAllYear === "number") setVisibleCountAllYear(saved.visibleCountAllYear);
+        if (typeof saved.scrollY === "number") scrollRestoreRef.current = saved.scrollY;
+      }
+    } catch {}
+
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Once the event list for the restored (or default) filters has loaded,
+  // jump back to the saved scroll position.
+  useEffect(() => {
+    if (loading) return;
+    if (scrollRestoreRef.current === null) return;
+    if (events.length === 0) return;
+    const y = scrollRestoreRef.current;
+    scrollRestoreRef.current = null;
+    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
+  }, [loading, events]);
+
+  // Persist filters/search/pagination/view so they survive a round-trip to an
+  // event detail page and back within this tab session.
+  useEffect(() => {
+    if (!mounted) return;
+    saveExploreState({
+      search, selectedAgeBuckets, selectedCategories, indoorOutdoor, gratisOnly,
+      dateFilter, sortMode, filtersExpanded, viewMode, visibleCountFuture, visibleCountAllYear,
+    });
+  }, [mounted, search, selectedAgeBuckets, selectedCategories, indoorOutdoor, gratisOnly, dateFilter, sortMode, filtersExpanded, viewMode, visibleCountFuture, visibleCountAllYear]);
+
+  // Pre-fill the age filter from the child profiles' ages (Ich → Kinder), so a
+  // profile created with children's ages is already reflected in search —
+  // but only the very first time this tab uses Explore, and only if the user
+  // hasn't already picked an age filter in the few ms before the profile
+  // loaded (Patrick, 23.09.2026).
+  useEffect(() => {
+    if (!mounted || childDefaultAppliedRef.current || hadSavedStateRef.current) return;
+    if (selectedAgeBuckets.length > 0) { childDefaultAppliedRef.current = true; return; }
+    if (!profile?.children?.length) return;
+    const childAges = Array.from(new Set(profile.children.map((c) => c.age_bucket).filter(Boolean)));
+    if (childAges.length > 0) setSelectedAgeBuckets(childAges);
+    childDefaultAppliedRef.current = true;
+  }, [mounted, profile, selectedAgeBuckets]);
 
   // Phase 4.3 measurement prep (2026-07-03): scroll-depth for the Explore page.
   useEffect(() => initScrollDepthTracking("explore"), []);
@@ -222,8 +304,15 @@ export default function ExplorePage() {
     setError("");
     setEvents([]);
     setSources([]);
-    setVisibleCountFuture(PAGE_SIZE);
-    setVisibleCountAllYear(PAGE_SIZE);
+    // Skip the pagination reset for the one search that fires right after
+    // restoring a saved Explore session, so "N weitere laden" clicks aren't
+    // lost when coming back from an event detail.
+    if (isRestoringRef.current) {
+      isRestoringRef.current = false;
+    } else {
+      setVisibleCountFuture(PAGE_SIZE);
+      setVisibleCountAllYear(PAGE_SIZE);
+    }
 
     try {
       const { data: sourcesData } = await supabase.from("quellen").select("*");
@@ -271,8 +360,6 @@ export default function ExplorePage() {
 
   useEffect(() => {
     if (!mounted) return;
-    setVisibleCountFuture(PAGE_SIZE);
-    setVisibleCountAllYear(PAGE_SIZE);
     const timer = setTimeout(handleSearch, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [mounted, handleSearch]);

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { SkeletonDetail } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/lib/supabase-browser";
@@ -480,6 +481,7 @@ function TransitWidget({
 // ============ MAIN COMPONENT ============
 
 export default function EventDetailClient({ id }: { id: string }) {
+  const router = useRouter();
   const { user } = useAuth();
   const { prefs } = useUserPrefs();
   const [event, setEvent] = useState<any>(null);
@@ -912,17 +914,25 @@ export default function EventDetailClient({ id }: { id: string }) {
             parallaxOffset={scrollY}
           />
 
-          {/* Back button */}
+          {/* Back button — returns to wherever the user came from (Explore, Home,
+              Merkliste, ...) via browser history instead of always jumping to
+              Home, so e.g. Explore's scroll/filter state is preserved (Patrick,
+              23.09.2026). Falls back to Home only when there's no in-app history
+              (e.g. event opened directly via a shared link). */}
           <div className="absolute top-4 left-4">
-            <Link
-              href="/"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) router.back();
+                else router.push("/");
+              }}
               aria-label="Zurück"
               className="w-10 h-10 bg-white/90 dark:bg-black/50 backdrop-blur-sm text-gray-700 dark:text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-90 transition-transform"
             >
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 11L5 7l4-4"/>
               </svg>
-            </Link>
+            </button>
           </div>
 
           {hasImage && (

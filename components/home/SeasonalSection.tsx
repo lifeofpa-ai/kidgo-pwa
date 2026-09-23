@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { KidgoEvent } from "@/types/home";
 import { LazySection } from "@/components/home/LazySection";
+import { undatedLabel } from "@/lib/dauerangebot";
 
 interface SeasonalSectionProps {
   allEventsPool: KidgoEvent[];
@@ -93,7 +94,7 @@ export function SeasonalSection({ allEventsPool, now }: SeasonalSectionProps) {
                     {new Date(e.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
                   </p>
                 ) : (
-                  <p className="text-xs text-green-600 font-medium">Ganzjährig</p>
+                  <p className="text-xs text-green-600 font-medium">{undatedLabel(e)}</p>
                 )}
                 {e.ort && <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{e.ort.split(",")[0]}</p>}
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { undatedLabel } from "@/lib/dauerangebot";
 import Link from "next/link";
 import type { KidgoEvent, EventSource, UserLocation } from "@/types/home";
 import {
@@ -375,7 +376,7 @@ export function RecommendationCard({
                 );
               })()}
               {!event.datum && (
-                <span className="text-emerald-600 font-medium">Ganzjährig</span>
+                <span className="text-emerald-600 font-medium">{undatedLabel(event)}</span>
               )}
               {event.ort && (
                 <span className="flex items-center gap-1.5 truncate max-w-[200px]">

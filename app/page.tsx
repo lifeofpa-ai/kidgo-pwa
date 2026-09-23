@@ -63,6 +63,7 @@ import { HeroSection } from "@/components/home/HeroSection";
 import { CardStack } from "@/components/home/CardStack";
 import { WeekendSection } from "@/components/home/WeekendSection";
 import { SeasonalSection } from "@/components/home/SeasonalSection";
+import { SpontanSection } from "@/components/home/SpontanSection";
 import { PopularSection, PopularAgeGroupSection } from "@/components/home/PopularSection";
 
 // Types imported from @/types/home
@@ -914,7 +915,7 @@ export default function Home() {
 
       const { data: eventsDataRaw } = await supabase
         .from("events")
-        .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id,saison_tags")
+        .select("id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,oeffnungszeiten,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id,saison_tags")
         .eq("status", "approved")
         .is("serie_id", null)
         .or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`)
@@ -1776,6 +1777,16 @@ export default function Home() {
 
         {/* ===== DIESES WOCHENENDE ===== */}
         {!loading && <WeekendSection weekendEvents={weekendEventsForLayer2} />}
+
+        {/* ===== HEUTE SPONTAN (Dauerangebote, wetterbewusst) ===== */}
+        {!loading && allEventsPool.length > 0 && (
+          <SpontanSection
+            allEventsPool={allEventsPool}
+            weatherCode={weatherCode}
+            selectedBuckets={selectedBuckets}
+            now={now}
+          />
+        )}
 
         {/* ===== SAISONALE LANDING ===== */}
         {!loading && allEventsPool.length > 0 && (

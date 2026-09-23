@@ -659,6 +659,8 @@ export default function AdminPage() {
                     className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-kidgo-400 focus:outline-none bg-white">
                     <option value="event">Event</option>
                     <option value="camp">Camp</option>
+                    <option value="dauerangebot">Dauerangebot (ohne Datum)</option>
+                    <option value="wanderung_ausnahme">Wanderung (ausserhalb ZH)</option>
                   </select>
                 </div>
                 <div>

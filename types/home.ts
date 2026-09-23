@@ -8,6 +8,8 @@ export interface KidgoEvent {
   kategorie_bild_url: string | null;
   status: string;
   event_typ: string | null;
+  /** Freitext-Öffnungszeiten für event_typ = "dauerangebot" */
+  oeffnungszeiten?: string | null;
   altersgruppen: string[] | null;
   alters_buckets: string[] | null;
   alter_von: number | null;

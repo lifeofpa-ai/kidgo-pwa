@@ -11,14 +11,14 @@ import { ClientProviders } from "@/components/ClientProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    metadataBase: new URL("https://app.kidgo.ch"),
+    metadataBase: new URL("https://kidgo.ch"),
   title: "Kidgo – Events & Aktivitäten für Kinder in der Schweiz",
   description: "Entdecke die besten Events, Kurse und Ausflüge für Kinder in der Region Zürich. Täglich aktuell, kostenlos und einfach filterbar.",
   keywords: ["Kinder", "Events", "Zürich", "Aktivitäten", "Familie", "Ausflug", "Feriencamp", "Schweiz"],
   openGraph: {
     title: "Kidgo – Events für Kinder",
     description: "Die besten Kinder-Events & Aktivitäten in der Region Zürich. Jetzt entdecken!",
-      url: "https://app.kidgo.ch",
+      url: "https://kidgo.ch",
       siteName: "Kidgo",
       locale: "de_CH", images: [{ url: "/og_default.png", width: 1200, height: 630, alt: "Kidgo" }],
         type: "website",

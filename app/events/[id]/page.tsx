@@ -4,7 +4,7 @@ import EventDetailClient from "./EventDetailClient";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const BASE_URL = "https://app.kidgo.ch";
+const BASE_URL = "https://kidgo.ch";
 
 export async function generateMetadata({
   params,

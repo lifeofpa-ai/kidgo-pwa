@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { isDauerangebot, openingHours } from "@/lib/dauerangebot";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
@@ -324,27 +325,31 @@ export default function ExplorePage() {
       const { data: sourcesData } = await supabase.from("quellen").select("*");
       setSources(sourcesData || []);
 
-      let q = supabase.from("events").select("*").eq("status", "approved");
-
-      if (selectedCategories.length > 0) q = q.overlaps("kategorien", selectedCategories);
-      if (search.trim()) {
-        const escaped = search.replace(/[\\%_,()*]/g, (m) => `\\${m}`);
-        q = q.or(`titel.ilike.%${escaped}%,ort.ilike.%${escaped}%`);
-      }
-      if (selectedAgeBuckets.length > 0) q = q.overlaps("alters_buckets", selectedAgeBuckets);
-      if (indoorOutdoor !== "all") q = q.or(`indoor_outdoor.eq.${indoorOutdoor},indoor_outdoor.eq.beides`);
-      if (gratisOnly) q = q.eq("preis_chf", 0);
-
-      q = q.is("serie_id", null);
+      // Seitenweise laden: Supabase kappt jede Antwort bei 1000 Zeilen (siehe lib/fetch-all.ts).
       const todayStr = new Date().toISOString().split("T")[0];
-      q = q.or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`);
+      const buildQuery = () => {
+        let q = supabase.from("events").select("*").eq("status", "approved");
+
+        if (selectedCategories.length > 0) q = q.overlaps("kategorien", selectedCategories);
+        if (search.trim()) {
+          const escaped = search.replace(/[\\%_,()*]/g, (m) => `\\${m}`);
+          q = q.or(`titel.ilike.%${escaped}%,ort.ilike.%${escaped}%`);
+        }
+        if (selectedAgeBuckets.length > 0) q = q.overlaps("alters_buckets", selectedAgeBuckets);
+        if (indoorOutdoor !== "all") q = q.or(`indoor_outdoor.eq.${indoorOutdoor},indoor_outdoor.eq.beides`);
+        if (gratisOnly) q = q.eq("preis_chf", 0);
+
+        q = q.is("serie_id", null);
+        q = q.or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`);
+        return q.order("datum", { ascending: true, nullsFirst: true }).order("id", { ascending: true });
+      };
 
       const { data: serienData } = await supabase.from("events").select("serie_id").not("serie_id", "is", null);
       const counts: Record<string, number> = {};
       serienData?.forEach((e) => { if (e.serie_id) counts[e.serie_id] = (counts[e.serie_id] || 0) + 1; });
       setSerienCounts(counts);
 
-      const { data: allEvents, error: eventsError } = await q.order("datum", { ascending: true, nullsFirst: true });
+      const { data: allEvents, error: eventsError } = await fetchAllRows<any>(buildQuery);
       if (eventsError) throw eventsError;
       if (allEvents) {
         // Familienwanderungen-Ausnahme (2026-09-20): nur für Nutzer mit

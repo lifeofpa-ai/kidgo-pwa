@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { createClient } from "@supabase/supabase-js";
 
-const BASE_URL = "https://app.kidgo.ch";
+const BASE_URL = "https://kidgo.ch";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const staticRoutes: MetadataRoute.Sitemap = [
@@ -15,13 +16,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const { data: events } = await supabase
-      .from("events")
-      .select("id, created_at")
-      .eq("status", "approved")
+    // Seitenweise laden: Supabase kappt jede Antwort bei 1000 Zeilen,
+    // .limit(5000) allein half nicht (siehe lib/fetch-all.ts).
+    const { data: events } = await fetchAllRows<{ id: string; created_at: string | null }>(() =>
+      supabase
+        .from("events")
+        .select("id, created_at")
+        .eq("status", "approved")
         .or(`datum.is.null,datum.gte.${todayStr},datum_ende.gte.${todayStr}`)
-      .order("created_at", { ascending: false })
-      .limit(5000);
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+    );
 
   const eventRoutes: MetadataRoute.Sitemap = (events || []).map((e) => ({
         url: `${BASE_URL}/events/${e.id}`,

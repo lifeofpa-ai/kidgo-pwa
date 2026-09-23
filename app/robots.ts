@@ -39,6 +39,6 @@ export default function robots(): MetadataRoute.Robots {
                       disallow: DISALLOWED,
             },
                 ],
-          sitemap: "https://app.kidgo.ch/sitemap.xml",
+          sitemap: "https://kidgo.ch/sitemap.xml",
     };
 }

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
@@ -919,13 +920,16 @@ export default function Home() {
       // Einträge (Dauerangebote, "Immer offen") still aus dem Home-Pool.
       const HOME_EVENT_COLUMNS = "id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,oeffnungszeiten,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id,saison_tags";
       const [{ data: datedRaw }, { data: undatedRaw }] = await Promise.all([
-        supabase
-          .from("events")
-          .select(HOME_EVENT_COLUMNS)
-          .eq("status", "approved")
-          .is("serie_id", null)
-          .or(`datum.gte.${todayStr},datum_ende.gte.${todayStr}`)
-          .order("datum", { ascending: true }),
+        fetchAllRows<any>(() =>
+          supabase
+            .from("events")
+            .select(HOME_EVENT_COLUMNS)
+            .eq("status", "approved")
+            .is("serie_id", null)
+            .or(`datum.gte.${todayStr},datum_ende.gte.${todayStr}`)
+            .order("datum", { ascending: true })
+            .order("id", { ascending: true })
+        ),
         supabase
           .from("events")
           .select(HOME_EVENT_COLUMNS)
@@ -933,7 +937,7 @@ export default function Home() {
           .is("serie_id", null)
           .is("datum", null),
       ]);
-      const datedIds = new Set((datedRaw || []).map((e) => e.id));
+      const datedIds = new Set((datedRaw || []).map((e: { id: string }) => e.id));
       const eventsDataRaw = [...(datedRaw || []), ...(undatedRaw || []).filter((e) => !datedIds.has(e.id))];
             const currentSeasonHome = ((): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; })(); const eventsData = (eventsDataRaw || []).map((e) => ({ ...e, kategorie: null })).filter((e: any) => e.datum || !e.saison_tags || e.saison_tags.length === 0 || e.saison_tags.includes(currentSeasonHome));
 

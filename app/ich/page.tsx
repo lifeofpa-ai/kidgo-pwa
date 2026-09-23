@@ -158,8 +158,22 @@ export default function IchPage() {
   useEffect(() => {
     if (!profile || !prefsMounted) return;
     const remoteInterests = Array.isArray(profile.interests) ? (profile.interests as string[]) : null;
-    if (remoteInterests && remoteInterests.length > 0) {
-      setPrefs({ ...prefsRef.current, interests: remoteInterests });
+    // Aus dem Gast-Onboarding stammende Praeferenzen, die beim ersten Login/
+    // Registrieren in den Account uebernommen wurden (siehe auth-context.tsx) --
+    // hier auf einem neuen Geraet wieder in die lokalen Praeferenzen zurueckspielen.
+    const remoteAgeBuckets = Array.isArray(profile.onboarding_state?.age_buckets)
+      ? (profile.onboarding_state!.age_buckets as string[])
+      : null;
+    const remoteRadius = typeof profile.onboarding_state?.radius_km === "number"
+      ? (profile.onboarding_state!.radius_km as number)
+      : null;
+    if (remoteInterests?.length || remoteAgeBuckets?.length || remoteRadius !== null) {
+      setPrefs({
+        ...prefsRef.current,
+        ...(remoteInterests?.length ? { interests: remoteInterests } : {}),
+        ...(remoteAgeBuckets?.length ? { ageBuckets: remoteAgeBuckets } : {}),
+        ...(remoteRadius !== null ? { radius: remoteRadius } : {}),
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.user_id, prefsMounted]);

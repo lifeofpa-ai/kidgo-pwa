@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
-import { KidgoLogo } from "@/components/KidgoLogo";
+import { KidgoLogo, KidgoMark } from "@/components/KidgoLogo";
 import { restoreScrollPosition } from "@/lib/interactions";
 import { AuthButton } from "@/components/AuthButton";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
@@ -1350,7 +1350,7 @@ export default function Home() {
       <main className={`min-h-screen bg-[#5BBAA7] flex flex-col items-center justify-center p-4 ${transitionClass}`}>
         <div className="w-full max-w-md mx-auto">
           <div className="text-center mb-8">
-            <div className="mb-4 flex justify-center"><KidgoLogo size="md" /></div>
+            <div className="mb-4 flex justify-center"><KidgoLogo size="md" mono /></div>
             <h1 className="text-3xl font-bold text-white mb-2">Willkommen bei Kidgo</h1>
             <p className="text-white/80 text-lg">Wie alt ist dein Kind?</p>
           </div>
@@ -1472,7 +1472,7 @@ export default function Home() {
             className={isRefreshing ? "logo-spin" : ""}
             style={{ transform: !isRefreshing ? `rotate(${pullY * 2.8}deg)` : undefined }}
           >
-            <KidgoLogo size="xs" />
+            <KidgoMark size={22} />
           </div>
         </div>
       )}

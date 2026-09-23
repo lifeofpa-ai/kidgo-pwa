@@ -63,13 +63,12 @@ export function DesktopSideNav() {
   return (
     <aside
       aria-label="Seitennavigation"
-      className="hidden md:flex flex-col fixed left-0 top-0 h-full w-56 z-40 border-r border-[var(--border)] bg-white/95 dark:bg-[#1e2221]/95 backdrop-blur-md hex-texture"
+      className="hidden md:flex flex-col fixed left-0 top-0 h-full w-56 z-40 border-r border-[var(--border)] bg-white/95 dark:bg-[#1e2221]/95 backdrop-blur-md"
     >
       {/* Logo */}
       <div className="px-5 pt-6 pb-5 border-b border-[var(--border)]">
-                    <Link href="/" aria-label="Startseite" className="flex items-center gap-2">
-                                <KidgoLogo size="sm" />
-                                <span className="text-sm font-semibold text-[var(--text-primary)]">Kidgo</span>
+        <Link href="/" aria-label="Startseite" className="flex items-center">
+          <KidgoLogo size="sm" />
         </Link>
       </div>
 

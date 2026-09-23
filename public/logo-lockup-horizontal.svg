@@ -1,13 +1,9 @@
-<svg width="620" height="200" viewBox="0 0 620 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kidgo">
-  <!-- Icon + wordmark, same geometry as logo-icon-master.svg / live KidgoLogo.tsx. -->
-  <g transform="translate(-23.84,22.6) scale(0.3096)">
-    <path d="M 422.5 13 L 594 112 Q 616.5 125 616.5 151 L 616.5 349 Q 616.5 375 594 388 L 422.5 487 Q 400 500 377.5 487 L 206 388 Q 183.5 375 183.5 349 L 183.5 151 Q 183.5 125 206 112 L 377.5 13 Q 400 0 422.5 13 Z" fill="#F5F0E8"/>
-  <g fill="#5BBAA7">
-    <rect x="355" y="145" width="90" height="75" rx="14"/>
-    <rect x="370" y="135" width="10" height="20" rx="5" stroke="#F5F0E8" stroke-width="3"/>
-    <rect x="420" y="135" width="10" height="20" rx="5" stroke="#F5F0E8" stroke-width="3"/>
-    <path d="M380 185 l15 15 l25 -25" stroke="#F5F0E8" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-  </g>
-  <text x="195" y="122" font-family="'Nunito', sans-serif" font-weight="800" font-size="84" fill="#2D3436">KIDGO</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="332" height="94" viewBox="0 0 332 94">
+  <rect x="0" y="0" width="94" height="94" rx="21" fill="#5BBAA7"/>
+  <text x="47" y="68" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="66" fill="#2D3436">k</text>
+  <svg x="114" y="0" width="218" height="94" viewBox="6 20 218 94">
+    <text x="10" y="88" font-family="Nunito" font-weight="800" font-size="80" letter-spacing="-1">
+      <tspan fill="#2D3436">kid</tspan><tspan fill="#5BBAA7">go</tspan>
+    </text>
+  </svg>
 </svg>

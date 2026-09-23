@@ -1,19 +1,4 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kidgo">
-  <!--
-    Square icon master, geometry copied 1:1 from the live components/KidgoLogo.tsx
-    mark (not redrawn by hand), so every derived export stays pixel-consistent with
-    what's actually on screen in the app. Content sits inside ~66% of the canvas -
-    inside the ~80% safe-zone that OS icon masks (Android adaptive, iOS, WhatsApp
-    avatar crop) guarantee to keep visible.
-  -->
-  <rect width="512" height="512" fill="#5BBAA7"/>
-  <g transform="translate(-14.4,87) scale(0.676)">
-    <path d="M 422.5 13 L 594 112 Q 616.5 125 616.5 151 L 616.5 349 Q 616.5 375 594 388 L 422.5 487 Q 400 500 377.5 487 L 206 388 Q 183.5 375 183.5 349 L 183.5 151 Q 183.5 125 206 112 L 377.5 13 Q 400 0 422.5 13 Z" fill="#F5F0E8"/>
-  <g fill="#5BBAA7">
-    <rect x="355" y="145" width="90" height="75" rx="14"/>
-    <rect x="370" y="135" width="10" height="20" rx="5" stroke="#F5F0E8" stroke-width="3"/>
-    <rect x="420" y="135" width="10" height="20" rx="5" stroke="#F5F0E8" stroke-width="3"/>
-    <path d="M380 185 l15 15 l25 -25" stroke="#F5F0E8" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#5BBAA7"/>
+  <text x="256" y="372" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="360" fill="#2D3436">k</text>
 </svg>

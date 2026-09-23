@@ -66,12 +66,11 @@ export function DesktopTopNav() {
   return (
     <header
       aria-label="Hauptnavigation"
-      className="hidden md:flex items-center fixed top-0 inset-x-0 z-40 h-16 border-b border-[var(--border)] bg-white/95 dark:bg-[#1e2221]/95 backdrop-blur-md hex-texture px-5 gap-2"
+      className="hidden md:flex items-center fixed top-0 inset-x-0 z-40 h-16 border-b border-[var(--border)] bg-white/95 dark:bg-[#1e2221]/95 backdrop-blur-md px-5 gap-2"
     >
       {/* Logo */}
-      <Link href="/" aria-label="Startseite" className="flex items-center gap-2 mr-6 flex-shrink-0">
+      <Link href="/" aria-label="Startseite" className="flex items-center mr-6 flex-shrink-0">
         <KidgoLogo size="sm" />
-        <span className="text-sm font-semibold text-[var(--text-primary)]">Kidgo</span>
       </Link>
 
       {/* Navigation */}

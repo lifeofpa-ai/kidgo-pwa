@@ -14,6 +14,18 @@ interface BookmarkEntry {
   preis_chf: number | null;
 }
 
+// Same convention as Home/Explore/Sitemap ("datum.gte.today OR datum_ende.gte.today"):
+// a running/recurring series (datum = first occurrence, datum_ende = last occurrence)
+// only counts as "vergangen" once its end date has also passed, not just its start date.
+function formatBookmarkDate(dateStr: string, dateEndStr?: string | null) {
+  const date = new Date(dateStr + "T00:00:00");
+  if (dateEndStr) {
+    const end = new Date(dateEndStr + "T00:00:00");
+    return `${date.toLocaleDateString("de-CH", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  return date.toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "short" });
+}
+
 export default function BookmarksPage() {
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -81,7 +93,8 @@ export default function BookmarksPage() {
             {bookmarks.map((bm) => {
               const now = new Date();
               const isPast = bm.datum
-                ? new Date(bm.datum + "T23:59:59") < now
+                ? new Date(bm.datum + "T23:59:59") < now &&
+                  (!bm.datum_ende || new Date(bm.datum_ende + "T23:59:59") < now)
                 : false;
               return (
                 <div
@@ -121,11 +134,7 @@ export default function BookmarksPage() {
                         {bm.datum && (
                           <span className={`text-xs ${isPast ? "text-red-400" : "text-[var(--text-muted)]"}`}>
                             {isPast ? "Vergangen · " : ""}
-                            {new Date(bm.datum + "T00:00:00").toLocaleDateString("de-CH", {
-                              weekday: "short",
-                              day: "numeric",
-                              month: "short",
-                            })}
+                            {formatBookmarkDate(bm.datum, bm.datum_ende)}
                           </span>
                         )}
                         {bm.preis_chf === 0 && (

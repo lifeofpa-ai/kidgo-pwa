@@ -121,7 +121,7 @@ function ToggleSwitch({ value, onToggle }: { value: boolean; onToggle: () => voi
 }
 
 export default function IchPage() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const { prefs, setPrefs, mounted: prefsMounted } = useUserPrefs();
 
   const [mounted, setMounted]           = useState(false);
@@ -285,9 +285,22 @@ export default function IchPage() {
     setPrefs(updatedPrefs);
     if (user) {
       try {
-        await supabase
-          .from("user_profiles")
-          .upsert({ user_id: user.id, children, interests }, { onConflict: "user_id" });
+        // onboarding_state mergen statt ueberschreiben, damit bestehende Flags
+        // (flow_completed, walkthrough_seen etc. -- siehe auth-context.tsx) erhalten
+        // bleiben. Radius/Interessen aus dieser Seite werden hier erstmals auch auf
+        // den Account zurueckgeschrieben (vorher: nur lokal, ging auf anderen
+        // Geraeten verloren).
+        const currentState = profile?.onboarding_state || {};
+        await supabase.from("user_profiles").upsert(
+          {
+            user_id: user.id,
+            children,
+            interests,
+            onboarding_state: { ...currentState, radius_km: radius },
+          },
+          { onConflict: "user_id" }
+        );
+        await refreshProfile();
       } catch (err) {
         console.error("Profile save error:", err);
       }
@@ -627,6 +640,21 @@ export default function IchPage() {
                     }
                   </div>
                 </div>
+                {Array.isArray(profile?.children) && profile.children.length > 0 && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)] mb-1.5">Kinder</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.children.map((c, i) => (
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)]"
+                        >
+                          {c.name ? `${c.name} (${c.age_bucket})` : c.age_bucket}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1">Umkreis</p>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{prefs.radius} km</p>

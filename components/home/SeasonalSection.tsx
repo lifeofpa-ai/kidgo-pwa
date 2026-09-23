@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { KidgoEvent } from "@/types/home";
 import { LazySection } from "@/components/home/LazySection";
+import { undatedLabel } from "@/lib/dauerangebot";
 
 interface SeasonalSectionProps {
   allEventsPool: KidgoEvent[];
@@ -19,6 +20,10 @@ type SeasonCfg = {
   /** 0-indexed month (Jan=0) in which this season's window ends, inclusive. */
   endMonth: number;
 };
+
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const MONTH_NAMES = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 
@@ -44,6 +49,16 @@ export function SeasonalSection({ allEventsPool, now }: SeasonalSectionProps) {
   // (sorted first because there weren't enough in-season ones) leak into the tip.
   const seasonEnd = new Date(now.getFullYear(), cfg.endMonth + 1, 0, 23, 59, 59, 999);
 
+  // Laufende Angebote (Start in der Vergangenheit, datum_ende noch offen —
+  // z. B. Ausstellungen) haben ein altes Startdatum. Früher wurden sie danach
+  // sortiert (landeten daher immer zuoberst) und mit diesem Startdatum
+  // angezeigt ("2. Jan."), was wie ein Termin in der Zukunft wirkte.
+  // Jetzt: Sortierung nach effektivem Datum (frühestens heute), echte
+  // Termine vor laufenden, Anzeige "bis <datum_ende>".
+  const todayStr = toLocalDateStr(now);
+  const isOngoing = (e: KidgoEvent) => !!e.datum && e.datum < todayStr && !!e.datum_ende && e.datum_ende >= todayStr;
+  const effectiveDate = (e: KidgoEvent) => (e.datum && e.datum < todayStr ? todayStr : e.datum);
+
   const seasonEvents = allEventsPool
     .filter((e) => {
       const catOk = e.kategorien?.some((c) => cfg.cats.includes(c));
@@ -55,7 +70,11 @@ export function SeasonalSection({ allEventsPool, now }: SeasonalSectionProps) {
     .sort((a, b) => {
       if (a.datum && !b.datum) return -1;
       if (!a.datum && b.datum) return 1;
-      if (a.datum && b.datum) return a.datum.localeCompare(b.datum);
+      if (a.datum && b.datum) {
+        const byDate = effectiveDate(a)!.localeCompare(effectiveDate(b)!);
+        if (byDate !== 0) return byDate;
+        return Number(isOngoing(a)) - Number(isOngoing(b));
+      }
       return 0;
     })
     .slice(0, 6);
@@ -88,12 +107,16 @@ export function SeasonalSection({ allEventsPool, now }: SeasonalSectionProps) {
               </div>
               <div className="p-3">
                 <p className="font-bold text-xs text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1">{e.titel}</p>
-                {e.datum ? (
+                {e.datum && isOngoing(e) ? (
+                  <p className="text-xs font-medium text-kidgo-500">
+                    bis {new Date(e.datum_ende + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
+                  </p>
+                ) : e.datum ? (
                   <p className="text-xs font-medium text-kidgo-500">
                     {new Date(e.datum + "T00:00:00").toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
                   </p>
                 ) : (
-                  <p className="text-xs text-green-600 font-medium">Ganzjährig</p>
+                  <p className="text-xs text-green-600 font-medium">{undatedLabel(e)}</p>
                 )}
                 {e.ort && <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{e.ort.split(",")[0]}</p>}
               </div>

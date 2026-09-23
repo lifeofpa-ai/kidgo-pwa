@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { isDauerangebot, openingHours } from "@/lib/dauerangebot";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 import Link from "next/link";
@@ -134,7 +135,12 @@ function EventCard({ event, source, serienCount, formatDate }: {
 
         <div className="space-y-1 text-xs text-[var(--text-secondary)] mb-3">
           {event.datum  && <p className="font-medium text-kidgo-500">{formatDate(event.datum, event.datum_ende)}</p>}
-          {!event.datum && <p className="font-medium text-green-600">Ganzjährig geöffnet</p>}
+          {!event.datum && (
+            <p className="font-medium text-green-600">
+              {isDauerangebot(event) ? "Immer offen" : "Ganzjährig geöffnet"}
+              {openingHours(event) && <span className="block font-normal text-[var(--text-secondary)] line-clamp-1">{openingHours(event)}</span>}
+            </p>
+          )}
           {serienCount > 0 && <p className="text-[var(--text-muted)]">+{serienCount} weitere Termine</p>}
           {event.ort && <p className="text-[var(--text-muted)] truncate">{event.ort}</p>}
         </div>
@@ -739,7 +745,7 @@ export default function ExplorePage() {
                   <LazySection>
                     <section>
                       <div className="flex items-baseline gap-2 mb-4">
-                        <h2 className="text-base font-semibold text-[var(--text-primary)]">Ganzjährig geöffnet</h2>
+                        <h2 className="text-base font-semibold text-[var(--text-primary)]">Immer offen – ohne Termin</h2>
                         <span className="text-sm text-[var(--text-muted)]">{allYearActivities.length}</span>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

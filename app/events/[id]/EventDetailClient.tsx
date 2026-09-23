@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { isDauerangebot, openingHours } from "@/lib/dauerangebot";
 import { useRouter } from "next/navigation";
 import { SkeletonDetail } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
@@ -1028,8 +1029,15 @@ export default function EventDetailClient({ id }: { id: string }) {
               <div className="flex items-start gap-3 py-4">
                 <IconCalendar />
                 <div>
-                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">Verfügbarkeit</p>
-                  <p className="font-semibold text-green-600 text-sm">Ganzjährig geöffnet</p>
+                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-0.5">
+                    {openingHours(event) ? "Öffnungszeiten" : "Verfügbarkeit"}
+                  </p>
+                  <p className="font-semibold text-green-600 text-sm">
+                    {isDauerangebot(event) ? "Immer offen – ohne Termin" : "Ganzjährig geöffnet"}
+                  </p>
+                  {openingHours(event) && (
+                    <p className="text-sm text-[var(--text-primary)] mt-0.5">{openingHours(event)}</p>
+                  )}
                 </div>
               </div>
             )}

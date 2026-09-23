@@ -63,6 +63,7 @@ import { HeroSection } from "@/components/home/HeroSection";
 import { CardStack } from "@/components/home/CardStack";
 import { WeekendSection } from "@/components/home/WeekendSection";
 import { SeasonalSection } from "@/components/home/SeasonalSection";
+import { PopularSection, PopularAgeGroupSection } from "@/components/home/PopularSection";
 
 // Types imported from @/types/home
 
@@ -1779,6 +1780,20 @@ export default function Home() {
         {/* ===== SAISONALE LANDING ===== */}
         {!loading && allEventsPool.length > 0 && (
           <SeasonalSection allEventsPool={allEventsPool} now={now} />
+        )}
+
+        {/* ===== BELIEBT BEI KIDGO ===== */}
+        {!loading && (
+          <PopularSection allEventsPool={allEventsPool} bookmarkCounts={bookmarkCounts} />
+        )}
+
+        {/* ===== BELIEBT IN DEINER ALTERSKLASSE ===== */}
+        {!loading && (
+          <PopularAgeGroupSection
+            ageGroupEvents={allEvents}
+            bookmarkCounts={bookmarkCounts}
+            selectedBuckets={selectedBuckets}
+          />
         )}
 
         {/* Link to explore */}

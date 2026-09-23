@@ -19,7 +19,6 @@ const ALLOWED_CATEGORIES = ["idea", "bug", "other"] as const;
 
 export async function POST(req: Request) {
   const supabaseAdmin = getSupabaseAdmin();
-  const resend = new Resend(process.env.RESEND_API_KEY);
 
   let body: { message?: string; email?: string; category?: string };
   try {
@@ -55,23 +54,35 @@ export async function POST(req: Request) {
     );
   }
 
-  try {
-    await resend.emails.send({
-      from: "Kidgo Feedback <contact@kidgo.ch>", // Domain kidgo.ch muss in Resend verifiziert sein (SPF/DKIM per DNS)
-      to: NOTIFY_TO,
-      replyTo: email ?? undefined,
-      subject: `Neues Kidgo-Feedback (${category})`,
-      text: message,
-    });
-    await supabaseAdmin
-      .from("feedback_submissions")
-      .update({ notified: true })
-      .eq("id", data.id);
-  } catch (mailError) {
-    // Bewusst kein Fehler an die Nutzenden zurückgeben - die Idee ist sicher in
-    // der DB, auch wenn die Mail gerade nicht rausging. Für ein Retry-Batch-Job
-    // später: `select * from feedback_submissions where notified = false`.
-    console.error("feedback notify mail failed", mailError);
+  // Bewusst LAZY instanziiert + komplett try/catch-isoliert (Fix 23.09.2026):
+  // `new Resend(...)` wirft sofort, wenn RESEND_API_KEY fehlt oder leer ist -
+  // vorher stand das ausserhalb jedes try/catch und liess JEDE Feedback-
+  // Einsendung mit einem leeren 500er crashen, obwohl die Nachricht oben
+  // bereits sicher in der DB gespeichert wurde. Fehlender/ungueltiger
+  // RESEND_API_KEY darf die Einsendung selbst nie beeinflussen - nur die
+  // Benachrichtigungsmail faellt dann aus.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Kidgo Feedback <contact@kidgo.ch>",
+        to: NOTIFY_TO,
+        replyTo: email ?? undefined,
+        subject: `Neues Kidgo-Feedback (${category})`,
+        text: message,
+      });
+      await supabaseAdmin
+        .from("feedback_submissions")
+        .update({ notified: true })
+        .eq("id", data.id);
+    } catch (mailError) {
+      // Bewusst kein Fehler an die Nutzenden zurückgeben - die Idee ist sicher in
+      // der DB, auch wenn die Mail gerade nicht rausging. Für ein Retry-Batch-Job
+      // später: `select * from feedback_submissions where notified = false`.
+      console.error("feedback notify mail failed", mailError);
+    }
+  } else {
+    console.warn("RESEND_API_KEY nicht gesetzt - Feedback-Benachrichtigung wird übersprungen");
   }
 
   return NextResponse.json({ ok: true });

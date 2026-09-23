@@ -18,7 +18,9 @@ export interface OnboardingState {
   walkthrough_seen?: boolean; // OnboardingWalkthrough (3 USP-Slides)
   swipe_hint_seen?: boolean; // Swipe-Hinweis auf den Empfehlungs-Karten
   profile_setup_dismissed?: boolean; // ProfileSetupModal übersprungen
-  [key: string]: boolean | undefined;
+  age_buckets?: string[]; // Gast-Onboarding-Praeferenz, beim ersten Login uebernommen
+  radius_km?: number; // Gast-Onboarding-Praeferenz, beim ersten Login uebernommen
+  [key: string]: boolean | string[] | number | undefined;
 }
 
 export interface UserProfile {
@@ -85,13 +87,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        // On first sign-in: push localStorage prefs to Supabase if no profile exists yet
-        if (_event === "SIGNED_IN") {
+        // Beim ersten Login/Registrierung: lokale Praeferenzen (aus Gast-Onboarding)
+        // in den Account uebernehmen, falls dort noch kein Profil existiert (ignoreDuplicates:
+        // true -> reiner Insert-Fall, ruehrt ein bereits vorhandenes Profil nie an).
+        // INITIAL_SESSION deckt den Fall ab, dass die Session erst nach Klick auf den
+        // E-Mail-Bestaetigungslink entsteht (Server-Redirect via /auth/callback, Confirm-Email
+        // ist aktiv) -- dort feuert im Browser kein SIGNED_IN, nur INITIAL_SESSION beim Laden
+        // der Session aus den Cookies.
+        if (_event === "SIGNED_IN" || _event === "INITIAL_SESSION") {
           try {
             const raw = typeof localStorage !== "undefined" ? localStorage.getItem("user_preferences") : null;
-            const parsed: { interests?: string[] } = raw ? JSON.parse(raw) : {};
+            const parsed: { interests?: string[]; ageBuckets?: string[]; radius?: number } = raw ? JSON.parse(raw) : {};
             await supabase.from("user_profiles").upsert(
-              { user_id: session.user.id, interests: parsed.interests ?? [], children: [] },
+              {
+                user_id: session.user.id,
+                interests: parsed.interests ?? [],
+                children: [],
+                onboarding_state: {
+                  ...(parsed.ageBuckets?.length ? { age_buckets: parsed.ageBuckets } : {}),
+                  ...(parsed.radius ? { radius_km: parsed.radius } : {}),
+                },
+              },
               { onConflict: "user_id", ignoreDuplicates: true }
             );
           } catch {}

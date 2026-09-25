@@ -16,9 +16,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useUserPrefs } from "@/lib/user-prefs-context";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-
-const STORAGE_KEY = "kidgo_onboarding_seen_v1";
+import { WALKTHROUGH_STORAGE_KEY as STORAGE_KEY, isAuthRoute } from "@/lib/intro-state";
 
 const slides = [
   {
@@ -37,20 +37,26 @@ const slides = [
 
 export function OnboardingWalkthrough() {
   const { prefs, mounted: prefsMounted } = useUserPrefs();
-  const { user, profile, markOnboardingFlag } = useAuth();
+  const { user, profile, loading: authLoading, markOnboardingFlag } = useAuth();
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    if (!prefsMounted || !prefs.onboarded) return;
-    // Bereits übers Konto als gesehen bekannt (anderes Gerät) — nicht erneut zeigen.
+    if (!prefsMounted || !prefs.onboarded || authLoading) return;
+    // Angemeldete Nutzer/innen sehen die Intro-Screens nie wieder (nur einmalig
+    // bei der Registrierung) — und auch nicht auf Login-/Auth-Seiten.
+    if (user || isAuthRoute(pathname)) {
+      setVisible(false);
+      return;
+    }
     if (profile?.onboarding_state?.walkthrough_seen) return;
     try {
       if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
     } catch {
       // Private-Mode o.ä. - Onboarding einfach nicht blockierend anzeigen
     }
-  }, [prefsMounted, prefs.onboarded, profile?.onboarding_state?.walkthrough_seen]);
+  }, [prefsMounted, prefs.onboarded, authLoading, user, pathname, profile?.onboarding_state?.walkthrough_seen]);
 
   const close = () => {
     setVisible(false);

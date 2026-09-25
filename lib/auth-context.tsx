@@ -39,7 +39,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  markOnboardingFlag: (flag: keyof OnboardingState) => Promise<void>;
+  markOnboardingFlag: (flag: keyof OnboardingState | Array<keyof OnboardingState>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -97,13 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (_event === "SIGNED_IN" || _event === "INITIAL_SESSION") {
           try {
             const raw = typeof localStorage !== "undefined" ? localStorage.getItem("user_preferences") : null;
-            const parsed: { interests?: string[]; ageBuckets?: string[]; radius?: number } = raw ? JSON.parse(raw) : {};
+            let parsed: { interests?: string[]; ageBuckets?: string[]; radius?: number } = raw ? JSON.parse(raw) : {};
+            // Bestätigungslink in anderem Browser geöffnet (z.B. Mail-App): dort ist
+            // localStorage leer -> bei der Registrierung mitgegebene Präferenzen nutzen.
+            const meta = (session.user.user_metadata?.kidgo_onboarding ?? null) as
+              | { interests?: string[]; age_buckets?: string[]; radius_km?: number }
+              | null;
+            if (meta && !parsed.ageBuckets?.length && !parsed.interests?.length) {
+              parsed = { interests: meta.interests, ageBuckets: meta.age_buckets, radius: meta.radius_km };
+            }
             await supabase.from("user_profiles").upsert(
               {
                 user_id: session.user.id,
                 interests: parsed.interests ?? [],
                 children: [],
                 onboarding_state: {
+                  // Wer ein Konto hat, hat die Intro-Screens hinter sich (einmalig bei Registrierung).
+                  flow_completed: true,
+                  walkthrough_seen: true,
                   ...(parsed.ageBuckets?.length ? { age_buckets: parsed.ageBuckets } : {}),
                   ...(parsed.radius ? { radius_km: parsed.radius } : {}),
                 },
@@ -131,17 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Nutzer dasselbe Intro/den Hinweis auf einem anderen Gerät nicht erneut
   // sieht. Schreibt NUR die onboarding_state-Spalte, andere Profilfelder
   // bleiben unangetastet.
-  const markOnboardingFlag = async (flag: keyof OnboardingState) => {
+  const markOnboardingFlag = async (flag: keyof OnboardingState | Array<keyof OnboardingState>) => {
     if (!user) return;
+    const flags = Array.isArray(flag) ? flag : [flag];
+    const patch = Object.fromEntries(flags.map((f) => [f, true])) as OnboardingState;
     setProfile((prev) => {
-      const nextState = { ...(prev?.onboarding_state || {}), [flag]: true };
+      const nextState = { ...(prev?.onboarding_state || {}), ...patch };
       if (prev) return { ...prev, onboarding_state: nextState };
       return prev;
     });
     try {
       const currentState = profile?.onboarding_state || {};
       await supabase.from("user_profiles").upsert(
-        { user_id: user.id, onboarding_state: { ...currentState, [flag]: true } },
+        { user_id: user.id, onboarding_state: { ...currentState, ...patch } },
         { onConflict: "user_id" }
       );
     } catch {}

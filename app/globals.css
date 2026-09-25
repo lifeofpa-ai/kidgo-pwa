@@ -36,6 +36,12 @@ html, body { width: 100%; height: 100%; }
   --kidgo-border: #dfe6e9;
   --kidgo-card: #FFFFFF;
 
+  /* Logo tokens (KidgoLogo / KidgoMark). "go" uses a deeper teal than the
+     brand teal so the wordmark reaches >=3:1 on white/cream at small sizes. */
+  --kidgo-logo-ink: #2D3436;
+  --kidgo-logo-go: #3A9784;
+  --kidgo-mark-ink: #2D3436;
+
   /* System font stack (Google Fonts removed 21.09.2026 — build was failing to fetch Nunito) */
   --font-nunito: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
@@ -63,6 +69,14 @@ html, body { width: 100%; height: 100%; }
   --kidgo-bg: #1A1D1C;
   --kidgo-border: #3d4a47;
   --kidgo-card: #252928;
+  --kidgo-text: #ECE8E1;
+
+  /* Logo tokens – dark: warm off-white instead of pure white (bold light type
+     on dark blooms optically), light teal "go", monogram letter in page color
+     so the teal tile reads calmer. */
+  --kidgo-logo-ink: #ECE8E1;
+  --kidgo-logo-go: #7CCBB9;
+  --kidgo-mark-ink: #1A1D1C;
 }
 
 /* ── Smooth theme transition ── */

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
+import { readLocalIntroState } from "@/lib/intro-state";
 
 function translateAuthError(message: string): string {
   const known: Record<string, string> = {
@@ -12,8 +13,13 @@ function translateAuthError(message: string): string {
     "Email not confirmed": "Bitte bestätige zuerst deine E-Mail-Adresse — schau in deinem Posteingang nach der Bestätigungsmail.",
     "User already registered": "Für diese E-Mail existiert bereits ein Konto. Bitte melde dich an oder setze dein Passwort zurück.",
     "Password should be at least 6 characters.": "Das Passwort muss mindestens 6 Zeichen haben.",
+    "email rate limit exceeded": "Zu viele E-Mails in kurzer Zeit verschickt. Bitte versuche es in ein paar Minuten nochmals.",
   };
-  return known[message] ?? message;
+  if (known[message]) return known[message];
+  if (/for security purposes, you can only request this after/i.test(message)) {
+    return "Bitte warte kurz (ca. 1 Minute), bevor du die Bestätigungsmail erneut anforderst.";
+  }
+  return message;
 }
 
 function LoginInner() {
@@ -29,8 +35,32 @@ function LoginInner() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(callbackError ? decodeURIComponent(callbackError) : "");
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
 
-  const resetFormError = () => setError("");
+  const resendConfirmation = async () => {
+    if (!email) return;
+    setResendState("sending");
+    setError("");
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      setError(translateAuthError(error.message));
+      setResendState("idle");
+    } else {
+      setResendState("sent");
+    }
+  };
+
+  const resetFormError = () => {
+    setError("");
+    setNeedsConfirmation(false);
+    setResendState("idle");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +80,19 @@ function LoginInner() {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Gast-Onboarding (Alter/Interessen/Radius) mitgeben, damit es auch ankommt,
+          // wenn der Bestätigungslink in einem anderen Browser geöffnet wird.
+          data: { kidgo_onboarding: readLocalIntroState() },
         },
       });
 
       if (error) {
         setError(translateAuthError(error.message));
+      } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        // Supabase meldet bei bereits registrierter E-Mail "Erfolg", verschickt aber
+        // keine Mail (Schutz vor Konto-Enumeration). identities=[] verrät den Fall.
+        setError("Für diese E-Mail existiert bereits ein Konto. Bitte melde dich an oder setze dein Passwort zurück. Falls du die Bestätigungsmail nie erhalten hast, kannst du sie unten erneut anfordern.");
+        setNeedsConfirmation(true);
       } else if (data.session) {
         // E-Mail-Bestätigung ist deaktiviert -> Nutzer ist sofort eingeloggt
         router.push("/dashboard");
@@ -67,6 +105,7 @@ function LoginInner() {
 
       if (error) {
         setError(translateAuthError(error.message));
+        if (error.message === "Email not confirmed") setNeedsConfirmation(true);
       } else {
         router.push("/dashboard");
         return;
@@ -108,12 +147,26 @@ function LoginInner() {
             <p className="text-sm text-[var(--text-muted)]">
               Prüfe <strong className="text-[var(--text-primary)]">{email}</strong> und klicke auf den Bestätigungslink, um dein Konto zu aktivieren.
             </p>
+            <p className="text-xs text-[var(--text-muted)] mt-3">
+              Keine Mail erhalten? Schau auch im Spam-Ordner nach.
+            </p>
+            {error && <p className="text-red-500 text-xs mt-3">{error}</p>}
             <button
-              onClick={() => switchMode("login")}
-              className="mt-5 text-xs text-[var(--accent)] hover:underline"
+              type="button"
+              onClick={resendConfirmation}
+              disabled={resendState !== "idle"}
+              className="mt-4 text-xs font-semibold text-[var(--accent)] hover:underline disabled:opacity-60 disabled:no-underline"
             >
-              Zurück zur Anmeldung
+              {resendState === "sending" ? "Wird gesendet…" : resendState === "sent" ? "Neue Bestätigungsmail gesendet ✓" : "Bestätigungsmail erneut senden"}
             </button>
+            <div>
+              <button
+                onClick={() => switchMode("login")}
+                className="mt-4 text-xs text-[var(--accent)] hover:underline"
+              >
+                Zurück zur Anmeldung
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -198,6 +251,17 @@ function LoginInner() {
 
               {error && (
                 <p className="text-red-500 text-xs mb-3">{error}</p>
+              )}
+
+              {needsConfirmation && (
+                <button
+                  type="button"
+                  onClick={resendConfirmation}
+                  disabled={resendState !== "idle" || !email}
+                  className="w-full mb-3 border border-[var(--accent)] text-[var(--accent)] rounded-xl py-2.5 font-semibold text-xs hover:bg-[var(--accent)]/10 transition disabled:opacity-60"
+                >
+                  {resendState === "sending" ? "Wird gesendet…" : resendState === "sent" ? "Bestätigungsmail gesendet ✓ – bitte Posteingang prüfen" : "Bestätigungsmail erneut senden"}
+                </button>
               )}
 
               <button

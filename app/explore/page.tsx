@@ -14,6 +14,7 @@ import { LazySection } from "@/components/home/LazySection";
 import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 import { hikingEventAllowed } from "@/lib/interests";
 import { useAuth } from "@/lib/auth-context";
+import { SearchMissFeedback } from "@/components/SearchMissFeedback";
 
 // Persists filters/search/pagination/scroll across a visit to an event detail
 // and back, so "Alle Events" resumes where the user left off instead of
@@ -430,6 +431,33 @@ export default function ExplorePage() {
     ...(dateFilter !== "all" ? [{ today: "Heute", weekend: "Wochenende", week: "Diese Woche", month: "Diesen Monat" }[dateFilter]!] : []),
   ];
 
+  const renderEmptyState = () => (
+    <div className="text-center py-16">
+      <div className="empty-float mx-auto mb-5 w-20 h-20">
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="80" height="80" rx="20" fill="var(--accent-light)"/>
+          <circle cx="36" cy="38" r="14" stroke="#5BBAA7" strokeWidth="2.2" fill="none"/>
+          <path d="M46 48l10 10" stroke="#5BBAA7" strokeWidth="2.2" strokeLinecap="round"/>
+          <path d="M30 38h12M36 32v12" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.5"/>
+        </svg>
+      </div>
+      <p className="text-[var(--text-primary)] font-semibold mb-1">
+        {search || selectedCategories.length > 0 || activeFilters.length > 0
+          ? "Keine Events für diese Filter"
+          : "Suchbegriff eingeben oder Kategorie wählen"}
+      </p>
+      <p className="text-[var(--text-muted)] text-sm mb-4">Passe die Filter oben an</p>
+      {activeFilters.length > 0 && (
+        <button onClick={clearAll} className="text-sm text-kidgo-500 hover:text-kidgo-600 transition underline">
+          Filter zurücksetzen
+        </button>
+      )}
+      {(search.trim() || activeFilters.length > 0) && (
+        <SearchMissFeedback query={search} filters={activeFilters} />
+      )}
+    </div>
+  );
+
   const clearAll = () => {
     setSelectedCategories([]);
     setSelectedAgeBuckets([]);
@@ -692,31 +720,14 @@ export default function ExplorePage() {
               ))}
             </div>
           ) : events.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="empty-float mx-auto mb-5 w-20 h-20">
-                <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="80" height="80" rx="20" fill="var(--accent-light)"/>
-                  <circle cx="36" cy="38" r="14" stroke="#5BBAA7" strokeWidth="2.2" fill="none"/>
-                  <path d="M46 48l10 10" stroke="#5BBAA7" strokeWidth="2.2" strokeLinecap="round"/>
-                  <path d="M30 38h12M36 32v12" stroke="#5BBAA7" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.5"/>
-                </svg>
-              </div>
-              <p className="text-[var(--text-primary)] font-semibold mb-1">
-                {search || selectedCategories.length > 0 || activeFilters.length > 0
-                  ? "Keine Events für diese Filter"
-                  : "Suchbegriff eingeben oder Kategorie wählen"}
-              </p>
-              <p className="text-[var(--text-muted)] text-sm mb-4">Passe die Filter oben an</p>
-              {activeFilters.length > 0 && (
-                <button onClick={clearAll} className="text-sm text-kidgo-500 hover:text-kidgo-600 transition underline">
-                  Filter zurücksetzen
-                </button>
-              )}
-            </div>
+            renderEmptyState()
           ) : (() => {
             const dateFiltered     = filterByDate(events);
             const futureEvents     = applySort(dateFiltered.filter((e) => e.datum));
             const currentSeason = getCurrentSeason(); const allYearActivities = applySort(dateFiltered.filter((e) => !e.datum && (!e.saison_tags || e.saison_tags.length === 0 || e.saison_tags.includes(currentSeason))));
+
+            // Datumsfilter kann alles wegfiltern, obwohl die Abfrage Treffer hatte
+            if (futureEvents.length === 0 && allYearActivities.length === 0) return renderEmptyState();
 
             return (
               <div className="space-y-10">

@@ -23,6 +23,7 @@ import {
 import { safeExternalUrl } from "@/lib/safe-url";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { trackEvent } from "@/lib/analytics";
+import { ReportEventProblem } from "@/components/ReportEventProblem";
 
 interface Review {
   id: string;
@@ -1286,6 +1287,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                 WhatsApp
               </a>
             </div>
+            <ReportEventProblem eventId={event.id} eventTitle={event.titel} />
           </div>
 
           {/* Similar events — horizontal carousel with Netflix-style "Mehr davon" */}

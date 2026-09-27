@@ -21,7 +21,6 @@ export function AgeChipsBar() {
   if (!mounted) return null;
   if (!SHOW_ON.some((p) => pathname === p || pathname.startsWith(p + "/"))) return null;
   if (!prefs.onboarded && prefs.ageBuckets.length === 0) return null;
-  if (prefs.ageBuckets.length === 0 && !pickerOpen) return null;
 
   const available = AGE_BUCKETS.filter((b) => !prefs.ageBuckets.includes(b));
 

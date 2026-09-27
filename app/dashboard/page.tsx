@@ -95,6 +95,7 @@ export default function DashboardPage() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [showInterestsModal, setShowInterestsModal] = useState(false);
+  const [showWelcome, setShowWelcome]     = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -106,6 +107,18 @@ export default function DashboardPage() {
     try {
       const raw = localStorage.getItem("kidgo_interests");
       if (raw) setUserInterests(JSON.parse(raw));
+    } catch {}
+    // Nach erfolgreicher E-Mail-Bestätigung (Registrierung) landet man hier mit
+    // ?welcome=1 (siehe app/auth/confirm) — kurze Bestätigung zeigen, dann die
+    // URL wieder saubern, damit ein Reload den Banner nicht erneut zeigt.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("welcome") === "1") {
+        setShowWelcome(true);
+        params.delete("welcome");
+        const rest = params.toString();
+        window.history.replaceState({}, "", rest ? `/dashboard?${rest}` : "/dashboard");
+      }
     } catch {}
   }, []);
 
@@ -198,6 +211,23 @@ export default function DashboardPage() {
               </button>
             </div>
           </header>
+
+          {showWelcome && (
+            <div className="mb-6 p-4 rounded-2xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[var(--accent)]/30 flex items-start gap-3 card-enter">
+              <span className="text-2xl leading-none">🎉</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Konto bestätigt!</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Willkommen bei Kidgo — schön, dass du da bist.</p>
+              </div>
+              <button
+                onClick={() => setShowWelcome(false)}
+                aria-label="Schliessen"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition text-sm leading-none px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Greeting */}
           <div className="mb-8 card-enter">

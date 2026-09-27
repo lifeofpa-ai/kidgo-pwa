@@ -135,6 +135,7 @@ export default function IchPage() {
   const [children, setChildren]         = useState<Child[]>([]);
   const [interests, setInterests]       = useState<string[]>([]);
   const [radius, setRadius]             = useState(15);
+  const [ageBuckets, setAgeBuckets]     = useState<string[]>([]);
 
   // Avatar
   const [avatarId, setAvatarId]         = useState<string | null>(null);
@@ -237,6 +238,7 @@ export default function IchPage() {
       setChildren(profileChildren.length > 0 ? profileChildren : []);
       setInterests(prefs.interests);
       setRadius(prefs.radius);
+      setAgeBuckets(prefs.ageBuckets);
     }
   }, [editMode, prefsMounted, profile, prefs]);
 
@@ -265,9 +267,12 @@ export default function IchPage() {
   const toggleInterest = (id: string) =>
     setInterests((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
+  const toggleEditAgeBucket = (b: string) =>
+    setAgeBuckets((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]);
+
   const handleSave = async () => {
     setSaving(true);
-    const updatedPrefs = { ...prefs, interests, radius };
+    const updatedPrefs = { ...prefs, interests, radius, ageBuckets };
     setPrefs(updatedPrefs);
     if (user) {
       try {
@@ -626,6 +631,30 @@ export default function IchPage() {
               </div>
             ) : (
               <div className="px-5 py-5 space-y-6">
+
+                {/* Altersgruppen */}
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Altersgruppen</p>
+                  <div className="flex flex-wrap gap-2">
+                    {AGE_OPTIONS.map(({ key, label }) => {
+                      const active = ageBuckets.includes(key);
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => toggleEditAgeBucket(key)}
+                          className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold transition ${
+                            active
+                              ? "border-kidgo-400 bg-kidgo-50 text-kidgo-600 dark:bg-kidgo-900/20 dark:text-kidgo-400"
+                              : "border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:border-kidgo-200"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-2">Steuert, welche Events dir auf Home und in der Suche angezeigt werden.</p>
+                </div>
 
                 {/* Children */}
                 <div>

@@ -21,7 +21,7 @@ export default function ImpressumPage() {
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Impressum</h1>
-        <p className="text-sm text-gray-400 mb-10">Angaben gemäss Art. 238 ZGB und DSG</p>
+        <p className="text-sm text-gray-400 mb-10">Angaben gemäss Art. Art. 3 UWG und Art. 19 </p>
 
         <div className="space-y-8 text-sm text-gray-600 leading-relaxed">
           <section aria-labelledby="betreiber-heading">

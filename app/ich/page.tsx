@@ -11,6 +11,8 @@ import { getCategoryIcon } from "@/components/Icons";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { supabase } from "@/lib/supabase-browser";
 import { AnimalSVG, AvatarPicker, ANIMALS } from "@/components/ich/AvatarAnimals";
+import { RADIUS_PRESETS, nearestRadiusPreset } from "@/lib/home-constants";
+import { useUserLocation } from "@/lib/use-user-location";
 
 const AGE_OPTIONS = [
   { key: "0-3", label: "0–3" },
@@ -18,7 +20,6 @@ const AGE_OPTIONS = [
   { key: "7-9", label: "7–9" },
   { key: "10-12", label: "10–12" },
 ];
-const RADIUS_OPTIONS = [5, 10, 15, 25];
 const INTEREST_ICON_MAP: Record<string, string> = {
   sport: "Sport", kreativ: "Kreativ", musik: "Musik", theater: "Theater",
   natur: "Natur", wissen: "Wissenschaft", schwimmen: "Sport", camp: "Feriencamp",
@@ -123,6 +124,7 @@ function ToggleSwitch({ value, onToggle }: { value: boolean; onToggle: () => voi
 export default function IchPage() {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const { prefs, setPrefs, mounted: prefsMounted } = useUserPrefs();
+  const { userLocation } = useUserLocation();
 
   const [mounted, setMounted]           = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
@@ -657,7 +659,10 @@ export default function IchPage() {
                 )}
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1">Umkreis</p>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{prefs.radius} km</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {nearestRadiusPreset(prefs.radius).label}
+                    <span className="font-normal text-[var(--text-muted)]"> (~{prefs.radius} km ab {userLocation?.label ?? "Zürich"})</span>
+                  </p>
                 </div>
                 {prefs.interests.length > 0 && (
                   <div>
@@ -752,23 +757,33 @@ export default function IchPage() {
                   </div>
                 </div>
 
-                {/* Umkreis */}
+                {/* Umkreis — 27.09.2026: von 4 harten km-Stufen auf 3 Vorlieben
+                    umgestellt. Der km-Wert bleibt intern (radius_km, keine
+                    Migration), wirkt aber nur noch als weicher Referenzpunkt
+                    fürs Ranking, nicht als Ausschlussgrenze (siehe scoring.ts). */}
                 <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Umkreis</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Umkreis</p>
+                  <p className="text-xs text-[var(--text-muted)] mb-3">
+                    Events aus der Nähe werden bevorzugt — weiter entfernte verschwinden nicht, rutschen aber weiter unten. Gemessen ab {userLocation?.label ?? "Zürich"}.
+                  </p>
                   <div className="flex gap-2">
-                    {RADIUS_OPTIONS.map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => setRadius(r)}
-                        className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition ${
-                          radius === r
-                            ? "border-kidgo-400 bg-kidgo-50 text-kidgo-600 dark:bg-kidgo-900/20 dark:text-kidgo-400"
-                            : "border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:border-kidgo-200"
-                        }`}
-                      >
-                        {r} km
-                      </button>
-                    ))}
+                    {RADIUS_PRESETS.map((preset) => {
+                      const active = nearestRadiusPreset(radius).key === preset.key;
+                      return (
+                        <button
+                          key={preset.key}
+                          onClick={() => setRadius(preset.km)}
+                          title={preset.hint}
+                          className={`flex-1 py-2.5 px-1.5 rounded-xl border-2 text-xs font-semibold transition ${
+                            active
+                              ? "border-kidgo-400 bg-kidgo-50 text-kidgo-600 dark:bg-kidgo-900/20 dark:text-kidgo-400"
+                              : "border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:border-kidgo-200"
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

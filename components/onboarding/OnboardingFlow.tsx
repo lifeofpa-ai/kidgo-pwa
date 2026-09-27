@@ -7,6 +7,8 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase-browser";
 import { INTERESTS } from "@/lib/interests";
 import { getCategoryIcon } from "@/components/Icons";
+import { RADIUS_PRESETS } from "@/lib/home-constants";
+import { useUserLocation } from "@/lib/use-user-location";
 
 const AGE_OPTIONS = [
   { key: "0-3",   label: "0–3",   desc: "Kleinkind" },
@@ -29,16 +31,16 @@ const INTEREST_ICON_MAP: Record<string, string> = {
   zirkus:    "Tanz",
 };
 
-const RADIUS_OPTIONS = [5, 10, 15, 25] as const;
 const TOTAL_STEPS = 4;
 
 export function OnboardingFlow() {
   const { prefs, setPrefs, markOnboarded } = useUserPrefs();
   const { user, profile } = useAuth();
+  const { userLocation } = useUserLocation();
   const [step, setStep]           = useState(0);
   const [ages, setAges]           = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
-  const [radius, setRadius]       = useState(15);
+  const [radius, setRadius]       = useState<number>(RADIUS_PRESETS[1].km); // "Im Grossraum" als Default statt hartem 15
 
   useEffect(() => { trackEvent("onboarding_start"); }, []);
 
@@ -202,23 +204,26 @@ export function OnboardingFlow() {
           </div>
         )}
 
-        {/* Step 3 — Umkreis */}
+        {/* Step 3 — Umkreis. 27.09.2026: qualitative Vorlieben statt harter
+            km-Stufen — passt zur weichen Distanz-Gewichtung im Scoring statt
+            einer Ausschlussgrenze, und misst ab dem echten Standort statt
+            fix "ab Zürich". */}
         {step === 2 && (
           <div style={{ animation: "tutorialSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) both" }}>
             <h1 className="text-white font-bold text-2xl mb-1">Wie weit reist ihr?</h1>
-            <p className="text-white/50 text-sm mb-10">Maximaler Umkreis ab Zürich</p>
-            <div className="flex justify-center gap-4 flex-wrap mb-8">
-              {RADIUS_OPTIONS.map((r) => {
-                const active = radius === r;
+            <p className="text-white/50 text-sm mb-10">Bevorzugter Umkreis ab {userLocation?.label ?? "Zürich"}</p>
+            <div className="flex justify-center gap-3 flex-wrap mb-8">
+              {RADIUS_PRESETS.map((preset) => {
+                const active = radius === preset.km;
                 return (
                   <button
-                    key={r}
-                    onClick={() => setRadius(r)}
-                    className="w-20 h-20 rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-95"
+                    key={preset.key}
+                    onClick={() => setRadius(preset.km)}
+                    className="w-28 py-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95"
                     style={glassCard(active)}
                   >
-                    <span className="text-white font-bold text-xl">{r}</span>
-                    <span className="text-white/40 text-xs">km</span>
+                    <span className="text-white font-bold text-sm text-center leading-tight">{preset.label}</span>
+                    <span className="text-white/40 text-[11px]">{preset.hint}</span>
                   </button>
                 );
               })}
@@ -228,9 +233,7 @@ export function OnboardingFlow() {
               style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(8px)" }}
             >
               <p className="text-white/80 text-sm">
-                Bis zu{" "}
-                <span className="text-[#5BBAA7] font-bold">{radius} km</span>
-                {" "}rund um Zürich
+                Events aus der Nähe zuerst — weiter entfernte verschwinden nicht, sie rutschen nur weiter unten.
               </p>
             </div>
           </div>
@@ -259,7 +262,7 @@ export function OnboardingFlow() {
               {interests.length > 0 && (
                 <p className="text-white/60 text-sm">{interests.length} Interessen gewählt</p>
               )}
-              <p className="text-white/60 text-sm">Umkreis: {radius} km</p>
+              <p className="text-white/60 text-sm">Umkreis: {RADIUS_PRESETS.find((p) => p.km === radius)?.label ?? `${radius} km`}</p>
             </div>
           </div>
         )}

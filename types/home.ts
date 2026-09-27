@@ -22,11 +22,17 @@ export interface KidgoEvent {
   quelle_id: string | null;
   created_at: string;
   serie_id: string | null;
+  /** Event-eigene Koordinaten (seit dem lat/lng-Fix der Explore-Karte, 17.09.2026).
+   *  Massgeblich für Distanzberechnungen — nicht mehr über `sources` joinen. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface ScoredEvent extends KidgoEvent {
   score: number;
   reasons: string[];
+  /** Reale Distanz (km) zum Nutzerstandort, falls beide Koordinaten bekannt sind. */
+  distanceKm?: number | null;
 }
 
 export interface CompactEvent {

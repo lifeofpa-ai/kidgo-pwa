@@ -1,5 +1,5 @@
-import type { KidgoEvent } from "@/types/home";
-import { isSchoolHoliday } from "@/lib/home-constants";
+import type { KidgoEvent, UserLocation } from "@/types/home";
+import { isSchoolHoliday, haversine } from "@/lib/home-constants";
 import { eventMatchesInterests } from "@/lib/interests";
 import {
   scoreWithPreferences,
@@ -8,6 +8,60 @@ import {
   type DismissProfile,
 } from "@/lib/preferences";
 
+// ============================================================
+// DISTANZ — weiche Gewichtung statt harter Radius-Grenze (27.09.2026)
+// ============================================================
+// Event-Typen, bei denen Familien bewusst weitere Wege in Kauf nehmen
+// (Ferienlager, Dauerangebote/Ausflugsziele) — der eingestellte Radius greift
+// dort deutlich grosszügiger als bei spontanen Alltags-Events.
+const DISTANCE_LENIENT_TYPES = new Set(["camp", "dauerangebot", "wanderung_ausnahme"]);
+
+export interface DistanceResult {
+  /** Reale Distanz in km, oder null wenn Standort/Koordinaten fehlen. */
+  km: number | null;
+  score: number;
+  reason?: string;
+}
+
+/**
+ * Distanz fliesst als Score-Faktor ein, nicht als Ausschlusskriterium: ein
+ * Event knapp ausserhalb des bevorzugten Radius verschwindet nicht, es rutscht
+ * nur in der Reihenfolge nach unten ("eher nah oder irrelevant statt hart
+ * gefiltert" — Patricks Vorgabe). Fehlen Standort oder Koordinaten, bleibt die
+ * Distanz score-neutral (0), statt Events grundlos abzuwerten.
+ */
+export function computeDistanceScore(
+  event: Pick<KidgoEvent, "lat" | "lng" | "event_typ">,
+  userLocation: UserLocation | null,
+  radiusKm: number | null,
+  isSun: boolean
+): DistanceResult {
+  if (!userLocation || !radiusKm || event.lat == null || event.lng == null) {
+    return { km: null, score: 0 };
+  }
+
+  const km = haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng));
+
+  const lenient = !!event.event_typ && DISTANCE_LENIENT_TYPES.has(event.event_typ);
+  // An sonnigen Tagen sind Familien erfahrungsgemäss eher bereit, weiter zu
+  // fahren — der Radius "atmet" leicht mit dem Wetter statt starr zu bleiben.
+  const sunFactor = isSun ? 1.3 : 1;
+  const effectiveRadius = radiusKm * (lenient ? 2.5 : 1) * sunFactor;
+
+  if (km <= effectiveRadius * 0.4) {
+    return { km, score: 6, reason: "Ganz in der Nähe" };
+  }
+  if (km <= effectiveRadius) {
+    return { km, score: 2 };
+  }
+
+  // Jenseits der Vorliebe: zunehmend unwahrscheinlicher, nie hart auf 0.
+  const over = km - effectiveRadius;
+  const decayRangeKm = lenient ? 60 : 25;
+  const penalty = Math.min(9, (over / decayRangeKm) * 9);
+  return { km, score: -penalty };
+}
+
 export function scoreEvent(
   event: KidgoEvent,
   selectedBuckets: string[],
@@ -15,8 +69,10 @@ export function scoreEvent(
   now: Date,
   interests: string[] = [],
   profile: PreferenceProfile | null = null,
-  dProfile: DismissProfile | null = null
-): { score: number; reasons: string[] } {
+  dProfile: DismissProfile | null = null,
+  userLocation: UserLocation | null = null,
+  radiusKm: number | null = null
+): { score: number; reasons: string[]; distanceKm: number | null } {
   let score = 0;
   const reasons: string[] = [];
 
@@ -44,6 +100,10 @@ export function scoreEvent(
   } else if (isRain && event.indoor_outdoor === "beides") {
     score += 4;
   }
+
+  const distance = computeDistanceScore(event, userLocation, radiusKm, isSun);
+  score += distance.score;
+  if (distance.reason) reasons.push(distance.reason);
 
   if (event.datum) {
     const eventDate = new Date(event.datum + "T00:00:00");
@@ -114,5 +174,5 @@ export function scoreEvent(
     score += dismissPenalty(event, dProfile);
   }
 
-  return { score, reasons };
+  return { score, reasons, distanceKm: distance.km };
 }

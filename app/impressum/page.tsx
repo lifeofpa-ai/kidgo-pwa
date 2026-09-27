@@ -1,10 +1,8 @@
-import Link from "next/link";
-import type { Metadata } from "next";
-
 export const metadata: Metadata = {
   title: "Impressum – kidgo",
   description: "Rechtliche Angaben und Kontaktinformationen von kidgo.",
 };
+
 
 export default function ImpressumPage() {
   return (
@@ -20,8 +18,10 @@ export default function ImpressumPage() {
           Zurück
         </Link>
 
+
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Impressum</h1>
-        <p className="text-sm text-gray-400 mb-10">Angaben gemäss Art. Art. 3 UWG und Art. 19 </p>
+        <p className="text-sm text-gray-400 mb-10">Angaben gemäss Art. 3 UWG und Art. 19 DSG</p>
+
 
         <div className="space-y-8 text-sm text-gray-600 leading-relaxed">
           <section aria-labelledby="betreiber-heading">
@@ -40,7 +40,9 @@ export default function ImpressumPage() {
             </div>
           </section>
 
+
           <div className="border-t border-gray-100" role="separator" />
+
 
           <section aria-labelledby="angebot-heading">
             <h2 id="angebot-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Angebot</h2>
@@ -51,7 +53,9 @@ export default function ImpressumPage() {
             </p>
           </section>
 
+
           <div className="border-t border-gray-100" role="separator" />
+
 
           <section aria-labelledby="haftung-heading">
             <h2 id="haftung-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Haftungsausschluss</h2>
@@ -64,7 +68,9 @@ export default function ImpressumPage() {
             </p>
           </section>
 
+
           <div className="border-t border-gray-100" role="separator" />
+
 
           <section aria-labelledby="urheberrecht-heading">
             <h2 id="urheberrecht-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Urheberrecht</h2>
@@ -76,10 +82,9 @@ export default function ImpressumPage() {
           </section>
         </div>
 
+
         <div className="mt-12 pt-8 border-t border-gray-100">
           <p className="text-xs text-gray-300">© 2026 kidgo · Zürich</p>
         </div>
       </div>
     </main>
-  );
-}

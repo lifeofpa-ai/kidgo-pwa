@@ -28,6 +28,9 @@ export interface EventMeta {
 
 export interface DismissReasonOptions {
   distanceKm?: number | null;
+  /** Nutzer-Radiuspräferenz (km) — ersetzt den früher fest verdrahteten
+   *  10-km-Schwellenwert, der unabhängig von der Umkreis-Einstellung war. */
+  radiusKm?: number | null;
   weatherCode?: number | null;
   selectedBuckets?: string[];
   pastDismissals?: DismissalRecord[];
@@ -72,12 +75,12 @@ export function generateDismissReasons(
   },
   opts: DismissReasonOptions = {}
 ): DismissReason[] {
-  const { distanceKm, weatherCode, selectedBuckets = [], pastDismissals = [] } = opts;
+  const { distanceKm, radiusKm, weatherCode, selectedBuckets = [], pastDismissals = [] } = opts;
 
   const candidates: DismissReason[] = [];
 
-  // 1 — Distanz
-  if (distanceKm !== null && distanceKm !== undefined && distanceKm > 10) {
+  // 1 — Distanz (an der Umkreis-Einstellung gemessen statt an einer fixen Zahl)
+  if (distanceKm !== null && distanceKm !== undefined && distanceKm > (radiusKm ?? 10)) {
     candidates.push({ id: "too_far", label: "Zu weit weg", icon: "📍" });
   }
 

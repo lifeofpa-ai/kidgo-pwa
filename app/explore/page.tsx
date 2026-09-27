@@ -15,6 +15,8 @@ import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 import { hikingEventAllowed } from "@/lib/interests";
 import { useAuth } from "@/lib/auth-context";
 import { SearchMissFeedback } from "@/components/SearchMissFeedback";
+import { useUserLocation } from "@/lib/use-user-location";
+import { haversine } from "@/lib/home-constants";
 
 // Persists filters/search/pagination/scroll across a visit to an event detail
 // and back, so "Alle Events" resumes where the user left off instead of
@@ -34,7 +36,7 @@ function saveExploreState(partial: Record<string, unknown>) {
 const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
 
 type ViewMode     = "list" | "map";
-type SortMode     = "date-asc" | "date-desc" | "newest";
+type SortMode     = "date-asc" | "date-desc" | "newest" | "distance-asc";
 type IndoorOutdoor = "all" | "indoor" | "outdoor";
 
 const categoryColors: Record<string, string> = {
@@ -67,11 +69,12 @@ const categoryBgColors: Record<string, string> = {
   "Feriencamp":    "#06B6D4",
 };
 
-function EventCard({ event, source, serienCount, formatDate }: {
+function EventCard({ event, source, serienCount, formatDate, distanceKm }: {
   event: any;
   source: any;
   serienCount: number;
   formatDate: (d: string, e?: string | null) => string;
+  distanceKm?: number | null;
 }) {
   const router = useRouter();
   const [imgErr, setImgErr] = useState(false);
@@ -144,7 +147,12 @@ function EventCard({ event, source, serienCount, formatDate }: {
             </p>
           )}
           {serienCount > 0 && <p className="text-[var(--text-muted)]">+{serienCount} weitere Termine</p>}
-          {event.ort && <p className="text-[var(--text-muted)] truncate">{event.ort}</p>}
+          {event.ort && (
+            <p className="text-[var(--text-muted)] truncate">
+              {event.ort}
+              {distanceKm != null && <span> · {distanceKm < 1 ? "< 1" : Math.round(distanceKm)} km</span>}
+            </p>
+          )}
         </div>
 
         {event.kategorien?.length > 0 && (
@@ -195,6 +203,7 @@ function SkeletonCard() {
 
 export default function ExplorePage() {
   const { profile } = useAuth();
+  const { userLocation } = useUserLocation();
   const [mounted, setMounted]     = useState(false);
   const [viewMode, setViewMode]   = useState<ViewMode>("list");
   const [search, setSearch]       = useState("");
@@ -387,11 +396,19 @@ export default function ExplorePage() {
 
   const getSource = (sourceId: string) => sources.find((s) => s.id === sourceId);
 
+  // Events ohne Koordinaten (~25%, siehe DB-Check) fallen bei Distanz-Sortierung
+  // ans Ende statt zu verschwinden — passend zur "weich statt hart"-Linie.
+  const distanceOf = (e: any): number => {
+    if (!userLocation || e.lat == null || e.lng == null) return Infinity;
+    return haversine(userLocation.lat, userLocation.lon, Number(e.lat), Number(e.lng));
+  };
+
   const applySort = (evts: any[]): any[] => {
     const arr = [...evts];
-    if (sortMode === "date-asc")  return arr.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
-    if (sortMode === "date-desc") return arr.sort((a, b) => (b.datum || "").localeCompare(a.datum || ""));
-    if (sortMode === "newest")    return arr.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (sortMode === "date-asc")     return arr.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
+    if (sortMode === "date-desc")    return arr.sort((a, b) => (b.datum || "").localeCompare(a.datum || ""));
+    if (sortMode === "newest")       return arr.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (sortMode === "distance-asc") return arr.sort((a, b) => distanceOf(a) - distanceOf(b));
     return arr;
   };
 
@@ -663,6 +680,7 @@ export default function ExplorePage() {
                   <option value="date-asc">Datum auf.</option>
                   <option value="date-desc">Datum ab.</option>
                   <option value="newest">Neueste</option>
+                  <option value="distance-asc">Nächstgelegen</option>
                 </select>
               </div>
             )}
@@ -740,7 +758,7 @@ export default function ExplorePage() {
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {futureEvents.slice(0, visibleCountFuture).map((event: any, i: number) => (
                         <div key={event.id} className="card-enter" style={{ animationDelay: `${i * 40}ms` }}>
-                          <EventCard event={event} source={getSource(event.quelle_id)} serienCount={serienCounts[event.id] || 0} formatDate={formatDate} />
+                          <EventCard event={event} source={getSource(event.quelle_id)} serienCount={serienCounts[event.id] || 0} formatDate={formatDate} distanceKm={userLocation && event.lat != null && event.lng != null ? haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng)) : null} />
                         </div>
                       ))}
                     </div>
@@ -767,7 +785,7 @@ export default function ExplorePage() {
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {allYearActivities.slice(0, visibleCountAllYear).map((activity: any, i: number) => (
                           <div key={activity.id} className="card-enter" style={{ animationDelay: `${i * 40}ms` }}>
-                            <EventCard event={activity} source={getSource(activity.quelle_id)} serienCount={serienCounts[activity.id] || 0} formatDate={formatDate} />
+                            <EventCard event={activity} source={getSource(activity.quelle_id)} serienCount={serienCounts[activity.id] || 0} formatDate={formatDate} distanceKm={userLocation && activity.lat != null && activity.lng != null ? haversine(userLocation.lat, userLocation.lon, Number(activity.lat), Number(activity.lng)) : null} />
                           </div>
                         ))}
                       </div>

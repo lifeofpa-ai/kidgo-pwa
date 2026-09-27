@@ -48,7 +48,7 @@ import {
   applyContextSort,
   type ContextMode,
 } from "@/lib/context-mode";
-import type { KidgoEvent, ScoredEvent, CompactEvent, DayPlanResult } from "@/types/home";
+import type { KidgoEvent, ScoredEvent, CompactEvent, DayPlanResult, UserLocation } from "@/types/home";
 import {
   AGE_BUCKETS,
   getWeekStart,
@@ -56,9 +56,9 @@ import {
   ageToBucket,
   localDateStr,
   haversine,
-  ZH_CITIES,
 } from "@/lib/home-constants";
 import { scoreEvent } from "@/lib/scoring";
+import { useUserLocation } from "@/lib/use-user-location";
 import { SkeletonCard, EventImage, RecommendationCard } from "@/components/home/EventCards";
 import { HeroSection } from "@/components/home/HeroSection";
 import { CardStack } from "@/components/home/CardStack";
@@ -292,11 +292,13 @@ function buildDayPlan(
   events: KidgoEvent[],
   selectedBuckets: string[],
   weatherCode: number | null,
-  interests: string[] = []
+  interests: string[] = [],
+  userLocation: UserLocation | null = null,
+  radiusKm: number | null = null
 ): DayPlanResult {
   const now = new Date();
   const scored = [...events]
-    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherCode, now, interests).score }))
+    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherCode, now, interests, null, null, userLocation, radiusKm).score }))
     .sort(() => Math.random() - 0.5)
     .sort((a, b) => b.score - a.score);
 
@@ -418,12 +420,7 @@ export default function Home() {
   const [weatherCode, setWeatherCode] = useState<number | null>(null);
   const [weatherTemp, setWeatherTemp] = useState<number | null>(null);
   const [contextMode, setContextMode] = useState<ContextMode>("normal");
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lon: number;
-    label: string;
-    approximate: boolean;
-  } | null>(null);
+  const { userLocation, requestPreciseLocation } = useUserLocation();
 
   // Feature C: Day plan
   const [dayPlan, setDayPlan] = useState<DayPlanResult | null>(null);
@@ -750,70 +747,9 @@ export default function Home() {
     return () => window.removeEventListener("beforeinstallprompt", handler as EventListener);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-
-    try {
-      const cached = localStorage.getItem("kidgo_location");
-      if (cached) {
-        const loc = JSON.parse(cached);
-        if (loc.lat && loc.lon) setUserLocation(loc);
-      }
-    } catch {}
-
-    const snapToZH = (lat: number, lon: number): { label: string; lat: number; lon: number } => {
-      let nearest = "Zürich";
-      let minDist = Infinity;
-      for (const [city, [clat, clon]] of Object.entries(ZH_CITIES)) {
-        const d = haversine(lat, lon, clat, clon);
-        if (d < minDist) { minDist = d; nearest = city; }
-      }
-      const [slat, slon] = ZH_CITIES[nearest];
-      return { label: nearest, lat: slat, lon: slon };
-    };
-
-    if (!navigator.geolocation) {
-      fetch("https://ipapi.co/json/")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.latitude && d.longitude) {
-            const snapped = snapToZH(parseFloat(d.latitude), parseFloat(d.longitude));
-            const loc = { ...snapped, approximate: true };
-            setUserLocation(loc);
-            localStorage.setItem("kidgo_location", JSON.stringify(loc));
-          }
-        })
-        .catch(() => {});
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          label: "Dein Standort",
-          approximate: false,
-        };
-        setUserLocation(loc);
-        localStorage.setItem("kidgo_location", JSON.stringify(loc));
-      },
-      () => {
-        fetch("https://ipapi.co/json/")
-          .then((r) => r.json())
-          .then((d) => {
-            if (d.latitude && d.longitude) {
-              const snapped = snapToZH(parseFloat(d.latitude), parseFloat(d.longitude));
-              const loc = { ...snapped, approximate: true };
-              setUserLocation(loc);
-              localStorage.setItem("kidgo_location", JSON.stringify(loc));
-            }
-          })
-          .catch(() => {});
-      },
-      { timeout: 5000 }
-    );
-  }, [mounted]);
+  // Standort kommt jetzt aus dem geteilten useUserLocation()-Hook (siehe oben) —
+  // dieselbe GPS/IP-Logik wie vorher, aber zentral, damit Explore/Ich/Onboarding
+  // denselben realen Standort verwenden statt eines fixen "ab Zürich".
 
   // After OnboardingFlow completes, sync age buckets from UserPrefsContext into local state.
   // Note: advance to "recommendations" even when no ages were selected (show all events).
@@ -831,8 +767,12 @@ export default function Home() {
   useEffect(() => {
     if (step !== "recommendations") return;
     fetchAndScore();
+    // userLocation/prefs.radius mit dabei: der Standort trifft oft erst nach dem
+    // ersten Render ein (Geolocation/IP-Lookup brauchen einen Moment) — ohne
+    // diese Deps würde die erste Runde für alle Nutzer ohne Distanz-Score
+    // laufen. Re-Runs treffen danach den Events-Cache, kein erneuter Netzwerk-Fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedBuckets, weatherCode]);
+  }, [step, selectedBuckets, weatherCode, userLocation, prefs.radius]);
 
   const fetchAndScore = async () => {
     setLoading(true);
@@ -863,8 +803,8 @@ export default function Home() {
           const scored: ScoredEvent[] = ageFiltered
             .filter((e) => !currentDismissedIds.has(e.id))
             .map((event) => {
-              const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile);
-              return { ...event, score, reasons };
+              const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
+              return { ...event, score, reasons, distanceKm };
             });
           scored.sort((a, b) => b.score - a.score);
           setRecommendations(scored.slice(0, 3));
@@ -890,8 +830,8 @@ export default function Home() {
       const scored: ScoredEvent[] = ageFiltered
         .filter((e) => !currentDismissedIds.has(e.id))
         .map((event) => {
-          const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile);
-          return { ...event, score, reasons };
+          const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
+          return { ...event, score, reasons, distanceKm };
         });
       scored.sort((a, b) => b.score - a.score);
       setRecommendations(scored.slice(0, 3));
@@ -918,7 +858,9 @@ export default function Home() {
       // jede Antwort bei 1000 Zeilen. Mit nur einer nach Datum sortierten Query
       // (nulls last) fielen bei >1000 aktuellen Events sämtliche undatierten
       // Einträge (Dauerangebote, "Immer offen") still aus dem Home-Pool.
-      const HOME_EVENT_COLUMNS = "id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,oeffnungszeiten,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id,saison_tags";
+      // lat,lng seit 27.09.2026 mit dabei: vorher fehlten sie hier komplett, wodurch
+      // die Radius-Einstellung nirgends etwas zum Rechnen hatte (siehe scoring.ts).
+      const HOME_EVENT_COLUMNS = "id,titel,datum,datum_ende,ort,beschreibung,kategorie_bild_url,status,event_typ,oeffnungszeiten,altersgruppen,alters_buckets,alter_von,alter_bis,indoor_outdoor,kategorien,preis_chf,anmelde_link,quelle_id,created_at,serie_id,saison_tags,lat,lng";
       const [{ data: datedRaw }, { data: undatedRaw }] = await Promise.all([
         fetchAllRows<any>(() =>
           supabase
@@ -1003,8 +945,8 @@ export default function Home() {
       const scored: ScoredEvent[] = ageFiltered
         .filter((e) => !currentDismissedIds.has(e.id))
         .map((event) => {
-          const { score, reasons } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile);
-          return { ...event, score, reasons };
+          const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
+          return { ...event, score, reasons, distanceKm };
         });
 
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
@@ -1046,7 +988,7 @@ export default function Home() {
 
   const handleGenerateDayPlan = () => {
     if (allEvents.length === 0) return;
-    const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode, userInterests);
+    const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode, userInterests, userLocation, prefs.radius);
     setDayPlan(plan);
     setShowDayPlan(true);
     trackDayPlanUsed();
@@ -1125,15 +1067,16 @@ export default function Home() {
   // ---- Dismiss handlers ----
   const handleDismissOpen = (event: KidgoEvent) => {
     const past = getPastDismissals();
+    // Distanz jetzt direkt aus den Event-Koordinaten (lat/lng) statt über die
+    // Quelle — die Quellen-Koordinaten wurden hier nie befüllt (sources kommt
+    // nur mit id/url), das "Zu weit weg" war dadurch faktisch nie auslösbar.
     let distanceKm: number | null = null;
-    if (userLocation) {
-      const src = sources.find((s) => s.id === event.quelle_id);
-      if (src?.latitude && src?.longitude) {
-        distanceKm = haversine(userLocation.lat, userLocation.lon, src.latitude, src.longitude);
-      }
+    if (userLocation && event.lat != null && event.lng != null) {
+      distanceKm = haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng));
     }
     const reasons = generateDismissReasons(event, {
       distanceKm,
+      radiusKm: prefs.radius,
       weatherCode,
       selectedBuckets,
       pastDismissals: past,
@@ -1147,10 +1090,9 @@ export default function Home() {
       allEventsPool.find((e) => e.id === eventId) ??
       recommendations.find((e) => e.id === eventId);
 
-    const src = event?.quelle_id ? sources.find((s) => s.id === event.quelle_id) : undefined;
     let distanceKm: number | null = null;
-    if (userLocation && src?.latitude && src?.longitude) {
-      distanceKm = haversine(userLocation.lat, userLocation.lon, src.latitude, src.longitude);
+    if (userLocation && event?.lat != null && event?.lng != null) {
+      distanceKm = haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng));
     }
 
     const eventMeta: EventMeta = {
@@ -1438,7 +1380,7 @@ export default function Home() {
     const sunStr = localDateStr(sun);
     return allEventsPool
       .filter((e) => e.datum === satStr || e.datum === sunStr)
-      .map((e) => { const { score } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile); return { ...e, score }; })
+      .map((e) => { const { score } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, null, userLocation, prefs.radius); return { ...e, score }; })
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
   })();
@@ -1680,16 +1622,7 @@ export default function Home() {
               <span>
                 Ungefähr in {userLocation.label} —{" "}
                 <button
-                  onClick={() =>
-                    navigator.geolocation?.getCurrentPosition((pos) =>
-                      setUserLocation({
-                        lat: pos.coords.latitude,
-                        lon: pos.coords.longitude,
-                        label: "Dein Standort",
-                        approximate: false,
-                      })
-                    )
-                  }
+                  onClick={requestPreciseLocation}
                   className="underline hover:text-gray-600 transition"
                 >
                   Standort aktivieren

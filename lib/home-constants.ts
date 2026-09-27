@@ -403,3 +403,29 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
       Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+// ============================================================
+// RADIUS-PRÄFERENZ (27.09.2026)
+// ============================================================
+// Vorher: 4 harte km-Stufen (5/10/15/25), fix "ab Zürich" gemessen, und —
+// Kernbefund der UX-Analyse vom 27.09. — nirgends tatsächlich zum Filtern
+// verwendet. Ersetzt durch 3 qualitative Stufen ("eher nah" statt exakter
+// km-Wert, Patricks Wunsch). Der gespeicherte Wert bleibt eine Zahl
+// (onboarding_state.radius_km, keine Migration nötig), dient intern aber nur
+// noch als *Referenzpunkt* einer weichen Distanz-Gewichtung (scoring.ts) statt
+// einer harten Grenze — siehe computeDistanceScore.
+export const RADIUS_PRESETS = [
+  { key: "close",  km: 8,  label: "In der Nähe",    hint: "Zu Fuss oder kurze Fahrt" },
+  { key: "region", km: 20, label: "Im Grossraum",   hint: "Ganzer Kanton Zürich" },
+  { key: "far",    km: 45, label: "Auch weiter weg", hint: "Auch ausserhalb des Kantons" },
+] as const;
+
+export type RadiusPresetKey = (typeof RADIUS_PRESETS)[number]["key"];
+
+/** Nächstgelegene Stufe zu einem (evtl. alten, feinkörnigeren) km-Wert — für die
+ *  Anzeige, welcher der 3 Buttons aktiv markiert ist. */
+export function nearestRadiusPreset(km: number) {
+  return RADIUS_PRESETS.reduce((best, p) =>
+    Math.abs(p.km - km) < Math.abs(best.km - km) ? p : best
+  );
+}

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase-browser";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase-browser";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
@@ -36,7 +36,6 @@ function ResetPasswordInner() {
       return;
     }
 
-    const supabase = createClient();
     supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
       if (error) setLinkError(true);
       setExchanging(false);
@@ -53,9 +52,28 @@ function ResetPasswordInner() {
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
 
+    // Sicherheitsnetz: falls der Request aus irgendeinem Grund nie zurückkommt
+    // (z.B. Netzwerk-Hänger), soll die UI nicht für immer auf "Wird
+    // gespeichert…" stehen bleiben, ohne dem User irgendeine Rückmeldung zu geben.
+    const timeout = new Promise<{ timedOut: true }>((resolve) =>
+      setTimeout(() => resolve({ timedOut: true }), 15000)
+    );
+
+    const result = await Promise.race([
+      supabase.auth.updateUser({ password }),
+      timeout,
+    ]);
+
+    if ("timedOut" in result) {
+      setError(
+        "Die Anfrage dauert ungewöhnlich lange. Bitte prüfe, ob dein Passwort bereits geändert wurde (Login testen), bevor du es erneut versuchst."
+      );
+      setLoading(false);
+      return;
+    }
+
+    const { error } = result;
     if (error) {
       setError(
         error.message === "Password should be at least 6 characters."

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { sendFeedbackConfirmationEmail } from "@/lib/email";
 
 // Bewusst LAZY instanziiert (nicht auf Modul-Ebene): createClient() wirft
 // sofort, wenn SUPABASE_SERVICE_ROLE_KEY fehlt - und Next.js fuehrt beim
@@ -16,6 +17,16 @@ function getSupabaseAdmin() {
 
 const NOTIFY_TO = process.env.FEEDBACK_NOTIFY_EMAIL || "contact@kidgo.ch";
 const ALLOWED_CATEGORIES = ["idea", "bug", "other", "event_problem", "search_miss"] as const;
+
+// User-facing Deutsch-Labels für die Bestätigungsmail an den Absender
+// (getrennt von den internen Notify-Mail-Betreffzeilen unten).
+const CATEGORY_LABELS: Record<(typeof ALLOWED_CATEGORIES)[number], string> = {
+  idea: "Idee",
+  bug: "Fehlermeldung",
+  other: "Sonstiges",
+  event_problem: "Event-Problem",
+  search_miss: "Nichts gefunden",
+};
 
 // Schnellauswahl-Gruende fuer Meldungen von der Event-Seite. Label wird in
 // der Benachrichtigungsmail verwendet und, falls kein Freitext kommt, auch
@@ -167,6 +178,19 @@ export async function POST(req: Request) {
     }
   } else {
     console.warn("RESEND_API_KEY nicht gesetzt - Feedback-Benachrichtigung wird übersprungen");
+  }
+
+  // Bestätigungsmail an den Absender selbst, falls eine E-Mail-Adresse
+  // angegeben wurde - nur "best effort" wie die interne Notify-Mail oben:
+  // ein eigenständiges try/catch, damit weder ein fehlender RESEND_API_KEY
+  // noch ein Versandfehler hier die (bereits erfolgreiche) Einsendung oder
+  // die interne Benachrichtigung beeinflusst.
+  if (email && process.env.RESEND_API_KEY) {
+    try {
+      await sendFeedbackConfirmationEmail(email, message, CATEGORY_LABELS[category as (typeof ALLOWED_CATEGORIES)[number]]);
+    } catch (confirmMailError) {
+      console.error("feedback confirmation mail to sender failed", confirmMailError);
+    }
   }
 
   return NextResponse.json({ ok: true });

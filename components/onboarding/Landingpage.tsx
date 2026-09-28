@@ -109,7 +109,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
           <KidgoLogo size="md" mono animated />
         </div>
         <h1 className="text-white font-bold text-2xl leading-snug mb-3 max-w-sm mx-auto">
-          Spontan wissen, was heute mit Kindern in Zürich geht.
+          Spontan die passende Kinderaktivität finden — heute, in deiner Nähe.
         </h1>
         <p className="text-white/60 text-sm max-w-xs mx-auto mb-8">
           Wetter-, saison- und ortsbewusst — passend zu deinen Kindern, mit garantiert aktuellen Daten.

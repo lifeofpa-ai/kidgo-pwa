@@ -78,20 +78,11 @@ export default function DatenschutzPage() {
               verknüpft mit deinem Konto. Das ermöglicht es kidgo, dich wiederzuerkennen und dir
               passendere Vorschläge zu machen — eines der zentralen Versprechen der App:
             </p>
-            <ul className="space-y-2">
-              {[
-                { key: "user_profiles", desc: "Dein Anzeigename, das Alter deiner Kinder und deine gewählten Interessen (z. B. Natur, Sport, Musik)" },
-                { key: "user_bookmarks", desc: "Deine Merkliste — welche Events du gespeichert hast" },
-                { key: "event_dismissals", desc: "Welche Events du weggewischt/abgelehnt hast und aus welchem Grund (z. B. „zu weit weg\", „falsches Alter\") — hilft uns, dir ähnliche Events künftig seltener zu zeigen" },
-                { key: "user_profiles.onboarding_state", desc: "Ob du die Einführung, den Kurz-Rundgang, den Wisch-Hinweis oder das Profil-Setup bereits gesehen bzw. übersprungen hast — damit dir das nicht bei jedem Login oder auf einem neuen Gerät erneut angezeigt wird" },
-              ].map(({ key, desc }) => (
-                <li key={key} className="flex items-start gap-3">
-                  <code className="flex-shrink-0 bg-gray-50 border border-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded font-mono">
-                    {key}
-                  </code>
-                  <span className="text-gray-500">{desc}</span>
-                </li>
-              ))}
+            <ul className="space-y-2 list-disc list-inside text-gray-500">
+              <li>Dein Anzeigename, das Alter deiner Kinder und deine gewählten Interessen (z. B. Natur, Sport, Musik)</li>
+              <li>Deine Merkliste — welche Events du gespeichert hast</li>
+              <li>Welche Events du weggewischt/abgelehnt hast und aus welchem Grund (z. B. „zu weit weg", „falsches Alter") — hilft uns, dir ähnliche Events künftig seltener zu zeigen</li>
+              <li>Ob du die Einführung, den Kurz-Rundgang, den Wisch-Hinweis oder das Profil-Setup bereits gesehen bzw. übersprungen hast — damit dir das nicht bei jedem Login oder auf einem neuen Gerät erneut angezeigt wird</li>
             </ul>
             <p className="mt-4">
               Diese Daten werden ausschliesslich verwendet, um dir innerhalb der App passendere
@@ -117,74 +108,54 @@ export default function DatenschutzPage() {
 
           <section aria-labelledby="drittdienste-heading">
             <h2 id="drittdienste-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Drittdienste</h2>
+            <p className="mb-4">
+              Für den Betrieb von kidgo setzen wir externe Dienstleister der folgenden Kategorien
+              ein. Details zu einzelnen Anbietern stellen wir auf Anfrage unter{" "}
+              <a
+                href="mailto:contact@kidgo.ch"
+                className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
+              >
+                contact@kidgo.ch
+              </a>{" "}
+              zur Verfügung.
+            </p>
             <div className="space-y-5">
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Supabase</h3>
+                <h3 className="font-medium text-gray-700 mb-1">Datenbank-Hosting</h3>
                 <p>
-                  Die Event-Daten werden in einer Supabase-Datenbank (Supabase Inc., USA) gespeichert.
-                  Bei der Nutzung der App wird eine anonyme Datenbankabfrage gesendet. Es werden
-                  keine personenbezogenen Daten übertragen — mit Ausnahme deiner Konto-Daten,
-                  wenn du eingeloggt bist (siehe Abschnitt „Konto &amp; Personalisierung" oben).
-                  Datenschutzerklärung:{" "}
-                  <a
-                    href="https://supabase.com/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
-                  >
-                    supabase.com/privacy
-                  </a>
+                  Die Event-Daten werden bei einem Datenbank-Hosting-Anbieter mit Sitz in den USA
+                  gespeichert. Bei der Nutzung der App wird eine anonyme Datenbankabfrage gesendet.
+                  Es werden keine personenbezogenen Daten übertragen — mit Ausnahme deiner
+                  Konto-Daten, wenn du eingeloggt bist (siehe Abschnitt „Konto &amp; Personalisierung"
+                  oben). Die Datenübermittlung in die USA erfolgt gestützt auf
+                  Standardvertragsklauseln.
                 </p>
               </div>
 
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Open-Meteo</h3>
+                <h3 className="font-medium text-gray-700 mb-1">Website-Hosting</h3>
                 <p>
-                  Für die Wetteranzeige wird die Open-Meteo API (open-meteo.com) verwendet. Es
-                  werden die fixen Koordinaten von Zürich übermittelt — keine persönlichen
-                  Standortdaten. Open-Meteo ist DSGVO-konform und datenschutzfreundlich.
-                  Datenschutzerklärung:{" "}
-                  <a
-                    href="https://open-meteo.com/en/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
-                  >
-                    open-meteo.com/en/terms
-                  </a>
+                  kidgo wird bei einem Hosting-Anbieter mit Sitz in den USA betrieben. Der Anbieter
+                  kann technische Zugriffslogs speichern (IP-Adresse, Zeitstempel). Diese Logs
+                  werden automatisch gelöscht.
                 </p>
               </div>
 
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Pexels</h3>
+                <h3 className="font-medium text-gray-700 mb-1">Wetterdaten-API</h3>
                 <p>
-                  Event-Bilder werden über die Pexels API (pexels.com) bereitgestellt. Beim Laden
-                  von Bildern wird eine Verbindung zu den Pexels-Servern hergestellt. Datenschutzerklärung:{" "}
-                  <a
-                    href="https://www.pexels.com/privacy-policy/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
-                  >
-                    pexels.com/privacy-policy
-                  </a>
+                  Für die Wetteranzeige wird ein datenschutzfreundlicher Wetterdienst verwendet.
+                  Es werden die fixen Koordinaten von Zürich übermittelt — keine persönlichen
+                  Standortdaten.
                 </p>
               </div>
 
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Vercel</h3>
+                <h3 className="font-medium text-gray-700 mb-1">Bild-API</h3>
                 <p>
-                  kidgo wird auf Vercel (Vercel Inc., USA) gehostet. Vercel kann technische
-                  Zugriffslogs speichern (IP-Adresse, Zeitstempel). Diese Logs werden automatisch
-                  gelöscht. Datenschutzerklärung:{" "}
-                  <a
-                    href="https://vercel.com/legal/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-kidgo-500 hover:text-kidgo-600 transition underline underline-offset-2"
-                  >
-                    vercel.com/legal/privacy-policy
-                  </a>
+                  Event-Bilder werden über einen externen Bilddienst bereitgestellt. Beim Laden
+                  von Bildern wird eine Verbindung zu dessen Servern hergestellt. Es werden dabei
+                  keine personenbezogenen Daten übermittelt.
                 </p>
               </div>
 

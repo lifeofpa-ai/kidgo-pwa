@@ -131,7 +131,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
       {previewEvents === null || previewEvents.length > 0 ? (
         <div className="px-5 pt-8 pb-2">
           <h2 className="text-[var(--text-primary,#2D3436)] font-bold text-lg mb-1">Das ist heute los</h2>
-          <p className="text-gray-500 text-sm mb-4">Ein Ausschnitt aus dem aktuellen Angebot</p>
+          <p className="text-gray-500 text-sm mb-4">Eine Vorschau in die App</p>
           <div className="grid grid-cols-1 gap-3">
             {previewEvents === null
               ? Array.from({ length: 3 }).map((_, i) => (

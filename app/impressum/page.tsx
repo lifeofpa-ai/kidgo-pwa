@@ -69,9 +69,8 @@ export default function ImpressumPage() {
           <section aria-labelledby="urheberrecht-heading">
             <h2 id="urheberrecht-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Urheberrecht</h2>
             <p>
-              Die auf dieser Website verwendeten Fotos werden über die Pexels API bezogen
-              (pexels.com). Die Nutzung erfolgt gemäss den Pexels-Lizenzbedingungen. Alle sonstigen
-              Inhalte und Darstellungen sind urheberrechtlich geschützt.
+              Die auf dieser Website verwendeten Fotos werden über einen externen Bilddienst
+              bezogen. Alle sonstigen Inhalte und Darstellungen sind urheberrechtlich geschützt.
             </p>
           </section>
         </div>

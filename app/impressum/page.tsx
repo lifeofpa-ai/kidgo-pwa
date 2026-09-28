@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+
 export const metadata: Metadata = {
   title: "Impressum – kidgo",
   description: "Rechtliche Angaben und Kontaktinformationen von kidgo.",
@@ -88,3 +91,5 @@ export default function ImpressumPage() {
         </div>
       </div>
     </main>
+  );
+}

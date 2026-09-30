@@ -14,12 +14,6 @@ import {
   setEventRating,
   type EventRating,
 } from "@/lib/preferences";
-import {
-  fetchConnections,
-  formatDuration,
-  formatDepartureTime,
-  type TransitConnection,
-} from "@/lib/transport";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { trackEvent } from "@/lib/analytics";
@@ -311,172 +305,6 @@ function WeatherBadge({
         <span className="text-amber-500 font-semibold">· Regnerisch</span>
       )}
     </span>
-  );
-}
-
-// ============ TRANSIT WIDGET ============
-
-function TransitProductIcon({ products }: { products: string[] }) {
-  const main = (products[0] || "").toLowerCase();
-  if (main.includes("bus")) {
-    return (
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] flex-shrink-0">
-        <rect x="1" y="2" width="10" height="7" rx="1.5"/>
-        <path d="M1 5.5h10M3.5 9v1.5M8.5 9v1.5"/>
-      </svg>
-    );
-  }
-  if (main.includes("tram") || main.includes("metro")) {
-    return (
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] flex-shrink-0">
-        <rect x="2" y="1" width="8" height="7.5" rx="1"/>
-        <path d="M2 4h8M3.5 8.5l-1 2M8.5 8.5l1 2"/>
-      </svg>
-    );
-  }
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)] flex-shrink-0">
-      <rect x="1.5" y="1" width="9" height="7.5" rx="1"/>
-      <path d="M1.5 4.5h9M4 8.5l-1 2.5M8 8.5l1 2.5M4 4.5v3M8 4.5v3"/>
-    </svg>
-  );
-}
-
-function TransitWidget({
-  ort,
-  datum,
-  sbbUrl,
-}: {
-  ort: string;
-  datum?: string | null;
-  sbbUrl: string | null;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const loadedRef = useRef(false);
-  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [connections, setConnections] = useState<TransitConnection[]>([]);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  function readUserLabel(): string | null {
-    try {
-      const raw = localStorage.getItem("kidgo_location");
-      if (!raw) return null;
-      const loc = JSON.parse(raw);
-      if (loc.label && loc.label !== "Dein Standort") return String(loc.label);
-      if (loc.lat && loc.lon) return `${loc.lat},${loc.lon}`;
-      return null;
-    } catch { return null; }
-  }
-
-  const load = useCallback(async () => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
-    setState("loading");
-    const from = readUserLabel();
-    if (!from) {
-      setState("error");
-      setErrorMsg("Kein Standort — bitte auf der Startseite freigeben.");
-      return;
-    }
-    try {
-      const datetime = datum ? `${datum}T09:00` : undefined;
-      const conns = await fetchConnections(from, ort, 3, datetime);
-      if (conns.length === 0) {
-        setState("error");
-        setErrorMsg("Keine Verbindung gefunden.");
-        return;
-      }
-      setConnections(conns);
-      setState("ready");
-    } catch {
-      setState("error");
-      setErrorMsg("Verbindung konnte nicht geladen werden.");
-    }
-  }, [ort, datum]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          observer.disconnect();
-          load();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [load]);
-
-  return (
-    <div ref={containerRef} className="w-full mt-3">
-      {state === "loading" && (
-        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] py-1">
-          <div className="w-3 h-3 border border-kidgo-300 border-t-transparent rounded-full animate-spin" />
-          ÖV-Verbindungen laden…
-        </div>
-      )}
-      {state === "error" && (
-        <p className="text-xs text-[var(--text-muted)]">
-          {errorMsg}
-          {sbbUrl && (
-            <> —{" "}
-              <a href={sbbUrl} target="_blank" rel="noopener noreferrer" className="text-kidgo-600 underline">
-                SBB.ch
-              </a>
-            </>
-          )}
-        </p>
-      )}
-      {state === "ready" && connections.length > 0 && (
-        <div className="rounded-xl border border-[var(--border)] bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm overflow-hidden">
-          <div className="px-3 py-1.5 flex justify-between items-center border-b border-[var(--border)] bg-[var(--bg-subtle)]">
-            <span className="text-xs font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="1" y="2.5" width="10" height="8" rx="1"/>
-                <path d="M1 5.5h10M4 1v2.5M8 1v2.5"/>
-              </svg>
-              ÖV ab deinem Standort
-            </span>
-            {sbbUrl && (
-              <a
-                href={sbbUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-kidgo-600 hover:text-kidgo-700 transition"
-              >
-                SBB.ch →
-              </a>
-            )}
-          </div>
-          <div className="divide-y divide-[var(--border)]">
-            {connections.map((conn, i) => (
-              <div key={i} className="px-3 py-2 flex items-center gap-2.5">
-                <TransitProductIcon products={conn.products} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-primary)]">
-                    <span>{formatDepartureTime(conn.departure)}</span>
-                    <span className="text-[var(--text-muted)]">→</span>
-                    <span>{formatDepartureTime(conn.arrival)}</span>
-                  </div>
-                  {conn.products.length > 0 && (
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
-                      {conn.products.slice(0, 2).join(", ")}
-                      {conn.transfers > 0 && ` · ${conn.transfers}x`}
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs text-kidgo-600 font-medium whitespace-nowrap">
-                  {formatDuration(conn.durationMinutes)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -895,9 +723,6 @@ export default function EventDetailClient({ id }: { id: string }) {
   const mapsUrl = event.ort
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.ort)}`
     : null;
-  const sbbUrl = event.ort
-    ? `https://www.sbb.ch/de/kaufen/pages/fahrplan/fahrplan.xhtml?nach=${encodeURIComponent(event.ort)}`
-    : null;
   const isFree = isFreeText(event.beschreibung, event.preis_chf, event.titel);
   const priceNum = event.preis_chf != null && event.preis_chf > 0 ? event.preis_chf : extractPrice(event.beschreibung);
   const hasImage = !!event.kategorie_bild_url;
@@ -1060,18 +885,7 @@ export default function EventDetailClient({ id }: { id: string }) {
                         Route
                       </a>
                     )}
-                    {sbbUrl && (
-                      <a
-                        href={sbbUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-kidgo-300 hover:text-kidgo-500 px-3 py-1.5 rounded-full transition"
-                      >
-                        SBB.ch
-                      </a>
-                    )}
                   </div>
-                  <TransitWidget ort={event.ort} datum={event.datum} sbbUrl={sbbUrl} />
                 </div>
               </div>
             )}

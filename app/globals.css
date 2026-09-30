@@ -15,8 +15,8 @@ html, body { width: 100%; height: 100%; }
   --bg-subtle: #EFF8F6;
   --bg-input: #EFF8F6;
   --text-primary: #2D3436;
-  --text-secondary: #636e72;
-  --text-muted: #b2bec3;
+  --text-secondary: #4d585c;
+  --text-muted: #667175;
   --border: #dfe6e9;
   --border-strong: #b2bec3;
   --accent: #5BBAA7;
@@ -53,7 +53,7 @@ html, body { width: 100%; height: 100%; }
   --bg-input: #2d3330;
   --text-primary: #E8E6E3;
   --text-secondary: #a0b0ae;
-  --text-muted: #607872;
+  --text-muted: #94a8a4;
   --border: #3d4a47;
   --border-strong: #4e5e5b;
   --accent: #7CCBB9;
@@ -126,6 +126,10 @@ body,
 .dark .bg-purple-50 { background-color: #1a0a2a !important; }
 .dark .bg-blue-100 { background-color: #0a1a2a !important; }
 .dark .bg-teal-100 { background-color: #0f2520 !important; }
+
+/* Light mode: helle Grautöne für Text auf AA-Kontrast (≥4.5:1) anheben */
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400 { color: var(--text-muted) !important; }
 
 /* Text */
 .dark .text-gray-900,

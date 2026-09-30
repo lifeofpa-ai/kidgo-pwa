@@ -78,6 +78,8 @@ const categoryColors: Record<string, { bg: string; text: string; border: string 
   "Theater":       { bg: "bg-red-50",    text: "text-red-600",    border: "border-red-100" },
   "Musik":         { bg: "bg-teal-50",   text: "text-teal-600",   border: "border-teal-100" },
   "Ausflug":       { bg: "bg-teal-50",   text: "text-teal-600",   border: "border-teal-100" },
+  "Wandern":       { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-100" },
+  "Familie":       { bg: "bg-orange-50", text: "text-orange-600", border: "border-orange-100" },
   "Feriencamp":    { bg: "bg-kidgo-50",  text: "text-kidgo-600",  border: "border-kidgo-100" },
   "Bildung":       { bg: "bg-kidgo-50",  text: "text-kidgo-600",  border: "border-kidgo-100" },
   "Wissenschaft":  { bg: "bg-cyan-50",   text: "text-cyan-600",   border: "border-cyan-100" },

@@ -80,6 +80,18 @@ export const AusflugIcon = (p: P) => <I {...p}>
   <circle cx="12" cy="10" r="3"/>
 </I>;
 
+export const WandernIcon = (p: P) => <I {...p}>
+  <path d="M3 20l6-11 4 7 3-5 5 9H3z"/>
+  <circle cx="17" cy="5" r="1.5"/>
+</I>;
+
+export const FamilieIcon = (p: P) => <I {...p}>
+  <circle cx="9" cy="7" r="3"/>
+  <circle cx="18" cy="9" r="2"/>
+  <path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/>
+  <path d="M16 20c0-2 1-3.6 3-4"/>
+</I>;
+
 export const FeriencampIcon = (p: P) => <I {...p}>
   <path d="M2 20l10-16 10 16H2z"/>
   <path d="M7.5 20l4.5-7 4.5 7"/>
@@ -98,6 +110,8 @@ export function getCategoryIcon(category: string, props: P = {}) {
     case "Wissenschaft":  return <WissenschaftIcon {...props} />;
     case "Bildung":       return <BildungIcon {...props} />;
     case "Ausflug":       return <AusflugIcon {...props} />;
+    case "Wandern":       return <WandernIcon {...props} />;
+    case "Familie":       return <FamilieIcon {...props} />;
     case "Feriencamp":    return <FeriencampIcon {...props} />;
     default:              return <SparkleIcon {...props} />;
   }

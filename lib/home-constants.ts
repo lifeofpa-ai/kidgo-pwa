@@ -178,7 +178,7 @@ export const WEEKLY_CHALLENGES = [
 export const CATEGORY_BG_COLORS: Record<string, string> = {
   Kreativ: "#EC4899", Natur: "#22C55E", Tiere: "#22C55E", Sport: "#3B82F6",
   Tanz: "#8B5CF6", Theater: "#EF4444", Musik: "#8B5CF6", "Mode & Design": "#F43F5E",
-  Wissenschaft: "#06B6D4", Bildung: "#F59E0B", Ausflug: "#14B8A6", Feriencamp: "#06B6D4",
+  Wissenschaft: "#06B6D4", Bildung: "#F59E0B", Ausflug: "#14B8A6", Wandern: "#A16207", Familie: "#FB923C", Feriencamp: "#06B6D4",
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -192,6 +192,8 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Bildung:    "#F59E0B",
   Wissenschaft: "#F59E0B",
   Theater:    "#EF4444",
+  Wandern:    "#A16207",
+  Familie:    "#FB923C",
   Feriencamp: "#06B6D4",
 };
 

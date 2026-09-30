@@ -45,7 +45,8 @@ const KEYWORD_MAP: Array<[string, RegExp]> = [
   ["Musik",        /\b(musik|konzert|gesang|chor|instrument)\b/i],
   ["Wissenschaft", /\b(experiment|technik|forscher|robotik|wissenschaft|naturwissenschaft)\b/i],
   ["Bildung",      /\b(lesen|geschichte|lernen|sprache|bildung|führung|vortrag)\b/i],
-  ["Ausflug",      /\b(ausflug|wanderung|tagestrip|exkursion|besuch)\b/i],
+  ["Ausflug",      /\b(ausflug|tagestrip|exkursion)\b/i],
+  ["Wandern",      /\b(wander\w*|erlebnisweg|rundweg|themenweg|lehrpfad|spaziergang)\b/i],
   ["Feriencamp",   /\b(camp|ferienlager|ferien[- ]?pass)\b/i],
 ];
 function inferCategories(text: string): string[] {

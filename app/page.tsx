@@ -22,8 +22,6 @@ import {
 import { BadgePopup } from "@/components/BadgePopup";
 import { HexIcon } from "@/components/HexIcon";
 import {
-  getRatedEvents,
-  buildPreferenceProfile,
   buildDismissProfile,
   type PreferenceProfile,
   type DismissProfile,
@@ -58,6 +56,7 @@ import {
   haversine,
 } from "@/lib/home-constants";
 import { scoreEvent } from "@/lib/scoring";
+import { loadRelevanceSignals } from "@/lib/relevance";
 import { useUserLocation } from "@/lib/use-user-location";
 import { SkeletonCard, EventImage, RecommendationCard } from "@/components/home/EventCards";
 import { HeroSection } from "@/components/home/HeroSection";
@@ -603,9 +602,8 @@ export default function Home() {
       if (raw) setUserInterests(JSON.parse(raw));
     } catch {}
     try {
-      const rated = getRatedEvents();
-      const profile = buildPreferenceProfile(rated);
-      setPreferenceProfile(profile);
+      // Likes + Merkliste (Merken = Interesse), siehe lib/relevance.ts
+      setPreferenceProfile(loadRelevanceSignals().preferenceProfile);
     } catch {}
     try {
       const ids = getDismissedEventIds();

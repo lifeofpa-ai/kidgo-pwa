@@ -78,6 +78,15 @@ export function scoreEvent(
 
   if (event.alters_buckets && selectedBuckets.some((b) => event.alters_buckets!.includes(b))) {
     score += 10;
+  } else if (
+    selectedBuckets.length > 0 &&
+    event.alters_buckets &&
+    event.alters_buckets.length > 0
+  ) {
+    // Weicher Alters-Mismatch (Explore zeigt auch ohne Alters-Filter alles):
+    // Event ist ausdrücklich für andere Altersgruppen — rutscht nach unten,
+    // verschwindet aber nicht. Events ohne Alters-Angabe bleiben neutral.
+    score -= 8;
   }
 
   if (
@@ -111,10 +120,22 @@ export function scoreEvent(
     today.setHours(0, 0, 0, 0);
     const diff = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (diff >= 0 && diff <= 3) {
-      score += 5;
+      // Heute/morgen zählt mehr als "in 3 Tagen" — der USP ist "jetzt relevant".
+      score += diff === 0 ? 8 : diff === 1 ? 6 : 5;
       if (diff === 0) reasons.push("Heute!");
       else if (diff === 1) reasons.push("Morgen!");
       else reasons.push(`Nur noch ${diff} Tage!`);
+    } else if (diff >= 4 && diff <= 7) {
+      // Diese Woche noch planbar — leicht vor dem "irgendwann in Monaten".
+      score += 2;
+    } else if (diff > 60) {
+      // Sehr ferne Termine sind selten die Antwort auf "was machen wir jetzt".
+      score -= 3;
+    } else if (diff < 0) {
+      // Bereits begonnen: nur relevant, wenn es noch läuft (mehrtägige Events).
+      const endStr = event.datum_ende;
+      const ended = !endStr || new Date(endStr + "T00:00:00").getTime() < today.getTime();
+      if (ended) score -= 20;
     }
   }
 

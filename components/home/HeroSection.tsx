@@ -2,23 +2,18 @@
 
 import Link from "next/link";
 import type { ScoredEvent, CompactEvent, EventSource, UserLocation } from "@/types/home";
-import type { DismissReason } from "@/lib/dismiss-reasons";
 import { getCategoryColor, getCountdownLabel } from "@/lib/home-constants";
 import { saveScrollPosition } from "@/lib/interactions";
 import { trackEvent, trackFirstEventClick } from "@/lib/analytics";
 import { EventImage } from "@/components/home/EventCards";
-import { DismissOverlay } from "@/components/home/DismissOverlay";
 
 interface HeroSectionProps {
   contextRecs: ScoredEvent[];
   recommendations: ScoredEvent[];
   bookmarks: CompactEvent[];
-  dismissingEventId: string | null;
-  dismissReasons: DismissReason[];
   now: Date;
-  onDismissOpen: (event: ScoredEvent) => void;
-  onDismissSubmit: (eventId: string, selectedReasonIds: string[]) => void;
-  onDismissCancel: () => void;
+  /** "Nicht für uns" — direkt, ohne Begründung (Toast mit Rückgängig übernimmt die Page). */
+  onDismiss: (event: ScoredEvent) => void;
   onBookmark: (event: ScoredEvent, e: React.MouseEvent) => void;
 }
 
@@ -26,25 +21,20 @@ export function HeroSection({
   contextRecs,
   recommendations,
   bookmarks,
-  dismissingEventId,
-  dismissReasons,
   now,
-  onDismissOpen,
-  onDismissSubmit,
-  onDismissCancel,
+  onDismiss,
   onBookmark,
 }: HeroSectionProps) {
   if (contextRecs.length === 0) return null;
 
   const heroEvent = contextRecs[0];
   const isBookmarkedHero = bookmarks.some((b) => b.id === heroEvent.id);
-  const isDismissingHero = dismissingEventId === heroEvent.id;
 
   return (
     <div className="mb-8">
       {/* Hero card — first recommendation */}
       <div className="relative mb-3">
-        <div className={isDismissingHero ? "card-dimmed" : undefined}>
+        <div>
           <Link
             href={`/events/${heroEvent.id}`}
             className="block group"
@@ -116,10 +106,11 @@ export function HeroSection({
           </Link>
         </div>
         {/* Dismiss button */}
-        {!isDismissingHero && (
+        {(
           <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismissOpen(heroEvent); }}
-            aria-label="Nicht interessiert"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss(heroEvent); }}
+            aria-label="Nicht für uns"
+            title="Nicht für uns"
             className="absolute top-3 right-14 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/50 backdrop-blur-sm transition-all active:scale-90"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -127,23 +118,15 @@ export function HeroSection({
             </svg>
           </button>
         )}
-        {isDismissingHero && (
-          <DismissOverlay
-            reasons={dismissReasons}
-            onSubmit={(ids) => onDismissSubmit(heroEvent.id, ids)}
-            onCancel={onDismissCancel}
-          />
-        )}
       </div>
 
       {/* Sub-cards — recs 2 + 3 */}
       {recommendations.length > 1 && (
         <div className="grid grid-cols-2 gap-3">
           {recommendations.slice(1, 3).map((event) => {
-            const isDismissingSub = dismissingEventId === event.id;
             return (
               <div key={event.id} className="relative">
-                <div className={isDismissingSub ? "card-dimmed" : undefined}>
+                <div>
                   <Link
                     href={`/events/${event.id}`}
                     className="group block"
@@ -185,23 +168,16 @@ export function HeroSection({
                     </div>
                   </Link>
                 </div>
-                {!isDismissingSub && (
+                {(
                   <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismissOpen(event); }}
-                    aria-label="Nicht interessiert"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss(event); }}
+                    aria-label="Nicht für uns"
                     className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/25 text-white hover:bg-black/45 backdrop-blur-sm transition-all active:scale-90"
                   >
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                       <path d="M2 2l6 6M8 2l-6 6"/>
                     </svg>
                   </button>
-                )}
-                {isDismissingSub && (
-                  <DismissOverlay
-                    reasons={dismissReasons}
-                    onSubmit={(ids) => onDismissSubmit(event.id, ids)}
-                    onCancel={onDismissCancel}
-                  />
                 )}
               </div>
             );

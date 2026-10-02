@@ -14,6 +14,7 @@ const REASONS: { value: string; label: string }[] = [
   { value: "link_broken", label: "Link funktioniert nicht" },
   { value: "place_wrong", label: "Ort stimmt nicht" },
   { value: "not_for_kids", label: "Nicht für Kinder" },
+  { value: "category_wrong", label: "Kategorie falsch zugeordnet" },
   { value: "other", label: "Anderes" },
 ];
 

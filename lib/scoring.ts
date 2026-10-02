@@ -192,7 +192,7 @@ export function scoreEvent(
   }
 
   if (dProfile) {
-    score += dismissPenalty(event, dProfile);
+    score += dismissPenalty(event, dProfile, distance.km);
   }
 
   return { score, reasons, distanceKm: distance.km };

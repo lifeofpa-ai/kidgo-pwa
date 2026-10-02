@@ -121,64 +121,47 @@ export function scoreWithPreferences(
 }
 
 // ============================================================
-// Dismiss-based preference signals
+// Swipe-basierte Signale (02.10.2026)
 // ============================================================
+// Früher: Ablehnungsgründe ("not_interested_*", "too_far", ...). Jetzt lernt
+// Kidgo ohne Begründung aus den Event-Merkmalen (lib/swipe-signals.ts).
+// Die alten Namen bleiben als dünne Wrapper erhalten, damit Aufrufer
+// (Home, Explore-Relevanz, Scoring) unverändert bleiben.
 
-export interface DismissProfile {
-  /** Categories that were dismissed ≥2× via "not_interested_*" */
-  dismissedCategories: string[];
-  /** Penalty to apply per dismissed category match */
-  categoryPenalty: number;
-  /** true if user dismissed ≥3 events for "too_far" */
-  preferCloser: boolean;
-  /** true if user dismissed ≥3 events for "wrong_age" */
-  strictAgeFilter: boolean;
-}
+import {
+  buildSwipeProfile,
+  getSignals,
+  swipeAffinityScore,
+  type SwipeProfile,
+  type SwipeSignal,
+} from "@/lib/swipe-signals";
+import type { DismissalRecord } from "@/lib/dismiss-reasons";
 
-/**
- * Build a DismissProfile from past dismissal records.
- * Called inside scoreEvent to apply penalties.
- */
-export function buildDismissProfile(
-  dismissals: Array<{ reasons: string[] }>
-): DismissProfile {
-  const categoryCounts: Record<string, number> = {};
-  let tooFarCount = 0;
-  let wrongAgeCount = 0;
-
-  for (const d of dismissals) {
-    for (const r of d.reasons) {
-      if (r.startsWith("not_interested_")) {
-        const cat = r.replace("not_interested_", "");
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-      }
-      if (r === "too_far") tooFarCount++;
-      if (r === "wrong_age") wrongAgeCount++;
-    }
-  }
-
-  const dismissedCategories = Object.entries(categoryCounts)
-    .filter(([, n]) => n >= 2)
-    .map(([cat]) => cat);
-
-  return {
-    dismissedCategories,
-    categoryPenalty: 5,
-    preferCloser: tooFarCount >= 3,
-    strictAgeFilter: wrongAgeCount >= 3,
-  };
-}
+export type DismissProfile = SwipeProfile;
 
 /**
- * Apply dismiss-based penalty to an event score.
- * Returns a negative number (penalty) or 0.
+ * Profil aus lokalen Signalen + (optional) Server-Ablehnungen anderer Geräte.
+ * Server-Records zählen als "skip", sofern lokal nicht schon vorhanden.
  */
+export function buildDismissProfile(dismissals: Array<DismissalRecord> = []): DismissProfile | null {
+  const local = getSignals();
+  const known = new Set(local.filter((s) => s.kind === "skip").map((s) => s.eventId));
+  const fromServer: SwipeSignal[] = dismissals
+    .filter((d) => !known.has(d.eventId))
+    .map((d) => ({ eventId: d.eventId, kind: "skip" as const, meta: d.eventMeta, at: d.dismissedAt }));
+  return buildSwipeProfile([...local, ...fromServer]);
+}
+
+/** Score-Beitrag aus dem Swipe-Profil (± bis 10 Punkte). */
 export function dismissPenalty(
-  event: { kategorien: string[] | null; kategorie: string | null },
-  profile: DismissProfile
+  event: {
+    kategorien: string[] | null;
+    kategorie: string | null;
+    preis_chf?: number | null;
+    indoor_outdoor?: string | null;
+  },
+  profile: DismissProfile,
+  distanceKm: number | null = null
 ): number {
-  const cats = event.kategorien ?? (event.kategorie ? [event.kategorie] : []);
-  const normalizedCats = cats.map((c) => c.toLowerCase().replace(/[^a-z]/g, "_"));
-  const hits = profile.dismissedCategories.filter((dc) => normalizedCats.includes(dc));
-  return -(hits.length * profile.categoryPenalty);
+  return swipeAffinityScore(event, profile, distanceKm);
 }

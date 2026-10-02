@@ -17,6 +17,7 @@ import {
 import { safeExternalUrl } from "@/lib/safe-url";
 import { useUserPrefs } from "@/lib/user-prefs-context";
 import { trackEvent } from "@/lib/analytics";
+import { recordSignal, removeSignal, metaFromEvent } from "@/lib/swipe-signals";
 import { ReportEventProblem } from "@/components/ReportEventProblem";
 
 interface Review {
@@ -457,6 +458,8 @@ export default function EventDetailClient({ id }: { id: string }) {
           };
           localStorage.setItem("kidgo_recent_visits", JSON.stringify([compact, ...filtered].slice(0, 10)));
           trackVisit(eventData.id);
+          // Stilles Lernsignal: Detail geöffnet (02.10.2026)
+          recordSignal("open", eventData.id, metaFromEvent(eventData));
         } catch {}
 
         try {
@@ -598,6 +601,8 @@ export default function EventDetailClient({ id }: { id: string }) {
         ? bms.filter((b) => b.id !== event.id)
         : [{ id: event.id, titel: event.titel, datum: event.datum, ort: event.ort, kategorie_bild_url: event.kategorie_bild_url, kategorien: event.kategorien }, ...bms];
       localStorage.setItem("kidgo_bookmarks", JSON.stringify(next));
+      if (!exists) recordSignal("bookmark", event.id, metaFromEvent(event));
+      else removeSignal("bookmark", event.id);
       setIsBookmarked(!exists);
     } catch {}
   };
@@ -607,6 +612,8 @@ export default function EventDetailClient({ id }: { id: string }) {
     try { (navigator as any).vibrate?.(15); } catch {}
     const next = eventRating === rating ? null : rating;
     if (next) trackEvent("event_rating", { event_id: event.id, rating: next });
+    if (next === "like" || next === "superlike") recordSignal("like", event.id, metaFromEvent(event));
+    else if (!next) removeSignal("like", event.id);
     setEventRatingState(next);
     setEventRating(
       {
@@ -637,6 +644,7 @@ export default function EventDetailClient({ id }: { id: string }) {
   const handleShare = () => {
     if (!event) return;
     trackEvent("event_share", { event_id: event.id });
+    recordSignal("share", event.id, metaFromEvent(event));
     const url = window.location.href;
     const text = buildShareText();
     if (navigator.share) {
@@ -692,6 +700,7 @@ export default function EventDetailClient({ id }: { id: string }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+    recordSignal("plan", event.id, metaFromEvent(event));
     a.download = `${event.titel.replace(/[^a-z0-9äöü]/gi, "_").toLowerCase()}.ics`;
     document.body.appendChild(a);
     a.click();

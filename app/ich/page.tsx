@@ -1,5 +1,6 @@
 "use client";
 
+import { LearningCard } from "@/components/LearningCard";
 import Link from "next/link";
 import { KidgoLogo } from "@/components/KidgoLogo";
 import { useAuth } from "@/lib/auth-context";
@@ -886,6 +887,8 @@ export default function IchPage() {
             </div>
           </div>
         )}
+
+        {mounted && <LearningCard />}
 
         {/* Empfehlungs-Qualität Feedback */}
         {mounted && showFeedback && (

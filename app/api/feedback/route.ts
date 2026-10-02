@@ -33,6 +33,7 @@ const CATEGORY_LABELS: Record<(typeof ALLOWED_CATEGORIES)[number], string> = {
 // als gespeicherte Nachricht.
 const EVENT_PROBLEM_REASONS: Record<string, string> = {
   date_wrong: "Datum oder Zeit stimmt nicht",
+  category_wrong: "Kategorie falsch zugeordnet",
   cancelled: "Findet nicht (mehr) statt",
   link_broken: "Link funktioniert nicht",
   place_wrong: "Ort stimmt nicht",

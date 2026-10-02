@@ -23,19 +23,23 @@ import { BadgePopup } from "@/components/BadgePopup";
 import { HexIcon } from "@/components/HexIcon";
 import {
   buildDismissProfile,
+  getRatedEvents,
+  setEventRating,
   type PreferenceProfile,
   type DismissProfile,
 } from "@/lib/preferences";
 import {
-  type DismissReason,
-  type EventMeta,
-  generateDismissReasons,
   getPastDismissals,
   getDismissedEventIds,
   saveDismissalLocally,
   saveDismissalToSupabase,
+  removeDismissalLocally,
+  removeDismissalFromSupabase,
   loadDismissalsFromSupabase,
+  activeDismissalIds,
 } from "@/lib/dismiss-reasons";
+import { recordSignal, removeSignal, metaFromEvent } from "@/lib/swipe-signals";
+import { SwipeToast, type SwipeToastState } from "@/components/home/SwipeToast";
 import { hikingEventAllowed } from "@/lib/interests";
 import { trackEvent, trackFirstBookmark, initScrollDepthTracking } from "@/lib/analytics";
 import { PhoneIcon, WifiOffIcon } from "@/components/Icons";
@@ -330,6 +334,8 @@ let _eventsCache: KidgoEvent[] | null = null;
 let _sourcesCache: { id: string; url: string | null; latitude: number | null; longitude: number | null }[] | null = null;
 let _cacheTimestamp = 0;
 const EVENTS_CACHE_TTL = 5 * 60 * 1000;
+/** Anzahl Karten im Swipe-Stapel (Home). */
+const STACK_SIZE = 8;
 
 // ============================================================
 // MAIN COMPONENT
@@ -400,7 +406,6 @@ export default function Home() {
   // Sprint 12: Card stack animation
   const [cardExiting, setCardExiting] = useState(false);
   const [exitDirection, setExitDirection] = useState<"left" | "right">("left");
-  const [cardIndex, setCardIndex] = useState(0);
 
   // Sprint 12: Pull-to-refresh
   const [pullY, setPullY] = useState(0);
@@ -441,8 +446,12 @@ export default function Home() {
 
   // Dismiss feature: dismissed event IDs (session + persisted), overlay state, dismiss profile
   const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(new Set());
-  const [dismissingEventId, setDismissingEventId] = useState<string | null>(null);
-  const [dismissReasons, setDismissReasons] = useState<DismissReason[]>([]);
+  // 02.10.2026: Swipe ohne Ablehnungsgrund — Toast mit Rückgängig, Lernen aus Merkmalen.
+  const [toast, setToast] = useState<SwipeToastState | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [handledIds, setHandledIds] = useState<Set<string>>(new Set());
+  const [stackFinished, setStackFinished] = useState(false);
   const [dismissProfile, setDismissProfile] = useState<DismissProfile | null>(null);
 
   // Sprint 11: Collapsible sections (all closed by default)
@@ -546,7 +555,7 @@ export default function Home() {
       setDismissProfile(buildDismissProfile(merged));
       setDismissedEventIds((prev) => {
         const next = new Set(prev);
-        for (const d of merged) next.add(d.eventId);
+        for (const id of activeDismissalIds(merged)) next.add(id);
         return next;
       });
     });
@@ -595,7 +604,8 @@ export default function Home() {
       if (raw) setBookmarks(JSON.parse(raw));
     } catch {}
     try {
-      setHasSwipedBefore(localStorage.getItem("kidgo_has_swiped") === "1");
+      // Hinweis bleibt, bis zweimal wirklich gewischt wurde (nicht nur einmal).
+      setHasSwipedBefore(parseInt(localStorage.getItem("kidgo_swipe_count") || "0", 10) >= 2);
     } catch {}
     try {
       const raw = localStorage.getItem("kidgo_interests");
@@ -780,7 +790,7 @@ export default function Home() {
     setShowDayPlan(false);
 
     // Dismissed IDs — read fresh from storage so fetch is always consistent
-    const currentDismissedIds = new Set([...getDismissedEventIds(), ...dismissedEventIds]);
+    const currentDismissedIds = new Set([...getDismissedEventIds(), ...dismissedEventIds, ...handledIds]);
 
     // Sprint 3: Offline — serve cached events
     if (isOffline) {
@@ -805,7 +815,7 @@ export default function Home() {
               return { ...event, score, reasons, distanceKm };
             });
           scored.sort((a, b) => b.score - a.score);
-          setRecommendations(scored.slice(0, 3));
+          setRecommendations(scored.slice(0, STACK_SIZE));
         }
       } catch {}
       setLoading(false);
@@ -832,7 +842,7 @@ export default function Home() {
           return { ...event, score, reasons, distanceKm };
         });
       scored.sort((a, b) => b.score - a.score);
-      setRecommendations(scored.slice(0, 3));
+      setRecommendations(scored.slice(0, STACK_SIZE));
       setLoading(false);
       return;
     }
@@ -954,9 +964,10 @@ export default function Home() {
       const regular = shuffled.filter((e) => !e.quelle_id || !smallIds.has(e.quelle_id));
       let recs: ScoredEvent[];
       if (geheimtipps.length > 0 && regular.length >= 2) {
-        recs = [regular[0], regular[1], geheimtipps[0]];
+        recs = regular.slice(0, STACK_SIZE - 1);
+        recs.splice(2, 0, geheimtipps[0]); // Geheimtipp an dritter Stelle
       } else {
-        recs = shuffled.slice(0, 3);
+        recs = shuffled.slice(0, STACK_SIZE);
       }
       setRecommendations(recs);
     } catch (e) {
@@ -1062,102 +1073,117 @@ export default function Home() {
     }, 100);
   };
 
-  // ---- Dismiss handlers ----
-  const handleDismissOpen = (event: KidgoEvent) => {
-    const past = getPastDismissals();
-    // Distanz jetzt direkt aus den Event-Koordinaten (lat/lng) statt über die
-    // Quelle — die Quellen-Koordinaten wurden hier nie befüllt (sources kommt
-    // nur mit id/url), das "Zu weit weg" war dadurch faktisch nie auslösbar.
-    let distanceKm: number | null = null;
+  // ---- Swipe-Aktionen (02.10.2026) ----
+  // Links = "Nicht für uns", rechts = "Gefällt mir". Keine Begründung mehr: Kidgo
+  // lernt aus den Event-Merkmalen (lib/swipe-signals.ts). Jede Aktion zeigt einen
+  // Toast mit Rückgängig; "Gefällt mir" bietet zusätzlich "Merken" an.
+  const distanceFor = (event: KidgoEvent): number | null => {
     if (userLocation && event.lat != null && event.lng != null) {
-      distanceKm = haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng));
+      return haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng));
     }
-    const reasons = generateDismissReasons(event, {
-      distanceKm,
-      radiusKm: prefs.radius,
-      weatherCode,
-      selectedBuckets,
-      pastDismissals: past,
-    });
-    setDismissReasons(reasons);
-    setDismissingEventId(event.id);
+    return null;
   };
 
-  const handleDismissSubmit = (eventId: string, selectedReasonIds: string[]) => {
-    const event =
-      allEventsPool.find((e) => e.id === eventId) ??
-      recommendations.find((e) => e.id === eventId);
+  const showToast = (state: SwipeToastState, ms = 5000) => {
+    setToast(state);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), ms);
+  };
 
-    let distanceKm: number | null = null;
-    if (userLocation && event?.lat != null && event?.lng != null) {
-      distanceKm = haversine(userLocation.lat, userLocation.lon, Number(event.lat), Number(event.lng));
+  const refreshLearning = () => {
+    try {
+      setDismissProfile(buildDismissProfile(getPastDismissals()));
+      setPreferenceProfile(loadRelevanceSignals().preferenceProfile);
+    } catch {}
+  };
+
+  const bumpSwipeCount = () => {
+    try {
+      const n = parseInt(localStorage.getItem("kidgo_swipe_count") || "0", 10) + 1;
+      localStorage.setItem("kidgo_swipe_count", String(n));
+      if (n >= 2) setHasSwipedBefore(true);
+    } catch {}
+  };
+
+  /** "Nicht für uns": sofort weg, ohne Rückfrage. */
+  const handleSkip = (event: KidgoEvent) => {
+    const meta = metaFromEvent(event, distanceFor(event));
+    trackEvent("event_skip", { event_id: event.id });
+    saveDismissalLocally(event.id, ["swipe_skip"], meta);
+    recordSignal("skip", event.id, meta);
+    if (user) saveDismissalToSupabase(supabase, user.id, event.id, ["swipe_skip"], meta);
+    try { (navigator as any).vibrate?.(8); } catch {}
+    setDismissedEventIds((prev) => new Set([...prev, event.id]));
+    setHandledIds((prev) => new Set([...prev, event.id]));
+    if (recommendations.filter((e) => e.id !== event.id).length === 0) setStackFinished(true);
+    setRecommendations((prev) => prev.filter((e) => e.id !== event.id));
+    refreshLearning();
+    showToast({ kind: "skip", event });
+  };
+
+  /** "Gefällt mir" (♥): Signal fürs Lernen — getrennt von der Merkliste. */
+  const handleLike = (event: KidgoEvent) => {
+    const meta = metaFromEvent(event, distanceFor(event));
+    trackEvent("event_like", { event_id: event.id });
+    setEventRating(event, "like");
+    recordSignal("like", event.id, meta);
+    try { (navigator as any).vibrate?.(10); } catch {}
+    setLikedIds((prev) => new Set([...prev, event.id]));
+    setHandledIds((prev) => new Set([...prev, event.id]));
+    if (recommendations.filter((e) => e.id !== event.id).length === 0) setStackFinished(true);
+    setRecommendations((prev) => prev.filter((e) => e.id !== event.id));
+    refreshLearning();
+    showToast({ kind: "like", event });
+  };
+
+  const handleToastUndo = () => {
+    if (!toast) return;
+    const { event, kind } = toast;
+    if (kind === "skip") {
+      removeDismissalLocally(event.id);
+      removeSignal("skip", event.id);
+      if (user) removeDismissalFromSupabase(supabase, user.id, event.id);
+      setDismissedEventIds((prev) => { const n = new Set(prev); n.delete(event.id); return n; });
+    } else {
+      setEventRating(event, null);
+      removeSignal("like", event.id);
+      setLikedIds((prev) => { const n = new Set(prev); n.delete(event.id); return n; });
     }
+    setHandledIds((prev) => { const n = new Set(prev); n.delete(event.id); return n; });
+    setStackFinished(false);
+    setRecommendations((prev) =>
+      prev.some((e) => e.id === event.id) ? prev : [event as ScoredEvent, ...prev]
+    );
+    refreshLearning();
+    setToast(null);
+  };
 
-    const eventMeta: EventMeta = {
-      kategorien: event?.kategorien ?? null,
-      preis_chf: event?.preis_chf ?? null,
-      indoor_outdoor: event?.indoor_outdoor ?? null,
-      alter_von: event?.alter_von ?? null,
-      alter_bis: event?.alter_bis ?? null,
-      distanceKm,
-    };
-
-    trackEvent("event_dismiss", { event_id: eventId, reasons: selectedReasonIds.join(",") });
-    saveDismissalLocally(eventId, selectedReasonIds, eventMeta);
-
-    if (user) {
-      saveDismissalToSupabase(supabase, user.id, eventId, selectedReasonIds, eventMeta);
+  const handleToastBookmark = () => {
+    if (!toast) return;
+    const { event } = toast;
+    if (!bookmarks.some((b) => b.id === event.id)) {
+      toggleBookmark(event, { preventDefault: () => {}, stopPropagation: () => {} } as unknown as React.MouseEvent);
+      recordSignal("bookmark", event.id, metaFromEvent(event, distanceFor(event)));
     }
-
-    setDismissedEventIds((prev) => new Set([...prev, eventId]));
-    setRecommendations((prev) => prev.filter((e) => e.id !== eventId));
-
-    const updated = getPastDismissals();
-    if (updated.length > 0) setDismissProfile(buildDismissProfile(updated));
-
-    setDismissingEventId(null);
+    showToast({ kind: "bookmarked", event }, 2200);
   };
 
-  // Sprint 12: Card stack — animated swipe handlers
-  const handleSwipeLeft = () => {
-    if (recommendations.length === 0 || cardExiting || dismissingEventId) return;
-    setSwipeOffset(0);
-    setSwipeHint(null);
-    // Open dismiss overlay instead of silently cycling
-    handleDismissOpen(recommendations[0]);
-  };
-
-  // Cycle card without dismiss (used by explicit "next" button when overlay is not wanted)
-  const handleCycleCard = () => {
-    if (recommendations.length < 2 || cardExiting) return;
-    dismissSwipeOnboarding();
-    setExitDirection("left");
-    setCardExiting(true);
-    setSwipeOffset(0);
-    setSwipeHint(null);
-    setTimeout(() => {
-      setRecommendations((prev) => [...prev.slice(1), prev[0]]);
-      setCardIndex((i) => (i + 1) % Math.max(1, recommendations.length));
-      setCardExiting(false);
-    }, 340);
-  };
-
-  const handleSwipeRight = () => {
+  const animateTopCardOut = (dir: "left" | "right", then: (top: ScoredEvent) => void) => {
     if (recommendations.length === 0 || cardExiting) return;
     dismissSwipeOnboarding();
-    setSwipeHint(null);
     const top = recommendations[0];
-    try { (navigator as any).vibrate?.(10); } catch {}
-    toggleBookmark(top, { preventDefault: () => {}, stopPropagation: () => {} } as unknown as React.MouseEvent);
-    setExitDirection("right");
+    setSwipeHint(null);
+    setExitDirection(dir);
     setCardExiting(true);
     setSwipeOffset(0);
     setTimeout(() => {
-      setRecommendations((prev) => [...prev.slice(1), prev[0]]);
-      setCardIndex((i) => (i + 1) % Math.max(1, recommendations.length));
+      then(top);
       setCardExiting(false);
-    }, 340);
+    }, 300);
   };
+
+  const handleSwipeLeft = () => animateTopCardOut("left", handleSkip);
+  const handleSwipeRight = () => animateTopCardOut("right", handleLike);
 
   const handleRecTouchStart = (e: React.TouchEvent) => {
     if (cardExiting) return;
@@ -1185,10 +1211,7 @@ export default function Home() {
     setSwipeOffset(0);
     setSwipeHint(null);
     if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 60) return;
-    if (!hasSwipedBefore) {
-      setHasSwipedBefore(true);
-      try { localStorage.setItem("kidgo_has_swiped", "1"); } catch {}
-    }
+    bumpSwipeCount();
     if (dx < 0) handleSwipeLeft();
     else handleSwipeRight();
   };
@@ -1494,7 +1517,8 @@ export default function Home() {
         )}
 
         {/* Sprint 15: Badge popup */}
-        <BadgePopup badge={badgePopup} onClose={handleBadgePopupClose} />
+        <SwipeToast toast={toast} onUndo={handleToastUndo} onBookmark={handleToastBookmark} />
+      <BadgePopup badge={badgePopup} onClose={handleBadgePopupClose} />
 
         {/* Sprint 15: Notification permission prompt */}
         {showNotifPrompt && (
@@ -1670,12 +1694,8 @@ export default function Home() {
             contextRecs={contextRecs}
             recommendations={recommendations}
             bookmarks={bookmarks}
-            dismissingEventId={dismissingEventId}
-            dismissReasons={dismissReasons}
             now={now}
-            onDismissOpen={handleDismissOpen}
-            onDismissSubmit={handleDismissSubmit}
-            onDismissCancel={() => setDismissingEventId(null)}
+            onDismiss={handleSkip}
             onBookmark={toggleBookmark}
           />
         )}
@@ -1708,18 +1728,25 @@ export default function Home() {
             showPersistentSwipeHint={!hasSwipedBefore}
             cardExiting={cardExiting}
             exitDirection={exitDirection}
-            cardIndex={cardIndex}
-            dismissingEventId={dismissingEventId}
-            dismissReasons={dismissReasons}
+            likedIds={likedIds}
             onRecTouchStart={handleRecTouchStart}
             onRecTouchMove={handleRecTouchMove}
             onRecTouchEnd={handleRecTouchEnd}
-            onCycleCard={handleCycleCard}
+            onSwipeLeft={handleSwipeLeft}
             onSwipeRight={handleSwipeRight}
-            onDismissSubmit={handleDismissSubmit}
-            onDismissCancel={() => setDismissingEventId(null)}
             onBookmark={toggleBookmark}
           />
+        )}
+
+        {/* Stapel durchgewischt: Abschluss statt Endlosschleife (02.10.2026) */}
+        {!loading && recommendations.length === 0 && stackFinished && (
+          <div className="md:hidden text-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 mb-6">
+            <p className="text-[var(--text-primary)] font-bold mb-1">Für heute alles gesehen</p>
+            <p className="text-[var(--text-muted)] text-sm mb-5">Kidgo merkt sich, was dir gefällt. Alle Events findest du jederzeit im Katalog.</p>
+            <Link href="/explore" className="inline-block bg-kidgo-400 text-white px-6 py-3 rounded-xl font-semibold hover:bg-kidgo-500 transition">
+              Alle Events entdecken
+            </Link>
+          </div>
         )}
 
         {/* Spacer for card stack action buttons — mobile only */}

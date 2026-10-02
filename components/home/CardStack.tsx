@@ -1,10 +1,8 @@
 "use client";
 
 import type { ScoredEvent, CompactEvent, EventSource, UserLocation } from "@/types/home";
-import type { DismissReason } from "@/lib/dismiss-reasons";
 import { computeEntdeckerScore } from "@/lib/home-constants";
 import { RecommendationCard } from "@/components/home/EventCards";
-import { DismissOverlay } from "@/components/home/DismissOverlay";
 
 interface CardStackProps {
   recommendations: ScoredEvent[];
@@ -23,16 +21,15 @@ interface CardStackProps {
   showPersistentSwipeHint?: boolean;
   cardExiting: boolean;
   exitDirection: "left" | "right";
-  cardIndex: number;
-  dismissingEventId: string | null;
-  dismissReasons: DismissReason[];
+  /** Events, die der Nutzer per Swipe/♥ als "gefällt mir" markiert hat. */
+  likedIds: Set<string>;
   onRecTouchStart: (e: React.TouchEvent) => void;
   onRecTouchMove: (e: React.TouchEvent) => void;
   onRecTouchEnd: (e: React.TouchEvent) => void;
-  onCycleCard: () => void;
+  /** ✕ — "Nicht für uns" (gleiche Aktion wie Swipe nach links). */
+  onSwipeLeft: () => void;
+  /** ♥ — "Gefällt mir" (gleiche Aktion wie Swipe nach rechts). */
   onSwipeRight: () => void;
-  onDismissSubmit: (eventId: string, selectedReasonIds: string[]) => void;
-  onDismissCancel: () => void;
   onBookmark: (event: ScoredEvent, e: React.MouseEvent) => void;
 }
 
@@ -53,16 +50,12 @@ export function CardStack({
   showPersistentSwipeHint = false,
   cardExiting,
   exitDirection,
-  cardIndex,
-  dismissingEventId,
-  dismissReasons,
+  likedIds,
   onRecTouchStart,
   onRecTouchMove,
   onRecTouchEnd,
-  onCycleCard,
+  onSwipeLeft,
   onSwipeRight,
-  onDismissSubmit,
-  onDismissCancel,
   onBookmark,
 }: CardStackProps) {
   if (recommendations.length === 0) return null;
@@ -72,7 +65,7 @@ export function CardStack({
       {/* Mobile card stack */}
       <div className="md:hidden relative select-none min-h-[420px] mb-4">
         {/* Background stacked cards */}
-        {recommendations.slice(1).map((event, ri) => {
+        {recommendations.slice(1, 3).map((event, ri) => {
           const stackPos = ri + 1;
           return (
             <div
@@ -107,7 +100,6 @@ export function CardStack({
         {(() => {
           const event = recommendations[0];
           const cnt = sourceCountMap.get(event.quelle_id || "") ?? 0;
-          const isDismissingStack = dismissingEventId === event.id;
           return (
             <div
               className="absolute inset-x-0 top-0 card-stack-top"
@@ -120,12 +112,12 @@ export function CardStack({
                   ? "transform 0.34s cubic-bezier(0.4,0,0.2,1)"
                   : swipeOffset === 0 ? "transform 0.2s ease" : "none",
               }}
-              onTouchStart={isDismissingStack ? undefined : onRecTouchStart}
-              onTouchMove={isDismissingStack ? undefined : onRecTouchMove}
-              onTouchEnd={isDismissingStack ? undefined : onRecTouchEnd}
+              onTouchStart={onRecTouchStart}
+              onTouchMove={onRecTouchMove}
+              onTouchEnd={onRecTouchEnd}
             >
               <div className="relative">
-                <div className={isDismissingStack ? "card-dimmed" : undefined}>
+                <div className={showSwipeOnboarding && !swipeHint ? "card-wiggle" : undefined}>
                   <RecommendationCard
                     key={event.id}
                     event={event}
@@ -148,7 +140,7 @@ export function CardStack({
                     the card's own transform (not a fixed-position overlay like
                     the old pill), so it visibly tracks the drag like a Tinder
                     stamp. Shows on every swipe, every time, not just first-use. */}
-                {swipeHint && !isDismissingStack && (() => {
+                {swipeHint && (() => {
                   const intensity = Math.min(Math.abs(swipeOffset) / 100, 1);
                   const isRight = swipeHint === "right";
                   return (
@@ -157,7 +149,7 @@ export function CardStack({
                         className="absolute inset-0 rounded-xl pointer-events-none"
                         aria-hidden="true"
                         style={{
-                          backgroundColor: isRight ? "rgb(34,197,94)" : "rgb(248,113,113)",
+                          backgroundColor: isRight ? "rgb(34,197,94)" : "rgb(107,114,128)",
                           opacity: intensity * 0.28,
                           transition: "opacity 0.05s linear",
                         }}
@@ -173,11 +165,11 @@ export function CardStack({
                       >
                         <div
                           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border-[3px] bg-white/95 font-extrabold text-base uppercase tracking-wide shadow-lg ${
-                            isRight ? "border-green-500 text-green-500" : "border-red-400 text-red-400"
+                            isRight ? "border-green-500 text-green-500" : "border-gray-500 text-gray-600"
                           }`}
                         >
                           <span aria-hidden="true">{isRight ? "♥" : "✕"}</span>
-                          <span>{isRight ? "Gemerkt" : "Nope"}</span>
+                          <span>{isRight ? "Gefällt mir" : "Nicht für uns"}</span>
                         </div>
                       </div>
                     </>
@@ -192,75 +184,56 @@ export function CardStack({
                     until the user has completed one real swipe, so the
                     "this card can be swiped" signal doesn't vanish before
                     it's been learned. */}
-                {showPersistentSwipeHint && !swipeHint && !isDismissingStack && !cardExiting && (
+                {showPersistentSwipeHint && !swipeHint && !cardExiting && (
                   <>
                     <span className="swipe-affordance-edge swipe-affordance-left" aria-hidden="true">‹</span>
                     <span className="swipe-affordance-edge swipe-affordance-right" aria-hidden="true">›</span>
                   </>
                 )}
 
-                {isDismissingStack && (
-                  <DismissOverlay
-                    reasons={dismissReasons}
-                    onSubmit={(ids) => onDismissSubmit(event.id, ids)}
-                    onCancel={onDismissCancel}
-                  />
-                )}
               </div>
             </div>
           );
         })()}
 
-        {/* First-time swipe gesture hint (Sprint B, 17.09.2026): shown once
-            so new users learn cards can be swiped, not just tapped via the
-            buttons below. Hidden as soon as a real drag starts (swipeHint
-            takes over) or the parent's own timer/first-touch clears it. */}
-        {showSwipeOnboarding && !swipeHint && (
+        {/* Geste erklärt in Klartext (02.10.2026): bleibt sichtbar, bis der Nutzer
+            zweimal wirklich gewischt hat — nicht nur beim allerersten Touch. */}
+        {showPersistentSwipeHint && (
           <div
-            className="swipe-hint-onboarding absolute inset-x-0 top-0 rounded-2xl pointer-events-none flex items-center justify-between px-5"
-            style={{ height: "200px", zIndex: recommendations.length + 3 }}
+            className="absolute left-0 right-0 flex items-center justify-between px-4 text-[11px] font-bold text-[var(--text-muted)] pointer-events-none"
+            style={{ bottom: "-26px" }}
             aria-hidden="true"
           >
-            <div className="swipe-hint-nudge-left flex flex-col items-start gap-1.5">
-              <span className="text-2xl leading-none text-red-400">←</span>
-              <span className="px-3 py-1 rounded-full bg-red-400 text-white text-xs font-bold shadow-lg whitespace-nowrap">
-                Nicht interessiert
-              </span>
-            </div>
-            <div className="swipe-hint-nudge-right flex flex-col items-end gap-1.5">
-              <span className="text-2xl leading-none text-green-500">→</span>
-              <span className="px-3 py-1 rounded-full bg-green-500 text-white text-xs font-bold shadow-lg whitespace-nowrap">
-                Gemerkt
-              </span>
-            </div>
+            <span>← Nicht für uns</span>
+            <span>Gefällt mir →</span>
           </div>
         )}
 
-        {/* Counter + action buttons */}
-        <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-56px" }}>
+        {/* Zwei klare Buttons — antippen oder wischen, gleiche Wirkung */}
+        <div className="absolute left-0 right-0 flex items-center justify-center gap-6" style={{ bottom: "-84px" }}>
           <button
-            onClick={onCycleCard}
-            aria-label="Nächste Karte"
-            className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg transition-all active:scale-90"
+            onClick={onSwipeLeft}
+            aria-label="Nicht für uns"
+            className="w-14 h-14 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:shadow-lg transition-all active:scale-90"
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 9H4M4 9l5-5M4 9l5 5"/>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <path d="M4 4l12 12M16 4L4 16"/>
             </svg>
           </button>
-          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 min-w-[36px] text-center tabular-nums">
-            {(cardIndex % recommendations.length) + 1}/{recommendations.length}
+          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 min-w-[56px] text-center tabular-nums">
+            noch {recommendations.length}
           </span>
           <button
             onClick={onSwipeRight}
-            aria-label={bookmarks.some((b) => b.id === recommendations[0].id) ? "Event bereits gemerkt" : "Event merken"}
-            className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all active:scale-90 ${
-              bookmarks.some((b) => b.id === recommendations[0].id)
-                ? "bg-kidgo-400 text-white border border-kidgo-300"
-                : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-kidgo-500 hover:border-kidgo-300 hover:shadow-lg"
+            aria-label={likedIds.has(recommendations[0].id) ? "Gefällt dir bereits" : "Gefällt mir"}
+            className={`w-14 h-14 rounded-full shadow-md flex items-center justify-center transition-all active:scale-90 ${
+              likedIds.has(recommendations[0].id)
+                ? "bg-green-500 text-white border-2 border-green-400"
+                : "bg-white dark:bg-gray-800 border-2 border-green-400 text-green-500 hover:shadow-lg"
             }`}
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill={bookmarks.some((b) => b.id === recommendations[0].id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 3h12v13.5L9 13.5 3 16.5V3z"/>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
           </button>
         </div>

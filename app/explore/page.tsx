@@ -15,7 +15,6 @@ import { trackEvent, initScrollDepthTracking } from "@/lib/analytics";
 import { hikingEventAllowed } from "@/lib/interests";
 import { useAuth } from "@/lib/auth-context";
 import { useUserPrefs } from "@/lib/user-prefs-context";
-import { computeRelevanceScores, compareByRelevance, loadRelevanceSignals, EMPTY_SIGNALS, type RelevanceSignals } from "@/lib/relevance";
 import { SearchMissFeedback } from "@/components/SearchMissFeedback";
 import { useUserLocation } from "@/lib/use-user-location";
 import { haversine } from "@/lib/home-constants";
@@ -38,7 +37,7 @@ function saveExploreState(partial: Record<string, unknown>) {
 const PAGE_SIZE = 15; const getCurrentSeason = (): "fruehling" | "sommer" | "herbst" | "winter" => { const month = new Date().getMonth(); if (month >= 2 && month <= 4) return "fruehling"; if (month >= 5 && month <= 7) return "sommer"; if (month >= 8 && month <= 10) return "herbst"; return "winter"; };
 
 type ViewMode     = "list" | "map";
-type SortMode     = "relevance" | "date-asc" | "date-desc" | "newest" | "distance-asc";
+type SortMode     = "date-asc" | "date-desc" | "newest" | "distance-asc";
 type IndoorOutdoor = "all" | "indoor" | "outdoor";
 
 const categoryColors: Record<string, string> = {
@@ -211,7 +210,6 @@ export default function ExplorePage() {
   const { profile } = useAuth();
   const { userLocation } = useUserLocation();
   const { prefs } = useUserPrefs();
-  const [relevanceSignals, setRelevanceSignals] = useState<RelevanceSignals>(EMPTY_SIGNALS);
   const [mounted, setMounted]     = useState(false);
   const [viewMode, setViewMode]   = useState<ViewMode>("list");
   const [search, setSearch]       = useState("");
@@ -228,7 +226,7 @@ export default function ExplorePage() {
   const [selectedCategories, setSelectedCategories]   = useState<string[]>([]);
   const [indoorOutdoor, setIndoorOutdoor] = useState<IndoorOutdoor>("all");
   const [gratisOnly, setGratisOnly]       = useState(false);
-  const [sortMode, setSortMode]           = useState<SortMode>("relevance");
+  const [sortMode, setSortMode]           = useState<SortMode>("date-asc");
   const [filtersExpanded, setFiltersExpanded] = useState(false); // v2: progressive disclosure — category/indoor-outdoor/gratis/date/sort start collapsed
   const [weatherCode, setWeatherCode]     = useState<number | null>(null);
 
@@ -240,7 +238,6 @@ export default function ExplorePage() {
 
   useEffect(() => {
     setMounted(true);
-    setRelevanceSignals(loadRelevanceSignals());
 
     // Read ?view=map from URL without Suspense
     const params = new URLSearchParams(window.location.search);
@@ -261,7 +258,8 @@ export default function ExplorePage() {
         if (saved.indoorOutdoor) setIndoorOutdoor(saved.indoorOutdoor);
         if (typeof saved.gratisOnly === "boolean") setGratisOnly(saved.gratisOnly);
         if (saved.dateFilter) setDateFilter(saved.dateFilter);
-        if (saved.sortMode) setSortMode(saved.sortMode);
+        // "relevance" gibt es in Explore nicht mehr (02.10.2026): alle Events, unpersonalisiert.
+        if (saved.sortMode && saved.sortMode !== "relevance") setSortMode(saved.sortMode);
         if (typeof saved.filtersExpanded === "boolean") setFiltersExpanded(saved.filtersExpanded);
         if (typeof saved.visibleCountFuture === "number") setVisibleCountFuture(saved.visibleCountFuture);
         if (typeof saved.visibleCountAllYear === "number") setVisibleCountAllYear(saved.visibleCountAllYear);
@@ -412,23 +410,11 @@ export default function ExplorePage() {
     return haversine(userLocation.lat, userLocation.lon, Number(e.lat), Number(e.lng));
   };
 
-  // Relevanz-Sortierung (Default): dasselbe Scoring wie die Home-Empfehlungen
-  // (lib/scoring.ts), Alter aus Filter bzw. Profil. Nur berechnet, wenn gewählt.
-  const relevanceScores = useMemo(() => {
-    if (sortMode !== "relevance") return null;
-    const buckets = selectedAgeBuckets.length > 0 ? selectedAgeBuckets : prefs.ageBuckets;
-    return computeRelevanceScores(events, {
-      buckets,
-      weatherCode,
-      userLocation,
-      radiusKm: prefs.radius,
-      signals: relevanceSignals,
-    });
-  }, [sortMode, events, selectedAgeBuckets, prefs.ageBuckets, prefs.radius, weatherCode, userLocation, relevanceSignals]);
-
+  // "Alle Events" ist bewusst NICHT personalisiert (02.10.2026): weggewischte oder
+  // weniger passende Events erscheinen hier trotzdem. Priorisiert nach persönlicher
+  // Relevanz wird nur die Hauptansicht (Home).
   const applySort = (evts: any[]): any[] => {
     const arr = [...evts];
-    if (sortMode === "relevance" && relevanceScores) return arr.sort((a, b) => compareByRelevance(a, b, relevanceScores));
     if (sortMode === "date-asc")     return arr.sort((a, b) => (a.datum || "").localeCompare(b.datum || ""));
     if (sortMode === "date-desc")    return arr.sort((a, b) => (b.datum || "").localeCompare(a.datum || ""));
     if (sortMode === "newest")       return arr.sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -701,7 +687,6 @@ export default function ExplorePage() {
                   onChange={(e) => setSortMode(e.target.value as SortMode)}
                   className="text-xs bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg px-2 py-1 text-[var(--text-secondary)] focus:outline-none focus:ring-1 focus:ring-kidgo-300 transition"
                 >
-                  <option value="relevance">Relevanz</option>
                   <option value="date-asc">Datum auf.</option>
                   <option value="date-desc">Datum ab.</option>
                   <option value="newest">Neueste</option>

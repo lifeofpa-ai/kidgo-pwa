@@ -133,7 +133,7 @@ export function OnboardingFlow() {
       {step < TOTAL_STEPS - 1 && (
         <button
           onClick={handleSkip}
-          className="absolute top-7 right-6 text-white/70 hover:text-white/80 text-sm font-medium transition-colors z-10"
+          className="absolute top-7 right-6 text-white/90 hover:text-white text-sm font-medium transition-colors z-10"
         >
           Überspringen
         </button>
@@ -146,7 +146,7 @@ export function OnboardingFlow() {
         {step === 0 && (
           <div style={{ animation: "tutorialSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) both" }}>
             <h1 className="text-white font-bold text-2xl mb-1">Wie alt sind eure Kinder?</h1>
-            <p className="text-white/70 text-sm mb-7">Mehrere Altersgruppen wählbar</p>
+            <p className="text-white/90 text-sm mb-7">Mehrere Altersgruppen wählbar</p>
             <div className="grid grid-cols-2 gap-3">
               {AGE_OPTIONS.map(({ key, label, desc }) => {
                 const active = ages.includes(key);
@@ -165,7 +165,7 @@ export function OnboardingFlow() {
                       </span>
                     )}
                     <p className="text-white font-bold text-2xl">{label}</p>
-                    <p className="text-white/70 text-xs mt-0.5">{desc}</p>
+                    <p className="text-white/90 text-sm mt-0.5">{desc}</p>
                   </button>
                 );
               })}
@@ -177,7 +177,7 @@ export function OnboardingFlow() {
         {step === 1 && (
           <div style={{ animation: "tutorialSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) both" }}>
             <h1 className="text-white font-bold text-2xl mb-1">Was interessiert euch?</h1>
-            <p className="text-white/70 text-sm mb-5">Wähle alles was passt</p>
+            <p className="text-white/90 text-sm mb-5">Wähle alles was passt</p>
             <div className="grid grid-cols-2 gap-2.5 pb-2" style={{ maxHeight: "52vh", overflowY: "auto", scrollbarWidth: "none" }}>
               {INTERESTS.map((interest) => {
                 const active  = interests.includes(interest.id);
@@ -221,7 +221,7 @@ export function OnboardingFlow() {
         {step === 3 && (
           <div style={{ animation: "tutorialSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) both" }}>
             <h1 className="text-white font-bold text-2xl mb-1">Wie weit reist ihr?</h1>
-            <p className="text-white/70 text-sm mb-10">Bevorzugter Umkreis ab {userLocation?.label ?? "Zürich"}</p>
+            <p className="text-white/90 text-sm mb-10">Bevorzugter Umkreis ab {userLocation?.label ?? "Zürich"}</p>
             <div className="flex justify-center gap-3 flex-wrap mb-8">
               {RADIUS_PRESETS.map((preset) => {
                 const active = radius === preset.km;
@@ -233,7 +233,7 @@ export function OnboardingFlow() {
                     style={glassCard(active)}
                   >
                     <span className="text-white font-bold text-sm text-center leading-tight">{preset.label}</span>
-                    <span className="text-white/60 text-xs">{preset.hint}</span>
+                    <span className="text-white/80 text-sm">{preset.hint}</span>
                   </button>
                 );
               })}
@@ -266,13 +266,13 @@ export function OnboardingFlow() {
             </div>
             <h1 className="text-white font-bold text-2xl mb-4">Alles bereit!</h1>
             <div className="space-y-1.5 mb-10">
-              <p className="text-white/60 text-sm">
+              <p className="text-white/80 text-sm">
                 {ages.length > 0 ? `Alter: ${ages.join(", ")}` : "Alle Altersgruppen"}
               </p>
               {interests.length > 0 && (
-                <p className="text-white/60 text-sm">{interests.length} Interessen gewählt</p>
+                <p className="text-white/80 text-sm">{interests.length} Interessen gewählt</p>
               )}
-              <p className="text-white/60 text-sm">Umkreis: {RADIUS_PRESETS.find((p) => p.km === radius)?.label ?? `${radius} km`}</p>
+              <p className="text-white/80 text-sm">Umkreis: {RADIUS_PRESETS.find((p) => p.km === radius)?.label ?? `${radius} km`}</p>
             </div>
           </div>
         )}
@@ -307,7 +307,7 @@ export function OnboardingFlow() {
           {step > 0 && (
             <button
               onClick={prev}
-              className="w-full py-2 text-white/60 hover:text-white/70 text-sm transition-colors"
+              className="w-full py-2 text-white/80 hover:text-white/90 text-sm transition-colors"
             >
               Zurück
             </button>

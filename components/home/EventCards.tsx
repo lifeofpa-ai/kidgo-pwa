@@ -131,10 +131,10 @@ export function RecommendationCard({
     if (km < 50) distanceLabel = km < 1 ? "< 1 km entfernt" : `~${Math.round(km)} km entfernt`;
   }
 
-  const displayReasons = [...reasons];
-  if (distanceLabel && !displayReasons.some((r) => r.includes("km")))
-    displayReasons.push(distanceLabel);
-  const shownReasons = displayReasons.slice(0, 2);
+  // 02.10.2026: keine Begründung ("Passt zu euren Interessen" o.ä.) auf Kacheln.
+  // Kidgo lernt im Hintergrund; sichtbar bleibt nur die nützliche Entfernung.
+  void reasons;
+  const shownReasons = distanceLabel ? [distanceLabel] : [];
 
   const matchingBuckets =
     selectedBuckets.length > 1 && event.alters_buckets

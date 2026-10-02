@@ -150,7 +150,7 @@ export function HeroSection({
                         <h3 className="font-bold text-[var(--text-primary)] text-xs leading-snug line-clamp-2 group-hover:text-kidgo-500 transition-colors mb-1.5">
                           {event.titel}
                         </h3>
-                        <div className="flex items-center gap-1 text-[10px]">
+                        <div className="flex items-center gap-1 text-xs">
                           {event.datum ? (
                             <span className={`font-semibold ${getCountdownLabel(event.datum, now).urgent ? "text-kidgo-500" : "text-[var(--text-muted)]"}`}>
                               {getCountdownLabel(event.datum, now).label}
@@ -160,7 +160,7 @@ export function HeroSection({
                           )}
                         </div>
                         {event.reasons.length > 0 && (
-                          <span className="mt-1.5 inline-block text-[10px] font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
+                          <span className="mt-1.5 inline-block text-xs font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
                             {event.reasons[0]}
                           </span>
                         )}

@@ -70,8 +70,8 @@ function PopularCard({ event, rank }: { event: RankedEvent; rank: number }) {
           <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">
             {event.titel}
           </p>
-          {event.ort && <p className="text-[10px] text-[var(--text-muted)] mt-1 truncate">{event.ort.split(",")[0].trim()}</p>}
-          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-kidgo-600 font-semibold">
+          {event.ort && <p className="text-xs text-[var(--text-muted)] mt-1 truncate">{event.ort.split(",")[0].trim()}</p>}
+          <div className="mt-1.5 flex items-center gap-1 text-xs text-kidgo-600 font-semibold">
             <svg width="10" height="10" viewBox="0 0 14 14" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 2h10v11L7 10 2 13V2z" />
             </svg>
@@ -151,7 +151,7 @@ export function PopularAgeGroupSection({ ageGroupEvents, bookmarkCounts, selecte
         <div className="flex items-center justify-between mb-3 px-0.5">
           <div>
             <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Beliebt in deiner Altersklasse</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{ageLabel}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">{ageLabel}</p>
           </div>
           <Link href="/explore" className="text-xs font-semibold text-kidgo-500 hover:text-kidgo-600 transition">
             Alle →

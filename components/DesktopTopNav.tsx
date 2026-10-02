@@ -104,7 +104,7 @@ export function DesktopTopNav() {
       </nav>
 
       {/* Tagline — same spot the sidebar footer occupied, hidden on narrower desktop widths */}
-      <p className="text-[10px] text-[var(--text-muted)] hidden lg:block flex-shrink-0">Kidgo · Zürich</p>
+      <p className="text-xs text-[var(--text-muted)] hidden lg:block flex-shrink-0">Kidgo · Zürich</p>
     </header>
   );
 }

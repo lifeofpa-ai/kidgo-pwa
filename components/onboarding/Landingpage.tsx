@@ -49,8 +49,8 @@ const BENEFITS = [
 ];
 
 const STEPS = [
-  { title: "Swipen", desc: "Events entdecken — nach rechts merken, nach links weiter." },
-  { title: "Merken", desc: "Gemerkte Events landen auf deiner Merkliste, jederzeit griffbereit." },
+  { title: "Swipen", desc: "Rechts: gefällt mir. Links: nicht für uns. Kidgo lernt mit." },
+  { title: "Merken", desc: "Mit dem Lesezeichen landen Events auf deiner Merkliste." },
   { title: "Planen", desc: "Im Planer siehst du alles Kommende auf einen Blick." },
 ];
 
@@ -111,7 +111,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
         <h1 className="text-white font-bold text-2xl leading-snug mb-3 max-w-sm mx-auto">
           Spontan die passende Kinderaktivität finden — heute, in deiner Nähe.
         </h1>
-        <p className="text-white/60 text-sm max-w-xs mx-auto mb-8">
+        <p className="text-white/80 text-sm max-w-xs mx-auto mb-8">
           Wetter-, saison- und ortsbewusst — passend zu deinen Kindern, mit garantiert aktuellen Daten.
         </p>
         <button
@@ -171,7 +171,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
               </div>
               <div>
                 <p className="font-bold text-gray-800 text-sm">{b.title}</p>
-                <p className="text-gray-500 text-xs mt-0.5 leading-snug">{b.desc}</p>
+                <p className="text-gray-600 text-sm mt-0.5 leading-snug">{b.desc}</p>
               </div>
             </div>
           ))}
@@ -187,8 +187,8 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
               <div className="w-10 h-10 rounded-full bg-[#5BBAA7] text-white font-bold flex items-center justify-center mx-auto mb-2">
                 {i + 1}
               </div>
-              <p className="font-bold text-gray-800 text-xs mb-1">{s.title}</p>
-              <p className="text-gray-500 text-[11px] leading-snug">{s.desc}</p>
+              <p className="font-bold text-gray-800 text-sm mb-1">{s.title}</p>
+              <p className="text-gray-600 text-sm leading-snug">{s.desc}</p>
             </div>
           ))}
         </div>
@@ -221,7 +221,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
 
       {/* INSTALL HINT */}
       <div className="px-5 pb-10 pt-2 text-center">
-        <p className="text-gray-400 text-[11px]">
+        <p className="text-gray-400 text-xs">
           Tipp: Über &quot;Zum Startbildschirm hinzufügen&quot; im Browser-Menü installierst du Kidgo wie eine App.
         </p>
       </div>

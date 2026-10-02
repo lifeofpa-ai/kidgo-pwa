@@ -121,7 +121,7 @@ export function BadgePopup({ badge, onClose }: BadgePopupProps) {
         <div className="mb-2 relative z-10 flex justify-center">
           <BadgeIcon id={badge.id} />
         </div>
-        <p className="text-[10px] font-bold text-kidgo-500 uppercase tracking-widest mb-1 relative z-10">
+        <p className="text-xs font-bold text-kidgo-500 uppercase tracking-widest mb-1 relative z-10">
           Neues Abzeichen!
         </p>
         <p className="text-base font-extrabold text-gray-800 dark:text-white mb-0.5 relative z-10">

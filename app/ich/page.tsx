@@ -506,7 +506,7 @@ export default function IchPage() {
                         style={{ width: `${Math.min(levelInfo.progress, 100)}%` }}
                       />
                     </div>
-                    <p className="text-white/60 text-[10px] mt-0.5">
+                    <p className="text-white/60 text-xs mt-0.5">
                       {levelInfo.next ? `Noch ${levelInfo.eventsToNext} bis ${levelInfo.next.label}` : "Maximales Level!"}
                     </p>
                   </div>
@@ -929,7 +929,7 @@ export default function IchPage() {
                   }`}
                 >
                   <span className="text-2xl">{emoji}</span>
-                  <span className="text-[10px] font-medium text-[var(--text-muted)]">{label}</span>
+                  <span className="text-xs font-medium text-[var(--text-muted)]">{label}</span>
                 </button>
               ))}
             </div>

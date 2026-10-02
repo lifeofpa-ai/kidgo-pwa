@@ -200,7 +200,7 @@ export function CardStack({
             zweimal wirklich gewischt hat — nicht nur beim allerersten Touch. */}
         {showPersistentSwipeHint && (
           <div
-            className="absolute left-0 right-0 flex items-center justify-between px-4 text-[11px] font-bold text-[var(--text-muted)] pointer-events-none"
+            className="absolute left-0 right-0 flex items-center justify-between px-4 text-xs font-bold text-[var(--text-muted)] pointer-events-none"
             style={{ bottom: "-26px" }}
             aria-hidden="true"
           >

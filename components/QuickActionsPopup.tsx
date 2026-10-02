@@ -91,7 +91,7 @@ export function QuickActionsPopup({
             }`}
           >
             <div className="w-5 h-5 flex items-center justify-center">{a.icon}</div>
-            <span className="text-[10px] font-medium leading-none">{a.label}</span>
+            <span className="text-[11px] font-medium leading-none">{a.label}</span>
           </button>
         ))}
       </div>

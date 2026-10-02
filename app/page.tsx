@@ -763,14 +763,21 @@ export default function Home() {
   // Note: advance to "recommendations" even when no ages were selected (show all events).
   useEffect(() => {
     if (!prefsMounted || !prefs.onboarded) return;
-    if (prefs.ageBuckets.length > 0) {
-      setSelectedBuckets((prev) => (prev.length > 0 ? prev : prefs.ageBuckets));
-      if (prefs.ageBuckets.length > 1) setMultiChild(true);
+    // 02.10.2026: Kinder im Profil (Name + Altersgruppe) bestimmen die Altersgruppen
+    // automatisch — sie sind detaillierter und im Profil bearbeitbar. Ohne Kinder
+    // gelten die Altersgruppen aus dem Onboarding.
+    const childBuckets = Array.from(
+      new Set((profile?.children ?? []).map((c) => c.age_bucket).filter(Boolean))
+    );
+    const effectiveBuckets = childBuckets.length > 0 ? childBuckets : prefs.ageBuckets;
+    if (effectiveBuckets.length > 0) {
+      setSelectedBuckets((prev) => (prev.length > 0 ? prev : effectiveBuckets));
+      if (effectiveBuckets.length > 1) setMultiChild(true);
     }
     setStep("recommendations");
-  // prefs.ageBuckets.join ensures the effect re-runs when the array content changes
+  // join() sorgt dafür, dass der Effekt bei Inhaltsänderungen neu läuft
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefsMounted, prefs.onboarded, prefs.ageBuckets.join(",")]);
+  }, [prefsMounted, prefs.onboarded, prefs.ageBuckets.join(","), (profile?.children ?? []).map((c) => c.age_bucket).join(",")]);
 
   useEffect(() => {
     if (step !== "recommendations") return;

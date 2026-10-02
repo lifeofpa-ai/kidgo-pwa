@@ -85,7 +85,7 @@ export function SpontanSection({ allEventsPool, weatherCode, selectedBuckets, no
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-sky-100 to-cyan-50 dark:from-sky-900/40 dark:to-cyan-900/40" />
                   )}
-                  <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/90 text-sky-700">
+                  <span className="absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-white/90 text-sky-700">
                     Immer offen
                   </span>
                 </div>

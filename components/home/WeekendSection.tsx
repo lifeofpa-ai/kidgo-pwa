@@ -45,7 +45,7 @@ export function WeekendSection({ weekendEvents }: WeekendSectionProps) {
                   )}
                   {event.datum && (
                     <div className="absolute bottom-2 left-2">
-                      <span className="text-[10px] font-bold text-white bg-[#5BBAA7] rounded-full px-2 py-0.5">
+                      <span className="text-xs font-bold text-white bg-[#5BBAA7] rounded-full px-2 py-0.5">
                         {new Date(event.datum + "T00:00:00").toLocaleDateString("de-CH", { weekday: "short", day: "numeric" })}
                       </span>
                     </div>
@@ -53,7 +53,7 @@ export function WeekendSection({ weekendEvents }: WeekendSectionProps) {
                 </div>
                 <div className="p-3 bg-[var(--bg-card)]">
                   <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2 group-hover:text-[#5BBAA7] transition-colors">{event.titel}</p>
-                  {event.ort && <p className="text-[10px] text-[var(--text-muted)] mt-1 truncate">{event.ort.split(",")[0].trim()}</p>}
+                  {event.ort && <p className="text-xs text-[var(--text-muted)] mt-1 truncate">{event.ort.split(",")[0].trim()}</p>}
                 </div>
               </div>
             </Link>

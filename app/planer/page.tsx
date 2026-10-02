@@ -106,7 +106,7 @@ export default function PlanerPage() {
                     selected ? "bg-kidgo-50 dark:bg-kidgo-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   } ${isToday ? "border-b-2 border-kidgo-400" : "border-b-2 border-transparent"}`}
                 >
-                  <span className={`text-[10px] font-semibold uppercase ${
+                  <span className={`text-xs font-semibold uppercase ${
                     isToday ? "text-kidgo-500" : selected ? "text-kidgo-500" : "text-[var(--text-muted)]"
                   }`}>
                     {DAY_LABELS[i]}
@@ -201,7 +201,7 @@ export default function PlanerPage() {
                         </p>
                       )}
                       {ev.kategorien && ev.kategorien.length > 0 && (
-                        <span className="mt-1 inline-block text-[10px] font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
+                        <span className="mt-1 inline-block text-xs font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
                           {ev.kategorien[0]}
                         </span>
                       )}

@@ -111,7 +111,7 @@ export function DesktopSideNav() {
 
       {/* Bottom */}
       <div className="p-4 border-t border-[var(--border)]">
-        <p className="text-[10px] text-[var(--text-muted)] text-center">Kidgo · Zürich</p>
+        <p className="text-xs text-[var(--text-muted)] text-center">Kidgo · Zürich</p>
       </div>
     </aside>
   );

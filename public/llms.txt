@@ -1,0 +1,19 @@
+# Kidgo
+
+> Kidgo (kidgo.ch) ist eine kostenlose Web-App, die Eltern in der Region Zürich hilft, spontan passende Kinder- und Familienangebote zu finden: Events mit Datum, Ferienlager/Camps sowie Dauerangebote wie Museen, Tierparks, Spielplätze und Erlebniswege. Die Daten werden täglich automatisch aktualisiert.
+
+## Was Kidgo abdeckt
+- Region: Kanton Zürich und nahe Umgebung
+- Zielgruppe: Familien mit Kindern bis 12 Jahre
+- Inhalte: Kinder-Events (mit Datum), Ferienlager und Feriencamps, Dauerangebote (mit Öffnungszeiten)
+- Nicht enthalten: religiöse Anlässe, reine Erwachsenen-Events, Angebote ausserhalb der Region Zürich
+
+## Wichtige Seiten
+- [Startseite](https://kidgo.ch/): Aktuelle, passende Vorschläge
+- [Alle Events](https://kidgo.ch/explore): Durchsuchbare Liste aller Angebote mit Filtern (Alter, Ort, Kategorie, Datum)
+- Einzelne Angebote: https://kidgo.ch/events/{id} – mit Titel, Beschreibung, Ort, Datum bzw. Öffnungszeiten und Link zum Veranstalter
+- [Sitemap](https://kidgo.ch/sitemap.xml): Vollständige Liste aller aktuellen Angebote
+
+## Hinweise zur Nutzung der Daten
+- Jedes Angebot verweist auf die Originalquelle des Veranstalters; massgeblich sind dort Termine, Preise und Anmeldung.
+- Kidgo ist ein unabhängiges Projekt aus der Schweiz.

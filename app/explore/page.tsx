@@ -53,6 +53,8 @@ const categoryColors: Record<string, string> = {
   "Wissenschaft":  "bg-cyan-50 text-cyan-600 border-cyan-100 dark:bg-cyan-950/30 dark:text-cyan-400 dark:border-cyan-900",
   "Bildung":       "bg-kidgo-50 text-kidgo-600 border-kidgo-100 dark:bg-kidgo-950/30 dark:text-kidgo-400 dark:border-kidgo-900",
   "Ausflug":       "bg-teal-50 text-teal-600 border-teal-100 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900",
+  "Wandern":       "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900",
+  "Familie":       "bg-orange-50 text-orange-600 border-orange-100 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-900",
   "Feriencamp":    "bg-kidgo-50 text-kidgo-600 border-kidgo-100 dark:bg-kidgo-950/30 dark:text-kidgo-400 dark:border-kidgo-900",
 };
 
@@ -68,6 +70,8 @@ const categoryBgColors: Record<string, string> = {
   "Wissenschaft":  "#06B6D4",
   "Bildung":       "#F59E0B",
   "Ausflug":       "#14B8A6",
+  "Wandern":       "#A16207",
+  "Familie":       "#FB923C",
   "Feriencamp":    "#06B6D4",
 };
 
@@ -96,7 +100,7 @@ function EventCard({ event, source, serienCount, formatDate, distanceKm }: {
     "Sport": "#3B82F6", "Kreativ": "#EC4899", "Musik": "#8B5CF6",
     "Tanz": "#8B5CF6", "Natur": "#22C55E", "Tiere": "#22C55E",
     "Theater": "#EF4444", "Feriencamp": "#06B6D4",
-    "Bildung": "#F59E0B", "Wissenschaft": "#F59E0B", "Ausflug": "#14B8A6",
+    "Bildung": "#F59E0B", "Wissenschaft": "#F59E0B", "Ausflug": "#14B8A6", "Wandern": "#A16207", "Familie": "#FB923C",
   };
   const leftBorderColor = catBorderColors[cat] || "var(--kidgo-teal)";
 
@@ -317,7 +321,7 @@ export default function ExplorePage() {
 
   const categories = [
     "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
-    "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Feriencamp",
+    "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Wandern", "Familie", "Feriencamp",
   ];
 
   const handleSearch = useCallback(async () => {

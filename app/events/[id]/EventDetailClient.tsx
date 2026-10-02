@@ -39,6 +39,8 @@ const categoryColors: Record<string, string> = {
   "Wissenschaft": "bg-cyan-50 text-cyan-600 border-cyan-100",
   "Bildung": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
   "Ausflug": "bg-teal-50 text-teal-600 border-teal-100",
+  "Wandern": "bg-amber-50 text-amber-700 border-amber-100",
+  "Familie": "bg-orange-50 text-orange-600 border-orange-100",
   "Feriencamp": "bg-kidgo-50 text-kidgo-500 border-kidgo-100",
 };
 
@@ -54,6 +56,8 @@ const categoryFallbackColors: Record<string, string> = {
   "Wissenschaft": "from-cyan-100 to-sky-50",
   "Bildung": "from-kidgo-100 to-kidgo-50",
   "Ausflug": "from-teal-100 to-green-50",
+  "Wandern": "from-amber-100 to-lime-50",
+  "Familie": "from-orange-100 to-amber-50",
   "Feriencamp": "from-kidgo-100 to-kidgo-50",
 };
 

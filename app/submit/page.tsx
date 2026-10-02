@@ -9,7 +9,7 @@ type Tab = "event" | "quelle";
 
 const CATEGORIES = [
   "Kreativ", "Natur", "Tiere", "Sport", "Tanz",
-  "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Feriencamp",
+  "Theater", "Musik", "Mode & Design", "Wissenschaft", "Bildung", "Ausflug", "Wandern", "Familie", "Feriencamp",
 ];
 
 function generateMathQuestion(): { q: string; answer: number } {

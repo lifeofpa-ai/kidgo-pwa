@@ -153,7 +153,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
                     />
                     <div className="p-3 flex-1 min-w-0">
                       <p className="font-bold text-gray-800 text-sm leading-tight truncate">{ev.titel}</p>
-                      {ev.ort && <p className="text-gray-500 text-xs mt-1 truncate">{ev.ort}</p>}
+                      {ev.ort && <p className="text-gray-600 text-sm mt-1 truncate">{ev.ort}</p>}
                     </div>
                   </div>
                 ))}
@@ -196,14 +196,14 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
 
       {/* TRUST */}
       <div className="px-5 pt-8 pb-4 text-center">
-        <div className="flex items-center justify-center gap-4 text-gray-400 text-xs mb-3 flex-wrap">
+        <div className="flex items-center justify-center gap-4 text-gray-600 text-sm mb-3 flex-wrap">
           <span>Kostenlos</span>
           <span aria-hidden="true">·</span>
           <span>Ohne Werbung</span>
           <span aria-hidden="true">·</span>
           <Link href="/datenschutz" className="underline hover:text-gray-600">Datenschutz</Link>
         </div>
-        <p className="text-gray-400 text-xs mb-6">
+        <p className="text-gray-600 text-sm mb-6">
           Kidgo ist in der Beta — <Link href="/feedback" className="underline hover:text-gray-600">dein Feedback zählt</Link>.
         </p>
         <button
@@ -221,7 +221,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
 
       {/* INSTALL HINT */}
       <div className="px-5 pb-10 pt-2 text-center">
-        <p className="text-gray-400 text-xs">
+        <p className="text-gray-600 text-sm">
           Tipp: Über &quot;Zum Startbildschirm hinzufügen&quot; im Browser-Menü installierst du Kidgo wie eine App.
         </p>
       </div>

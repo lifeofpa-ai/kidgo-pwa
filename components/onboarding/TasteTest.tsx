@@ -92,12 +92,12 @@ export function TasteTest({
   };
 
   if (cards === null) {
-    return <p className="text-white/60 text-sm py-16 text-center">Einen Moment …</p>;
+    return <p className="text-white/80 text-sm py-16 text-center">Einen Moment …</p>;
   }
   if (cards.length < 3) {
     return (
       <div className="text-center py-10">
-        <p className="text-white/70 text-sm mb-4">Heute gibt es keine Beispiele – Kidgo lernt beim Stöbern.</p>
+        <p className="text-white/90 text-sm mb-4">Heute gibt es keine Beispiele – Kidgo lernt beim Stöbern.</p>
         <button onClick={onDone} className="text-[#5BBAA7] font-bold text-sm">Weiter</button>
       </div>
     );
@@ -107,13 +107,13 @@ export function TasteTest({
   return (
     <div style={{ animation: "tutorialSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) both" }}>
       <h1 className="text-white font-bold text-2xl mb-1">Was gefällt euch?</h1>
-      <p className="text-white/60 text-sm mb-5">{idx + 1} von {cards.length} – so lernt Kidgo euren Geschmack</p>
+      <p className="text-white/80 text-sm mb-5">{idx + 1} von {cards.length} – so lernt Kidgo euren Geschmack</p>
       <div className="rounded-2xl overflow-hidden border-2" style={{ borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={e.kategorie_bild_url ?? ""} alt={e.titel} className="w-full h-44 object-cover" />
         <div className="p-4">
           <p className="text-white font-bold text-base leading-snug mb-1">{e.titel}</p>
-          <p className="text-white/60 text-xs">{[e.kategorien?.[0], e.ort?.split(",")[0]].filter(Boolean).join(" · ")}</p>
+          <p className="text-white/80 text-sm">{[e.kategorien?.[0], e.ort?.split(",")[0]].filter(Boolean).join(" · ")}</p>
         </div>
       </div>
       <div className="flex gap-3 mt-5">

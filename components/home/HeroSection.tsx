@@ -52,14 +52,6 @@ export function HeroSection({
                 title={heroEvent.titel}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-              {/* Reason badges top-left */}
-              <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                {heroEvent.reasons.slice(0, 2).map((r) => (
-                  <span key={r} className="bg-white/90 text-kidgo-600 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm">
-                    {r}
-                  </span>
-                ))}
-              </div>
               {/* Bookmark button top-right */}
               <button
                 onClick={(e) => onBookmark(heroEvent, e)}
@@ -159,11 +151,6 @@ export function HeroSection({
                             <span className="text-green-600 font-semibold">Ganzjährig</span>
                           )}
                         </div>
-                        {event.reasons.length > 0 && (
-                          <span className="mt-1.5 inline-block text-xs font-semibold text-kidgo-500 bg-kidgo-50 px-2 py-0.5 rounded-full">
-                            {event.reasons[0]}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </Link>

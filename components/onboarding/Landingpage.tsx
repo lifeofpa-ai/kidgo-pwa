@@ -105,13 +105,16 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
         className="px-6 pt-14 pb-16 text-center"
         style={{ background: "linear-gradient(160deg, #0d2e2a 0%, #1a4a42 55%, #0d2e2a 100%)" }}
       >
-        <div className="flex justify-center mb-6">
-          <KidgoLogo size="md" mono animated />
+        <div
+          className="flex justify-center mb-6"
+          style={{ ["--kidgo-logo-ink" as string]: "#FFFFFF", ["--kidgo-logo-go" as string]: "#7CCBB9" }}
+        >
+          <KidgoLogo size="md" animated />
         </div>
         <h1 className="text-white font-bold text-2xl leading-snug mb-3 max-w-sm mx-auto">
           Spontan die passende Kinderaktivität finden — heute, in deiner Nähe.
         </h1>
-        <p className="text-white/80 text-sm max-w-xs mx-auto mb-8">
+        <p className="text-white/90 text-sm max-w-xs mx-auto mb-8">
           Wetter-, saison- und ortsbewusst — passend zu deinen Kindern, mit garantiert aktuellen Daten.
         </p>
         <button
@@ -130,12 +133,12 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
       {/* LIVE PREVIEW */}
       {previewEvents === null || previewEvents.length > 0 ? (
         <div className="px-5 pt-8 pb-2">
-          <h2 className="text-[var(--text-primary,#2D3436)] font-bold text-lg mb-1">Das ist heute los</h2>
-          <p className="text-gray-500 text-sm mb-4">Eine Vorschau in die App</p>
+          <h2 className="text-[#2D3436] font-bold text-lg mb-1">Das ist heute los</h2>
+          <p className="text-[#4B5563] text-sm mb-4">Eine Vorschau in die App</p>
           <div className="grid grid-cols-1 gap-3">
             {previewEvents === null
               ? Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex" aria-hidden="true">
+                  <div key={i} className="bg-[#FFFFFF] rounded-xl shadow-sm border border-[#E5E7EB] overflow-hidden flex" aria-hidden="true">
                     <div className="w-24 h-24 skeleton flex-shrink-0" />
                     <div className="p-3 flex-1 space-y-2">
                       <div className="h-3.5 skeleton w-2/3" />
@@ -144,7 +147,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
                   </div>
                 ))
               : previewEvents.map((ev) => (
-                  <div key={ev.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex">
+                  <div key={ev.id} className="bg-[#FFFFFF] rounded-xl shadow-sm border border-[#E5E7EB] overflow-hidden flex">
                     <EventImage
                       url={ev.kategorie_bild_url}
                       kategorien={ev.kategorien}
@@ -152,8 +155,8 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
                       className="w-24 h-24 flex-shrink-0"
                     />
                     <div className="p-3 flex-1 min-w-0">
-                      <p className="font-bold text-gray-800 text-sm leading-tight truncate">{ev.titel}</p>
-                      {ev.ort && <p className="text-gray-600 text-sm mt-1 truncate">{ev.ort}</p>}
+                      <p className="font-bold text-[#1F2937] text-sm leading-tight truncate">{ev.titel}</p>
+                      {ev.ort && <p className="text-[#4B5563] text-sm mt-1 truncate">{ev.ort}</p>}
                     </div>
                   </div>
                 ))}
@@ -166,12 +169,12 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
         <div className="grid grid-cols-1 gap-3">
           {BENEFITS.map((b) => (
             <div key={b.title} className="flex items-start gap-3 bg-[#EFF8F6] rounded-xl p-4">
-              <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center flex-shrink-0 text-[#4A9E8E]">
+              <div className="w-10 h-10 rounded-lg bg-[#FFFFFF] flex items-center justify-center flex-shrink-0 text-[#4A9E8E]">
                 {b.icon}
               </div>
               <div>
-                <p className="font-bold text-gray-800 text-sm">{b.title}</p>
-                <p className="text-gray-600 text-sm mt-0.5 leading-snug">{b.desc}</p>
+                <p className="font-bold text-[#1F2937] text-sm">{b.title}</p>
+                <p className="text-[#4B5563] text-sm mt-0.5 leading-snug">{b.desc}</p>
               </div>
             </div>
           ))}
@@ -180,15 +183,15 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
 
       {/* HOW IT WORKS */}
       <div className="px-5 pt-8 pb-2">
-        <h2 className="text-[var(--text-primary,#2D3436)] font-bold text-lg mb-4">So funktioniert&apos;s</h2>
+        <h2 className="text-[#2D3436] font-bold text-lg mb-4">So funktioniert&apos;s</h2>
         <div className="grid grid-cols-3 gap-3">
           {STEPS.map((s, i) => (
             <div key={s.title} className="text-center">
               <div className="w-10 h-10 rounded-full bg-[#5BBAA7] text-white font-bold flex items-center justify-center mx-auto mb-2">
                 {i + 1}
               </div>
-              <p className="font-bold text-gray-800 text-sm mb-1">{s.title}</p>
-              <p className="text-gray-600 text-sm leading-snug">{s.desc}</p>
+              <p className="font-bold text-[#1F2937] text-sm mb-1">{s.title}</p>
+              <p className="text-[#4B5563] text-sm leading-snug">{s.desc}</p>
             </div>
           ))}
         </div>
@@ -196,15 +199,15 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
 
       {/* TRUST */}
       <div className="px-5 pt-8 pb-4 text-center">
-        <div className="flex items-center justify-center gap-4 text-gray-600 text-sm mb-3 flex-wrap">
+        <div className="flex items-center justify-center gap-4 text-[#4B5563] text-sm mb-3 flex-wrap">
           <span>Kostenlos</span>
           <span aria-hidden="true">·</span>
           <span>Ohne Werbung</span>
           <span aria-hidden="true">·</span>
-          <Link href="/datenschutz" className="underline hover:text-gray-600">Datenschutz</Link>
+          <Link href="/datenschutz" className="underline hover:text-[#1F2937]">Datenschutz</Link>
         </div>
-        <p className="text-gray-600 text-sm mb-6">
-          Kidgo ist in der Beta — <Link href="/feedback" className="underline hover:text-gray-600">dein Feedback zählt</Link>.
+        <p className="text-[#4B5563] text-sm mb-6">
+          Kidgo ist in der Beta — <Link href="/feedback" className="underline hover:text-[#1F2937]">dein Feedback zählt</Link>.
         </p>
         <button
           onClick={handleContinue}
@@ -221,7 +224,7 @@ export function Landingpage({ onContinue }: { onContinue: () => void }) {
 
       {/* INSTALL HINT */}
       <div className="px-5 pb-10 pt-2 text-center">
-        <p className="text-gray-600 text-sm">
+        <p className="text-[#4B5563] text-sm">
           Tipp: Über &quot;Zum Startbildschirm hinzufügen&quot; im Browser-Menü installierst du Kidgo wie eine App.
         </p>
       </div>

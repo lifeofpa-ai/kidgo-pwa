@@ -274,6 +274,15 @@ export default function IchPage() {
     try { localStorage.setItem("kidgo_theme", dark ? "dark" : "light"); } catch {}
   };
 
+  // 23.10.2026: Altersgruppen-Anzeige folgt den Kindern (wie auf der Startseite);
+  // ohne Kinder gelten die Onboarding-Altersgruppen.
+  const ageBucketsForDisplay: string[] = (() => {
+    const fromChildren = Array.from(
+      new Set((profile?.children ?? []).map((c) => c.age_bucket).filter(Boolean))
+    );
+    return fromChildren.length > 0 ? fromChildren : prefs.ageBuckets;
+  })();
+
   const addChild = () => setChildren((prev) => [...prev, { name: "", age_bucket: "4-6" }]);
   const removeChild = (i: number) => setChildren((prev) => prev.filter((_, idx) => idx !== i));
   const updateChild = (i: number, field: keyof Child, val: string) =>
@@ -635,8 +644,8 @@ export default function IchPage() {
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1.5">Altersgruppen</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {prefs.ageBuckets.length > 0
-                      ? prefs.ageBuckets.map((b) => (
+                    {ageBucketsForDisplay.length > 0
+                      ? ageBucketsForDisplay.map((b) => (
                           <span key={b} className="px-2.5 py-1 rounded-full text-xs font-semibold bg-kidgo-400 text-white">{b}</span>
                         ))
                       : <span className="text-xs text-[var(--text-muted)]">Keine gewählt</span>

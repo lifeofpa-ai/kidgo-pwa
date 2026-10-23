@@ -223,6 +223,9 @@ export default function ExplorePage() {
   const [visibleCountFuture, setVisibleCountFuture]   = useState(PAGE_SIZE);
   const [visibleCountAllYear, setVisibleCountAllYear] = useState(PAGE_SIZE);
   const [selectedAgeBuckets, setSelectedAgeBuckets]   = useState<string[]>([]);
+  // true = Event muss ALLE gewählten Altersgruppen abdecken (Schnittmenge, Default bei mehreren Kindern);
+  // false = mindestens eine (bisheriges Verhalten, bei manueller Auswahl).
+  const [ageMatchAll, setAgeMatchAll]                 = useState(false);
   const [selectedCategories, setSelectedCategories]   = useState<string[]>([]);
   const [indoorOutdoor, setIndoorOutdoor] = useState<IndoorOutdoor>("all");
   const [gratisOnly, setGratisOnly]       = useState(false);
@@ -254,6 +257,7 @@ export default function ExplorePage() {
         isRestoringRef.current = true;
         if (typeof saved.search === "string") setSearch(saved.search);
         if (Array.isArray(saved.selectedAgeBuckets)) setSelectedAgeBuckets(saved.selectedAgeBuckets);
+        if (typeof saved.ageMatchAll === "boolean") setAgeMatchAll(saved.ageMatchAll);
         if (Array.isArray(saved.selectedCategories)) setSelectedCategories(saved.selectedCategories);
         if (saved.indoorOutdoor) setIndoorOutdoor(saved.indoorOutdoor);
         if (typeof saved.gratisOnly === "boolean") setGratisOnly(saved.gratisOnly);
@@ -288,10 +292,10 @@ export default function ExplorePage() {
   useEffect(() => {
     if (!mounted) return;
     saveExploreState({
-      search, selectedAgeBuckets, selectedCategories, indoorOutdoor, gratisOnly,
+      search, selectedAgeBuckets, ageMatchAll, selectedCategories, indoorOutdoor, gratisOnly,
       dateFilter, sortMode, filtersExpanded, viewMode, visibleCountFuture, visibleCountAllYear,
     });
-  }, [mounted, search, selectedAgeBuckets, selectedCategories, indoorOutdoor, gratisOnly, dateFilter, sortMode, filtersExpanded, viewMode, visibleCountFuture, visibleCountAllYear]);
+  }, [mounted, search, selectedAgeBuckets, ageMatchAll, selectedCategories, indoorOutdoor, gratisOnly, dateFilter, sortMode, filtersExpanded, viewMode, visibleCountFuture, visibleCountAllYear]);
 
   // Pre-fill the age filter from the child profiles' ages (Ich → Kinder), so a
   // profile created with children's ages is already reflected in search —
@@ -303,7 +307,11 @@ export default function ExplorePage() {
     if (selectedAgeBuckets.length > 0) { childDefaultAppliedRef.current = true; return; }
     if (!profile?.children?.length) return;
     const childAges = Array.from(new Set(profile.children.map((c) => c.age_bucket).filter(Boolean)));
-    if (childAges.length > 0) setSelectedAgeBuckets(childAges);
+    if (childAges.length > 0) {
+      setSelectedAgeBuckets(childAges);
+      // Mehrere Altersgruppen = Familie mit mehreren Kindern: nur Events, die für alle passen.
+      setAgeMatchAll(childAges.length > 1);
+    }
     childDefaultAppliedRef.current = true;
   }, [mounted, profile, selectedAgeBuckets]);
 
@@ -352,7 +360,11 @@ export default function ExplorePage() {
           const escaped = search.replace(/[\\%_,()*]/g, (m) => `\\${m}`);
           q = q.or(`titel.ilike.%${escaped}%,ort.ilike.%${escaped}%`);
         }
-        if (selectedAgeBuckets.length > 0) q = q.overlaps("alters_buckets", selectedAgeBuckets);
+        if (selectedAgeBuckets.length > 0) {
+          q = ageMatchAll
+            ? q.contains("alters_buckets", selectedAgeBuckets)
+            : q.overlaps("alters_buckets", selectedAgeBuckets);
+        }
         if (indoorOutdoor !== "all") q = q.or(`indoor_outdoor.eq.${indoorOutdoor},indoor_outdoor.eq.beides`);
         if (gratisOnly) q = q.eq("preis_chf", 0);
 
@@ -384,7 +396,7 @@ export default function ExplorePage() {
     }
 
     setLoading(false);
-  }, [selectedCategories, search, selectedAgeBuckets, indoorOutdoor, gratisOnly]);
+  }, [selectedCategories, search, selectedAgeBuckets, ageMatchAll, indoorOutdoor, gratisOnly]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -583,7 +595,7 @@ export default function ExplorePage() {
               {[{ key: "0-3", label: "0–3" }, { key: "4-6", label: "4–6" }, { key: "7-9", label: "7–9" }, { key: "10-12", label: "10–12" }].map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => { trackEvent("explore_filter", { filter_type: "age", value: key, active: !selectedAgeBuckets.includes(key) }); setSelectedAgeBuckets((prev) => prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key]); }}
+                  onClick={() => { trackEvent("explore_filter", { filter_type: "age", value: key, active: !selectedAgeBuckets.includes(key) }); setAgeMatchAll(false); setSelectedAgeBuckets((prev) => prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key]); }}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium transition border ${
                     selectedAgeBuckets.includes(key)
                       ? "bg-[var(--text-primary)] text-[var(--bg-card)] border-[var(--text-primary)]"

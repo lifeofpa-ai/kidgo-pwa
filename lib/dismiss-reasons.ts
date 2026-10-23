@@ -6,8 +6,9 @@
 // Früher fragte ein Overlay nach dem Ablehnungsgrund. Jetzt reicht ein Wisch:
 // Kidgo lernt aus den Event-Merkmalen (siehe lib/swipe-signals.ts). Dieses
 // Modul verwaltet nur noch, WELCHE Events weggewischt wurden:
-//  - Weggewischte Events verschwinden aus der Hauptansicht, kommen aber nach
-//    HIDE_DAYS Tagen wieder (Geschmack und Lage ändern sich).
+//  - Weggewischte Events verschwinden aus der Hauptansicht und bleiben dauerhaft
+//    ausgeblendet (23.10.2026: 30.09.-Vorgabe "beim nächsten Login nicht mehr
+//    anzeigen"; die frühere 90-Tage-Rückkehr ist entfernt).
 //  - "Alle Events" (Explore) zeigt sie immer weiter an.
 // Dateiname bleibt aus Kompatibilitätsgründen bestehen.
 
@@ -28,8 +29,12 @@ export interface EventMeta {
   distanceKm: number | null;
 }
 
-/** So lange bleibt ein weggewischtes Event in der Hauptansicht ausgeblendet. */
-export const HIDE_DAYS = 90;
+/**
+ * So lange bleibt ein weggewischtes Event in der Hauptansicht ausgeblendet.
+ * 36500 Tage (~100 Jahre) = praktisch dauerhaft. Rückgängig machen: Wert zurück
+ * auf 90 setzen (vorherige Regel vom 02.10.2026).
+ */
+export const HIDE_DAYS = 36500;
 
 const LOCAL_DISMISSALS_KEY = "kidgo_dismissals";
 const DISMISSED_IDS_KEY = "kidgo_dismissed_event_ids"; // Legacy: Array<string>

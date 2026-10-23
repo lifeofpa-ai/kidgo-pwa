@@ -294,14 +294,14 @@ function buildChatResponse(parsed: ParsedQuery, total: number, weatherCode: numb
 function buildDayPlan(
   events: KidgoEvent[],
   selectedBuckets: string[],
-  weatherCode: number | null,
+  weatherFor: (e: KidgoEvent) => number | null,
   interests: string[] = [],
   userLocation: UserLocation | null = null,
   radiusKm: number | null = null
 ): DayPlanResult {
   const now = new Date();
   const scored = [...events]
-    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherCode, now, interests, null, null, userLocation, radiusKm).score }))
+    .map((e) => ({ ...e, score: scoreEvent(e, selectedBuckets, weatherFor(e), now, interests, null, null, userLocation, radiusKm).score }))
     .sort(() => Math.random() - 0.5)
     .sort((a, b) => b.score - a.score);
 
@@ -423,6 +423,12 @@ export default function Home() {
 
   const [weatherCode, setWeatherCode] = useState<number | null>(null);
   const [weatherTemp, setWeatherTemp] = useState<number | null>(null);
+  // Tagesvorhersage (Datum -> WMO-Code), damit ein Event am Samstag nach dem Samstagswetter bewertet wird.
+  const [dailyWeather, setDailyWeather] = useState<Record<string, number>>({});
+  const weatherFor = (ev: { datum: string | null }): number | null => {
+    const day = ev.datum?.slice(0, 10);
+    return day && dailyWeather[day] !== undefined ? dailyWeather[day] : weatherCode;
+  };
   const [contextMode, setContextMode] = useState<ContextMode>("normal");
   const { userLocation, requestPreciseLocation } = useUserLocation();
 
@@ -679,7 +685,7 @@ export default function Home() {
 
   useEffect(() => {
     fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m"
+      "https://api.open-meteo.com/v1/forecast?latitude=47.37&longitude=8.54&current=weather_code,temperature_2m&daily=weather_code&timezone=Europe%2FZurich&forecast_days=7"
     )
       .then((r) => r.json())
       .then((d) => {
@@ -690,6 +696,11 @@ export default function Home() {
           setContextMode(getContextMode(null));
         }
         if (typeof d?.current?.temperature_2m === "number") setWeatherTemp(d.current.temperature_2m);
+        const dayMap: Record<string, number> = {};
+        const days: string[] = Array.isArray(d?.daily?.time) ? d.daily.time : [];
+        const codes: unknown[] = Array.isArray(d?.daily?.weather_code) ? d.daily.weather_code : [];
+        days.forEach((day, i) => { if (typeof codes[i] === "number") dayMap[day] = codes[i] as number; });
+        setDailyWeather(dayMap);
       })
       .catch(() => { setContextMode(getContextMode(null)); });
   }, []);
@@ -818,7 +829,7 @@ export default function Home() {
           const scored: ScoredEvent[] = ageFiltered
             .filter((e) => !currentDismissedIds.has(e.id))
             .map((event) => {
-              const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
+              const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherFor(event), now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
               return { ...event, score, reasons, distanceKm };
             });
           scored.sort((a, b) => b.score - a.score);
@@ -845,7 +856,7 @@ export default function Home() {
       const scored: ScoredEvent[] = ageFiltered
         .filter((e) => !currentDismissedIds.has(e.id))
         .map((event) => {
-          const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
+          const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherFor(event), now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
           return { ...event, score, reasons, distanceKm };
         });
       scored.sort((a, b) => b.score - a.score);
@@ -960,7 +971,7 @@ export default function Home() {
       const scored: ScoredEvent[] = ageFiltered
         .filter((e) => !currentDismissedIds.has(e.id))
         .map((event) => {
-          const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
+          const { score, reasons, distanceKm } = scoreEvent(event, selectedBuckets, weatherFor(event), now, userInterests, preferenceProfile, dismissProfile, userLocation, prefs.radius);
           return { ...event, score, reasons, distanceKm };
         });
 
@@ -1004,7 +1015,7 @@ export default function Home() {
 
   const handleGenerateDayPlan = () => {
     if (allEvents.length === 0) return;
-    const plan = buildDayPlan(allEvents, selectedBuckets, weatherCode, userInterests, userLocation, prefs.radius);
+    const plan = buildDayPlan(allEvents, selectedBuckets, weatherFor, userInterests, userLocation, prefs.radius);
     setDayPlan(plan);
     setShowDayPlan(true);
     trackDayPlanUsed();
@@ -1408,7 +1419,7 @@ export default function Home() {
     const sunStr = localDateStr(sun);
     return allEventsPool
       .filter((e) => e.datum === satStr || e.datum === sunStr)
-      .map((e) => { const { score } = scoreEvent(e, selectedBuckets, weatherCode, now, userInterests, preferenceProfile, null, userLocation, prefs.radius); return { ...e, score }; })
+      .map((e) => { const { score } = scoreEvent(e, selectedBuckets, weatherFor(e), now, userInterests, preferenceProfile, null, userLocation, prefs.radius); return { ...e, score }; })
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
   })();

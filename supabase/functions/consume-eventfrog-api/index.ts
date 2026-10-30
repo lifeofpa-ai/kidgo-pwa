@@ -12,6 +12,10 @@ import { inferCategories, inferIndoorOutdoor } from "../_shared/category-map.ts"
 const EVENTFROG_BASE = "https://api.eventfrog.net";
 const SOURCE_KEY = "eventfrog";
 
+// An emblem image used by events with this many different titles is a generic
+// placeholder (e.g. one AI picture on 189 unrelated events), not an event image.
+const GENERIC_IMAGE_TITLE_THRESHOLD = 5;
+
 // Kinder/Familie rubric IDs
 const RUBRIC_IDS = [47, 48, 51, 52, 53, 54, 55, 99];
 
@@ -69,7 +73,7 @@ interface EfEvent {
   end?: string;
   url?: string;
   presaleLink?: string;
-  emblemToShow?: { url?: string } | null;
+  emblemToShow?: { url?: string; copyright?: string; credit?: string } | null;
   locationIds?: string[];
   rubricIds?: number[];
   cancelled?: boolean;
@@ -223,6 +227,7 @@ Deno.serve(async (req) => {
     const eventMap = new Map<string, { ev: EfEvent; rubricId: number }>();
     const rubricStats: Record<number, number> = {};
     let totalFetched = 0;
+    let fetchComplete = true;
 
     for (const rubricId of RUBRIC_IDS) {
       let offset = 0;
@@ -234,6 +239,7 @@ Deno.serve(async (req) => {
           page = await fetchEventPage(apiKey, rubricId, offset, LIMIT);
         } catch (err) {
           console.error(`Rubric ${rubricId} @ offset ${offset}:`, err);
+          fetchComplete = false;
           break;
         }
 
@@ -264,7 +270,20 @@ Deno.serve(async (req) => {
     const { data: blockRows } = await supabase.from("event_blocklist").select("pattern");
     const blocklist = (blockRows ?? []).map((b: { pattern: string }) => String(b.pattern).toLowerCase());
 
+    // Emblem URLs reused across many different titles are generic placeholders
+    const titlesByImage = new Map<string, Set<string>>();
+    for (const { ev } of eventMap.values()) {
+      const url = ev.emblemToShow?.url;
+      if (!url) continue;
+      const t = decodeHtmlEntities(pickDe(ev.title).trim()).toLowerCase();
+      if (!titlesByImage.has(url)) titlesByImage.set(url, new Set());
+      titlesByImage.get(url)!.add(t);
+    }
+    const isGenericImage = (url: string | undefined): boolean =>
+      !!url && (titlesByImage.get(url)?.size ?? 0) >= GENERIC_IMAGE_TITLE_THRESHOLD;
+
     // 3. Filter + map to DB rows
+    const inactiveIds = new Set<string>();
     let skippedPast = 0;
     let skippedAdult = 0;
     let skippedOutsideZH = 0;
@@ -273,7 +292,10 @@ Deno.serve(async (req) => {
 
     for (const [, { ev, rubricId }] of eventMap) {
       // Skip cancelled / invisible
-      if (ev.cancelled || ev.published === false || ev.visible === false) continue;
+      if (ev.cancelled || ev.published === false || ev.visible === false) {
+        inactiveIds.add(String(ev.id));
+        continue;
+      }
 
       // Skip past events
       if (ev.begin && new Date(ev.begin) < now) { skippedPast++; continue; }
@@ -321,7 +343,8 @@ Deno.serve(async (req) => {
         lat,
         lng,
         anmelde_link:       ev.presaleLink || ev.url || null,
-        kategorie_bild_url: ev.emblemToShow?.url || null,
+        kategorie_bild_url: isGenericImage(ev.emblemToShow?.url) ? null : (ev.emblemToShow?.url || null),
+        bild_nachweis:      ev.emblemToShow?.copyright || ev.emblemToShow?.credit || null,
         kategorien,
         indoor_outdoor:     inferIndoorOutdoor(fullText),
         event_typ:          CAMP_RX.test(fullText) ? "camp" : "event",
@@ -346,37 +369,68 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!rows.length) {
-      return new Response(
-        JSON.stringify({ ...summary, inserted: 0, duplicates: 0, message: "no events to import" }),
-        { headers: jsonHeaders },
-      );
+    // 4. Existing rows: new ones are inserted as approved; known ones get refreshed
+    //    content but keep their status, so manual admin rejections survive.
+    const { data: existing } = await supabase
+      .from("events")
+      .select("id, external_id, status, datum")
+      .eq("external_source", SOURCE_KEY);
+    const existingByExt = new Map<string, { id: string; status: string; datum: string | null }>();
+    for (const e of existing ?? []) {
+      existingByExt.set(String(e.external_id), { id: e.id, status: e.status, datum: e.datum });
     }
 
-    // 4. Upsert in batches — ignore duplicates, count new inserts
+    const newRows = rows.filter((r) => !existingByExt.has(String(r.external_id)));
+    const updateRows = rows
+      .filter((r) => existingByExt.has(String(r.external_id)))
+      .map(({ status: _status, ...rest }) => rest);
+
     const BATCH = 50;
     let inserted = 0;
-    let duplicates = 0;
+    let updated = 0;
+    let retired = 0;
 
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH);
+    for (let i = 0; i < newRows.length; i += BATCH) {
       const { error, data } = await supabase
         .from("events")
-        .upsert(batch, { onConflict: "external_source,external_id", ignoreDuplicates: true })
+        .upsert(newRows.slice(i, i + BATCH), { onConflict: "external_source,external_id", ignoreDuplicates: true })
         .select("id");
+      if (error) { console.error("DB insert error:", error.message); continue; }
+      inserted += data?.length ?? 0;
+    }
 
-      if (error) {
-        console.error("DB upsert error:", error.message);
-        continue;
+    for (let i = 0; i < updateRows.length; i += BATCH) {
+      const { error, data } = await supabase
+        .from("events")
+        .upsert(updateRows.slice(i, i + BATCH), { onConflict: "external_source,external_id" })
+        .select("id");
+      if (error) { console.error("DB update error:", error.message); continue; }
+      updated += data?.length ?? 0;
+    }
+
+    // 5. Retire upcoming events that Eventfrog no longer lists or has cancelled/hidden.
+    //    Only after a complete fetch, otherwise a failed rubric would hide real events.
+    const todayIso = now.toISOString().slice(0, 10);
+    if (fetchComplete) {
+      const goneIds = (existing ?? [])
+        .filter((e) => ["approved", "review", "pending"].includes(e.status))
+        .filter((e) => !e.datum || e.datum >= todayIso)
+        .filter((e) => !eventMap.has(String(e.external_id)) || inactiveIds.has(String(e.external_id)))
+        .map((e) => e.id);
+
+      for (let i = 0; i < goneIds.length; i += BATCH) {
+        const { error, data } = await supabase
+          .from("events")
+          .update({ status: "rejected", review_comment: "Bei Eventfrog nicht mehr gelistet oder abgesagt – automatisch entfernt" })
+          .in("id", goneIds.slice(i, i + BATCH))
+          .select("id");
+        if (error) { console.error("DB retire error:", error.message); continue; }
+        retired += data?.length ?? 0;
       }
-
-      const batchNew = data?.length ?? 0;
-      inserted  += batchNew;
-      duplicates += batch.length - batchNew;
     }
 
     return new Response(
-      JSON.stringify({ ...summary, inserted, duplicates }),
+      JSON.stringify({ ...summary, inserted, updated, retired, fetchComplete }),
       { headers: jsonHeaders },
     );
 
